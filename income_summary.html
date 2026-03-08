@@ -12,7 +12,15 @@
         
         /* 头部样式 */
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        
+        /* 新增：左侧按钮组容器，确保返回和待结算并排 */
+        .header-left { display: flex; gap: 8px; align-items: center; }
+        
         .back-btn { padding: 10px 18px; background: var(--primary); color: white; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 14px; }
+        
+        /* 新增：待结算按钮样式 */
+        .pending-link { padding: 10px 18px; background: #FF8C00; color: white; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 14px; opacity: 0.9; }
+
         .top-ops { display: flex; gap: 8px; }
         .op-btn { background: #fff; border: 1px solid #eee; padding: 8px 12px; border-radius: 10px; font-size: 12px; font-weight: bold; color: #444; cursor: pointer; }
         .op-btn.export { background: #4CAF50; color: white; border: none; }
@@ -55,7 +63,10 @@
 <body>
 
     <div class="header">
-        <a href="index.html" class="back-btn">← 返回</a>
+        <div class="header-left">
+            <a href="index.html" class="back-btn">← 返回</a>
+            <a href="带结算.html" class="pending-link">待结算</a>
+        </div>
         <div class="top-ops">
             <button class="op-btn export" onclick="exportDetailedCSV()">📁 导出极致明细</button>
             <button class="op-btn clear" onclick="clearData()">清空</button>
@@ -192,7 +203,6 @@
                 const orderId = o.id;
 
                 if (o.items && o.items.length > 0) {
-                    // 每一笔订单里的每一个菜品，都生成一行
                     o.items.forEach(i => {
                         const itemName = i.name.replace(/,/g, "，");
                         const price = i.price || 0;
@@ -202,7 +212,6 @@
                         csv += `${dateStr},${timeStr},${table},${itemName},${price},${qty},${itemSubTotal},${orderTotal},${remark},${device},${orderId}\n`;
                     });
                 } else {
-                    // 如果没有明细（异常情况），也导出一行基本信息
                     csv += `${dateStr},${timeStr},${table},无明细,0,0,0,${orderTotal},${remark},${device},${orderId}\n`;
                 }
             });
