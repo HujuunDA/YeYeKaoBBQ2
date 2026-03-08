@@ -167,10 +167,10 @@
 
     async function confirmPay(tableNum, docIds, total) {
         try {
-            // 获取当前桌台所有菜品明细
             const snap = await db.collection("pending_orders").where("table", "==", tableNum).get();
             const allItems = [];
             let combinedNotes = "";
+            let deviceName = "未知设备";
 
             snap.forEach(doc => {
                 const d = doc.data();
@@ -178,6 +178,8 @@
                 if(d.notes && d.notes !== "无备注") {
                     combinedNotes += (combinedNotes ? " | " : "") + d.notes;
                 }
+                // 修复：获取待结算单中的设备信息
+                if(d.device) deviceName = d.device; 
             });
 
             await db.collection("orders").add({
@@ -185,6 +187,7 @@
                 total: total,
                 items: allItems,
                 remark: combinedNotes || "无备注",
+                device: deviceName, // 修复：存入最终账单
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 type: "快速结算"
             });
