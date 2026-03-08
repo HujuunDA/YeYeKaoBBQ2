@@ -2,12 +2,11 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>待结算订单 - YeYeKao</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
-        /* 基础自适应排版 */
         body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background-color: #f4f6f8; color: #333; }
         .admin-container { width: 100%; max-width: 1200px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
         
@@ -17,7 +16,6 @@
         }
         .btn-back { background: #f0f0f0; color: #666; padding: 8px 18px; border-radius: 20px; font-size: 14px; cursor: pointer; text-decoration: none; font-weight: 500; }
         
-        /* 核心自适应网格：手机1列，大屏多列 */
         .order-list { 
             padding: 20px; 
             display: grid; 
@@ -28,30 +26,36 @@
         
         @media (max-width: 450px) { .order-list { grid-template-columns: 1fr; padding: 10px; } }
 
-        /* 卡片视觉效果（参考图片） */
         .order-card { 
-            background: white; border-radius: 20px; padding: 20px; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.03); border: 1px solid #eee;
+            background: white; border-radius: 25px; padding: 20px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #eee;
             display: flex; flex-direction: column;
         }
-        .table-label { background: #ff8c2d; color: white; padding: 6px 16px; border-radius: 10px; font-weight: bold; font-size: 20px; margin-bottom: 15px; align-self: flex-start; }
+
+        /* 顶部桌号标签 */
+        .table-label { background: #ff8c2d; color: white; padding: 8px 20px; border-radius: 12px; font-weight: bold; font-size: 22px; margin-bottom: 20px; align-self: flex-start; }
         
-        .sub-order { border-left: 4px solid #ffe4cc; padding-left: 15px; margin-bottom: 15px; }
-        .order-header { display: flex; align-items: center; margin-bottom: 6px; }
-        .order-tag { font-size: 11px; background: #fff1e6; color: #ff8c2d; padding: 2px 6px; border-radius: 5px; font-weight: bold; margin-right: 8px; }
+        /* 订单块样式 */
+        .sub-order { border-left: 4px solid #ffe4cc; padding-left: 15px; margin-bottom: 25px; position: relative; }
+        .order-header { display: flex; align-items: center; margin-bottom: 10px; }
+        
+        /* 初始订单和加单标签 */
+        .order-tag { font-size: 11px; background: #fff1e6; color: #ff8c2d; padding: 3px 8px; border-radius: 6px; font-weight: bold; margin-right: 10px; }
         .order-time { color: #aaa; font-size: 13px; }
         
-        .food-item { color: #333; font-size: 17px; font-weight: 500; margin: 5px 0; }
-        .remark-box { background: #fff7f0; border-radius: 8px; padding: 8px 12px; margin-top: 8px; font-size: 14px; color: #ff5e1a; min-height: 20px; }
-        .device-info { font-size: 11px; color: #ddd; margin-top: 5px; text-align: right; }
-
-        .card-bottom { margin-top: auto; padding-top: 15px; border-top: 2px dashed #f7f7f7; display: flex; justify-content: space-between; align-items: center; }
-        .total-price { font-size: 26px; font-weight: 800; color: #ff5e1a; }
-        .total-price::after { content: " Ks"; font-size: 16px; margin-left: 3px; }
+        .food-item { color: #333; font-size: 18px; font-weight: 600; margin: 8px 0; }
         
-        .btn-pay { background: #32d74b; color: white; padding: 12px 25px; border-radius: 30px; font-size: 16px; font-weight: bold; cursor: pointer; border: none; }
+        /* 气泡备注框 */
+        .remark-box { background: #fff7f0; border-radius: 12px; padding: 10px 15px; margin-top: 10px; font-size: 14px; color: #ff5e1a; display: flex; align-items: center; gap: 5px; }
+        .device-info { font-size: 11px; color: #ccc; margin-top: 8px; }
 
-        /* 自动消失的提示弹窗 */
+        /* 底部合计和按钮 */
+        .card-bottom { margin-top: auto; padding-top: 20px; border-top: 2px dashed #eee; display: flex; justify-content: space-between; align-items: center; }
+        .total-price { font-size: 30px; font-weight: 900; color: #ff5e1a; }
+        .total-price::after { content: " Ks"; font-size: 16px; margin-left: 3px; font-weight: bold; }
+        
+        .btn-pay { background: #32d74b; color: white; padding: 12px 35px; border-radius: 30px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; }
+
         #toast {
             display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: rgba(0, 0, 0, 0.85); color: white; padding: 16px 32px; border-radius: 50px;
@@ -90,7 +94,6 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // 显示自动消失的提示
     function showToast(text) {
         const toast = document.getElementById('toast');
         toast.innerText = text;
@@ -98,7 +101,6 @@
         setTimeout(() => { toast.style.display = 'none'; }, 1500);
     }
 
-    // 实时监听云端 pending_orders
     function startListening() {
         db.collection("pending_orders").orderBy("timestamp", "asc")
         .onSnapshot((querySnapshot) => {
@@ -127,7 +129,7 @@
 
                 orders.forEach((order, index) => {
                     const tag = index === 0 ? "初始订单" : "加单";
-                    const time = order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "...";
+                    const time = order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}) : "...";
                     
                     let itemsHtml = order.items.map(item => {
                         tableTotal += (Number(item.price) * Number(item.quantity));
@@ -136,10 +138,15 @@
 
                     ordersHtml += `
                         <div class="sub-order">
-                            <div class="order-header"><span class="order-tag">${tag}</span><span class="order-time">${time}</span></div>
+                            <div class="order-header">
+                                <span class="order-tag">${tag}</span>
+                                <span class="order-time">${time}</span>
+                            </div>
                             ${itemsHtml}
-                            <div class="remark-box">💬 ${order.notes || '无备注'}</div>
-                            <div class="device-info">设备: ${order.device || ''}</div>
+                            <div class="remark-box">
+                                <span>💬</span> ${order.notes || '无备注'}
+                            </div>
+                            <div class="device-info">设备: ${order.device || '未知设备'}</div>
                         </div>`;
                 });
 
@@ -158,31 +165,41 @@
         });
     }
 
-    // 【修改核心】去掉确认弹窗，实现直接结账
     async function confirmPay(tableNum, docIds, total) {
         try {
-            // 1. 存入正式账单记录
+            // 获取当前桌台所有菜品明细
+            const snap = await db.collection("pending_orders").where("table", "==", tableNum).get();
+            const allItems = [];
+            let combinedNotes = "";
+
+            snap.forEach(doc => {
+                const d = doc.data();
+                if(d.items) allItems.push(...d.items);
+                if(d.notes && d.notes !== "无备注") {
+                    combinedNotes += (combinedNotes ? " | " : "") + d.notes;
+                }
+            });
+
             await db.collection("orders").add({
-                table: tableNum + "号桌",
+                table: tableNum,
                 total: total,
+                items: allItems,
+                remark: combinedNotes || "无备注",
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 type: "快速结算"
             });
 
-            // 2. 批量删除云端待结算文档
             const batch = db.batch();
             docIds.forEach(id => {
-                const ref = db.collection("pending_orders").doc(id);
-                batch.delete(ref);
+                batch.delete(db.collection("pending_orders").doc(id));
             });
             await batch.commit();
 
-            // 3. 提示成功（自动消失）
             showToast(`✅ ${tableNum}号桌 结算成功！`);
             
         } catch (e) {
             console.error(e);
-            alert("操作失败，请检查网络: " + e.message);
+            alert("操作失败: " + e.message);
         }
     }
 
