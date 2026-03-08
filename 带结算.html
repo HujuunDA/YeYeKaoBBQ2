@@ -7,51 +7,76 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f8f9fa; display: flex; justify-content: center; }
-        .admin-container { width: 100%; max-width: 500px; min-height: 100vh; display: flex; flex-direction: column; }
-        .admin-header { background: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #eee; }
-        .btn-back { background: #f0f0f0; color: #666; padding: 6px 15px; border-radius: 20px; font-size: 13px; cursor: pointer; text-decoration: none; }
+        /* 基础自适应排版 */
+        body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background-color: #f4f6f8; color: #333; }
+        .admin-container { width: 100%; max-width: 1200px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
         
-        .order-list { padding: 15px; flex: 1; }
-        /* 整个桌号的外框 */
-        .order-card { background: white; border-radius: 20px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); position: relative; }
+        .admin-header { 
+            background: white; padding: 15px 20px; display: flex; justify-content: space-between; 
+            align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
+        }
+        .btn-back { background: #f0f0f0; color: #666; padding: 8px 18px; border-radius: 20px; font-size: 14px; cursor: pointer; text-decoration: none; font-weight: 500; }
         
-        /* 第X桌 标签 */
-        .table-label { background: #ff8c2d; color: white; padding: 6px 18px; border-radius: 10px; font-weight: bold; font-size: 20px; margin-bottom: 20px; display: inline-block; }
+        /* 核心自适应网格：手机1列，大屏多列 */
+        .order-list { 
+            padding: 20px; 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); 
+            gap: 20px; 
+            align-content: start;
+        }
         
-        /* 每一个订单块 */
-        .sub-order { border-left: 4px solid #ffe4cc; padding-left: 15px; margin-bottom: 25px; position: relative; }
-        .order-header { display: flex; align-items: center; margin-bottom: 8px; }
-        .order-tag { font-size: 12px; background: #fff1e6; color: #ff8c2d; padding: 2px 8px; border-radius: 6px; font-weight: bold; margin-right: 10px; }
-        .order-time { color: #999; font-size: 14px; }
-        
-        /* 菜品显示 */
-        .food-item { color: #333; font-size: 18px; font-weight: 500; margin: 8px 0; }
-        
-        /* 备注框（淡橘色底） */
-        .remark-box { background: #fff7f0; border-radius: 10px; padding: 8px 12px; margin-top: 10px; display: flex; align-items: flex-start; }
-        .remark-icon { margin-right: 8px; font-size: 14px; opacity: 0.5; }
-        .remark-text { font-size: 15px; color: #ff5e1a; flex: 1; }
-        
-        /* 设备来源 */
-        .device-info { font-size: 12px; color: #ccc; margin-top: 6px; }
+        @media (max-width: 450px) { .order-list { grid-template-columns: 1fr; padding: 10px; } }
 
-        /* 底部结账栏 */
-        .card-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 20px; border-top: 2px dashed #f0f0f0; }
-        .total-price { font-size: 28px; font-weight: 800; color: #ff5e1a; }
-        .total-price::after { content: " Ks"; font-size: 18px; margin-left: 4px; }
-        .btn-pay { background: #32d74b; color: white; padding: 12px 35px; border-radius: 30px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; box-shadow: 0 4px 10px rgba(50,215,75,0.3); }
+        /* 卡片视觉效果（参考图片） */
+        .order-card { 
+            background: white; border-radius: 20px; padding: 20px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03); border: 1px solid #eee;
+            display: flex; flex-direction: column;
+        }
+        .table-label { background: #ff8c2d; color: white; padding: 6px 16px; border-radius: 10px; font-weight: bold; font-size: 20px; margin-bottom: 15px; align-self: flex-start; }
+        
+        .sub-order { border-left: 4px solid #ffe4cc; padding-left: 15px; margin-bottom: 15px; }
+        .order-header { display: flex; align-items: center; margin-bottom: 6px; }
+        .order-tag { font-size: 11px; background: #fff1e6; color: #ff8c2d; padding: 2px 6px; border-radius: 5px; font-weight: bold; margin-right: 8px; }
+        .order-time { color: #aaa; font-size: 13px; }
+        
+        .food-item { color: #333; font-size: 17px; font-weight: 500; margin: 5px 0; }
+        .remark-box { background: #fff7f0; border-radius: 8px; padding: 8px 12px; margin-top: 8px; font-size: 14px; color: #ff5e1a; min-height: 20px; }
+        .device-info { font-size: 11px; color: #ddd; margin-top: 5px; text-align: right; }
+
+        .card-bottom { margin-top: auto; padding-top: 15px; border-top: 2px dashed #f7f7f7; display: flex; justify-content: space-between; align-items: center; }
+        .total-price { font-size: 26px; font-weight: 800; color: #ff5e1a; }
+        .total-price::after { content: " Ks"; font-size: 16px; margin-left: 3px; }
+        
+        .btn-pay { background: #32d74b; color: white; padding: 12px 25px; border-radius: 30px; font-size: 16px; font-weight: bold; cursor: pointer; border: none; }
+
+        /* 自动消失的提示弹窗 */
+        #toast {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.85); color: white; padding: 16px 32px; border-radius: 50px;
+            z-index: 1000; font-weight: bold; font-size: 16px; text-align: center;
+        }
     </style>
 </head>
 <body>
+
+<div id="toast">结算成功！已入账</div>
+
 <div class="admin-container">
     <div class="admin-header">
         <a href="index.html" class="btn-back">⬅ 返回点单</a>
-        <h1 style="font-size:18px; margin:0;">待结算</h1>
-        <div style="color: #ff8c2d; font-size: 14px; cursor:pointer; font-weight:bold;" onclick="renderOrders()">刷新 ↻</div>
+        <div style="text-align:right">
+            <div style="font-size:16px; font-weight:bold;">待结算订单</div>
+            <div id="online-status" style="font-size:11px; color:#32d74b;">● 实时同步中</div>
+        </div>
     </div>
-    <div class="order-list" id="list-container"></div>
+    
+    <div class="order-list" id="list-container">
+        <div style="text-align:center; padding-top:100px; color:#999; grid-column: 1/-1;">正在加载云端数据...</div>
+    </div>
 </div>
+
 <script>
     const firebaseConfig = { 
         apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
@@ -62,87 +87,106 @@
         appId: "1:560765118345:web:5f24d021e7a6db90b76358" 
     };
 
-    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+    firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    function renderOrders() {
-        const container = document.getElementById('list-container');
-        let allOrders = JSON.parse(localStorage.getItem('pendingOrders') || '{}');
-        const tableKeys = Object.keys(allOrders);
-        
-        if(tableKeys.length === 0) { 
-            container.innerHTML = '<div style="text-align:center; padding-top:100px; color:#999;">目前没有未结账的桌位</div>'; 
-            return; 
-        }
+    // 显示自动消失的提示
+    function showToast(text) {
+        const toast = document.getElementById('toast');
+        toast.innerText = text;
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 1500);
+    }
 
-        container.innerHTML = '';
-        tableKeys.forEach(tableNum => {
-            const subOrders = allOrders[tableNum];
-            let tableTotal = 0;
-            let subOrdersHtml = '';
-
-            subOrders.forEach((order, index) => {
-                const tag = index === 0 ? "初始订单" : "加单";
-                let itemsHtml = order.items.map(item => { 
-                    tableTotal += (Number(item.price) * Number(item.count)); 
-                    return `<div class="food-item">${item.name} <span style="color:#999; font-size:16px; margin:0 5px;">×</span> ${item.count}</div>`; 
-                }).join('');
-
-                // 设备显示逻辑：如果有deviceName就显示，没有就默认
-                const device = order.deviceName || "未知设备";
-
-                subOrdersHtml += `
-                <div class="sub-order">
-                    <div class="order-header">
-                        <span class="order-tag">${tag}</span>
-                        <span class="order-time">${order.time}</span>
-                    </div>
-                    ${itemsHtml}
-                    <div class="remark-box">
-                        <span class="remark-icon">💬</span>
-                        <span class="remark-text">${order.remark || '无备注'}</span>
-                    </div>
-                    <div class="device-info">设备: ${device}</div>
-                </div>`;
+    // 实时监听云端 pending_orders
+    function startListening() {
+        db.collection("pending_orders").orderBy("timestamp", "asc")
+        .onSnapshot((querySnapshot) => {
+            const container = document.getElementById('list-container');
+            const tableGroups = {};
+            
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                data.docId = doc.id;
+                const tableNum = data.table;
+                if (!tableGroups[tableNum]) tableGroups[tableNum] = [];
+                tableGroups[tableNum].push(data);
             });
 
-            const card = document.createElement('div');
-            card.className = 'order-card';
-            card.innerHTML = `
-                <div class="table-label">第 ${tableNum} 桌</div>
-                <div>${subOrdersHtml}</div>
-                <div class="card-bottom">
-                    <div class="total-price">${tableTotal.toLocaleString()}</div>
-                    <button class="btn-pay" onclick="confirmPay('${tableNum}')">确认结账</button>
-                </div>`;
-            container.appendChild(card);
+            const tableKeys = Object.keys(tableGroups);
+            if(tableKeys.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding-top:100px; color:#999; grid-column: 1/-1;">目前没有待结算的桌位</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            tableKeys.forEach(tableNum => {
+                const orders = tableGroups[tableNum];
+                let tableTotal = 0;
+                let ordersHtml = '';
+
+                orders.forEach((order, index) => {
+                    const tag = index === 0 ? "初始订单" : "加单";
+                    const time = order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "...";
+                    
+                    let itemsHtml = order.items.map(item => {
+                        tableTotal += (Number(item.price) * Number(item.quantity));
+                        return `<div class="food-item">${item.name} × ${item.quantity}</div>`;
+                    }).join('');
+
+                    ordersHtml += `
+                        <div class="sub-order">
+                            <div class="order-header"><span class="order-tag">${tag}</span><span class="order-time">${time}</span></div>
+                            ${itemsHtml}
+                            <div class="remark-box">💬 ${order.notes || '无备注'}</div>
+                            <div class="device-info">设备: ${order.device || ''}</div>
+                        </div>`;
+                });
+
+                const card = document.createElement('div');
+                card.className = 'order-card';
+                const docIds = JSON.stringify(orders.map(o => o.docId));
+                card.innerHTML = `
+                    <div class="table-label">第 ${tableNum} 桌</div>
+                    <div style="flex:1;">${ordersHtml}</div>
+                    <div class="card-bottom">
+                        <div class="total-price">${tableTotal.toLocaleString()}</div>
+                        <button class="btn-pay" onclick='confirmPay("${tableNum}", ${docIds}, ${tableTotal})'>确认结账</button>
+                    </div>`;
+                container.appendChild(card);
+            });
         });
     }
 
-    async function confirmPay(tableNum) {
-        if(confirm('确认第 ' + tableNum + ' 桌已付清并结账？')) {
-            try {
-                let allOrders = JSON.parse(localStorage.getItem('pendingOrders') || '{}');
-                const subOrders = allOrders[tableNum];
-                let tableTotal = 0;
-                subOrders.forEach(so => so.items.forEach(i => tableTotal += (Number(i.price) * Number(i.count))));
+    // 【修改核心】去掉确认弹窗，实现直接结账
+    async function confirmPay(tableNum, docIds, total) {
+        try {
+            // 1. 存入正式账单记录
+            await db.collection("orders").add({
+                table: tableNum + "号桌",
+                total: total,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                type: "快速结算"
+            });
 
-                await db.collection("orders").add({ 
-                    table: tableNum + "号桌", 
-                    total: tableTotal, 
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                    details: subOrders 
-                });
+            // 2. 批量删除云端待结算文档
+            const batch = db.batch();
+            docIds.forEach(id => {
+                const ref = db.collection("pending_orders").doc(id);
+                batch.delete(ref);
+            });
+            await batch.commit();
 
-                delete allOrders[tableNum];
-                localStorage.setItem('pendingOrders', JSON.stringify(allOrders));
-                renderOrders();
-            } catch (e) { 
-                alert("入账失败: " + e.message); 
-            }
+            // 3. 提示成功（自动消失）
+            showToast(`✅ ${tableNum}号桌 结算成功！`);
+            
+        } catch (e) {
+            console.error(e);
+            alert("操作失败，请检查网络: " + e.message);
         }
     }
-    window.onload = renderOrders;
+
+    window.onload = startListening;
 </script>
 </body>
 </html>
