@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>采购助手 - 账目汇总版</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <style>
+        /* 核心修复：强制所有元素使用 border-box，防止边距撑破布局 */
+        * { box-sizing: border-box; }
+
+        body { font-family: -apple-system, sans-serif; margin: 0; background: #f2f2f7; padding-bottom: 100px; }
+        
+        .header-bar { 
+            background: #007aff; 
+            color: white; 
+            padding: 12px 15px; 
+            display: flex; 
+            align-items: center; 
+            position: sticky; 
+            top: 0; 
+            z-index: 100; 
+            height: 44px;
+        }
+        .back-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .header-title { flex: 1; font-size: 18px; font-weight: bold; text-align: center; margin-right: 40px; }
+
+        /* 关键修改：将 tabs 设置为磁性吸顶 */
+        .tabs { 
+            display: flex; 
+            background: #f2f2f7; /* 与背景色一致，防止滚动穿透 */
+            padding: 10px; 
+            border-bottom: 1px solid #ddd; 
+            position: sticky; 
+            top: 44px; /* 紧贴在 header-bar (44px) 下面 */
+            z-index: 99; 
+        }
+        .tab-btn { flex: 1; padding: 10px; border: none; background: #e5e5ea; border-radius: 8px; margin: 0 5px; font-weight: bold; }
+        .tab-btn.active { background: #007aff; color: white; }
+        
+        .tab-content { display: none; padding: 15px; }
+        .tab-content.active { display: block; }
+        
+        .category-group { background: white; border-radius: 12px; overflow: hidden; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .category-header { background: #f9f9f9; padding: 10px 15px; color: #007aff; font-size: 14px; font-weight: bold; border-bottom: 1px solid #eee; }
+        .item-row { padding: 12px 15px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+        
+        .price-wrapper { width: 100px; margin-left: 10px; }
+        .price-input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 8px; text-align: right; font-size: 14px; font-weight: bold; color: #007aff; }
+
+        .qty-ctrl { display: flex; align-items: center; gap: 10px; background: #f0f0f0; border-radius: 20px; padding: 4px 12px; }
+        .qty-btn { width: 24px; border: none; background: none; font-size: 18px; color: #007aff; font-weight: bold; }
+        
+        .quick-add-bar { background: white; padding: 12px; border-radius: 12px; margin-bottom: 15px; display: flex; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); width: 100%; }
+        .quick-input { flex: 2; border: 1px solid #ddd; padding: 8px; border-radius: 8px; font-size: 14px; min-width: 0; }
+        .quick-price { flex: 1; border: 1px solid #ddd; padding: 8px; border-radius: 8px; font-size: 14px; text-align: right; min-width: 0; }
+        .add-btn { background: #34c759; color: white; border: none; padding: 0 12px; border-radius: 8px; font-weight: bold; white-space: nowrap; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 200; }
+        .modal-overlay.open { display: flex; }
+        .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 320px; padding: 20px; position: relative; }
+        .modal-input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+        
+        .action-btn-group { display: flex; gap: 5px; align-items: center; }
+        .del-btn { color: #ff3b30; border: none; background: none; padding: 5px; font-size: 18px; }
+
+        .primary-btn { background: #007aff; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: bold; font-size: 16px; margin-top: 10px; }
+        .total-bar { background: rgba(0,0,0,0.85); color: white; padding: 15px; position: fixed; bottom: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; z-index: 90; }
+        
+        #saveIndicator { position: fixed; top: 110px; right: 15px; background: rgba(0,0,0,0.8); color: white; padding: 5px 12px; border-radius: 20px; font-size: 12px; opacity: 0; transition: 0.3s; z-index: 99; }
+        #saveIndicator.show { opacity: 1; }
+        
+        .cat-dropdown { 
+            position: absolute; 
+            background: white; 
+            border: 1px solid #ccc; 
+            border-radius: 8px; 
+            width: calc(100% - 40px); 
+            max-height: 120px; 
+            overflow-y: auto; 
+            z-index: 210; 
+            display: none; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .cat-option { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div id="saveIndicator">☁️ 同步中</div>
+
+<div class="header-bar">
+    <button class="back-btn" onclick="location.href='index.html'">❮</button>
+    <div class="header-title">🛒 采购助手</div>
+</div>
+
+<div class="tabs">
+    <button id="btn-pick" class="tab-btn active" onclick="switchTab('pick')">📦 选品库</button>
+    <button id="btn-cart" class="tab-btn" onclick="switchTab('cart')">📋 采购单 (<span id="cartCount">0</span>)</button>
+</div>
+
+<div id="pickTab" class="tab-content active">
+    <div id="productList">正在加载...</div>
+    <button class="primary-btn" onclick="openItemModal()">+ 库中添加新模板</button>
+</div>
+
+<div id="cartTab" class="tab-content">
+    <div class="quick-add-bar">
+        <input type="text" id="customName" class="quick-input" placeholder="品名">
+        <input type="number" id="customPrice" class="quick-price" placeholder="价格">
+        <button class="add-btn" onclick="addCustomItem()">添加</button>
+    </div>
+    <div id="cartList"></div>
+    <button class="primary-btn" style="background:#ff3b30;" onclick="clearPurchased()">🧹 清除已买项目</button>
+</div>
+
+<div class="total-bar" id="totalBar" style="display:none;">
+    <div id="grandTotal" style="font-size:18px; font-weight:bold;">0 Ks</div>
+    <button onclick="copyText()" style="background:#34c759; color:white; border:none; padding:10px 20px; border-radius:20px; font-weight:bold;">复制发送</button>
+</div>
+
+<div id="itemModal" class="modal-overlay" onclick="closeItemModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <h3 id="modalTitle" style="margin-top:0;">编辑商品模板</h3>
+        <input type="text" id="itemName" class="modal-input" placeholder="名称">
+        <div style="position: relative;">
+            <input type="text" id="itemCat" class="modal-input" placeholder="分类 (点击查看已有)" onfocus="showDropdown()" autocomplete="off">
+            <div id="catDropdown" class="cat-dropdown"></div>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button onclick="closeItemModal()" style="flex:1; padding:12px; border:none; border-radius:10px; background:#eee;">取消</button>
+            <button onclick="saveItem()" class="primary-btn" style="flex:1; margin-top:0;">保存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = { 
+        apiKey: "AIzaSyDJAa0lKtUVvp3fRsC27XkfqJ5JPpwVj54", 
+        authDomain: "yeyekao.firebaseapp.com", 
+        projectId: "yeyekao", 
+        storageBucket: "yeyekao.appspot.com", 
+        messagingSenderId: "931221703674", 
+        appId: "1:931221703674:web:0391d4e08c4e0b51347072" 
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const DOC_ID = "main_list";
+
+    let globalData = { productTemplate: {}, cartData: [] };
+    let timer;
+
+    db.collection("shopping_list").doc(DOC_ID).onSnapshot((doc) => {
+        if (doc.exists) {
+            globalData = doc.data();
+            renderAll();
+        }
+    });
+
+    function formatNumber(num) {
+        if (!num && num !== 0) return "0";
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function addCustomItem() {
+        const name = document.getElementById('customName').value.trim();
+        const price = document.getElementById('customPrice').value.trim();
+        if (!name) return;
+        globalData.cartData.push({ name, qty: 1, purchased: price !== "", price });
+        document.getElementById('customName').value = "";
+        document.getElementById('customPrice').value = "";
+        sync();
+    }
+
+    function renderAll() {
+        const pickList = document.getElementById('productList');
+        pickList.innerHTML = '';
+        const tmpl = globalData.productTemplate || {};
+        const cartNames = new Set((globalData.cartData || []).map(i => i.name));
+
+        Object.keys(tmpl).sort().forEach(cat => {
+            const group = document.createElement('div');
+            group.className = 'category-group';
+            group.innerHTML = `<div class="category-header">${cat}</div>`;
+            tmpl[cat].forEach((item, idx) => {
+                const row = document.createElement('div');
+                row.className = 'item-row';
+                row.innerHTML = `
+                    <div style="flex:1;" onclick="toggleCart('${item.name}', ${!cartNames.has(item.name)}, ${item.qty})">
+                        <input type="checkbox" ${cartNames.has(item.name) ? 'checked' : ''}>
+                        <span style="margin-left:8px;">${item.name}</span>
+                    </div>
+                    <div class="qty-ctrl">
+                        <button class="qty-btn" onclick="event.stopPropagation();changeQty('${cat}', ${idx}, -1)">-</button>
+                        <span>${item.qty}</span>
+                        <button class="qty-btn" onclick="event.stopPropagation();changeQty('${cat}', ${idx}, 1)">+</button>
+                    </div>
+                    <div class="action-btn-group">
+                        <button style="border:none;background:none;color:#007aff;padding:5px;" onclick="event.stopPropagation();openItemModal('${cat}', ${idx})">✎</button>
+                        <button class="del-btn" onclick="event.stopPropagation();deleteItem('${cat}', ${idx})">×</button>
+                    </div>
+                `;
+                group.appendChild(row);
+            });
+            pickList.appendChild(group);
+        });
+
+        const cartList = document.getElementById('cartList');
+        cartList.innerHTML = '';
+        (globalData.cartData || []).forEach((item, idx) => {
+            const row = document.createElement('div');
+            row.className = 'item-row';
+            row.style.background = item.purchased ? '#f0fdf4' : 'white';
+            row.innerHTML = `
+                <div style="flex:1;" onclick="toggleDone(${idx}, ${!item.purchased})">
+                    <input type="checkbox" ${item.purchased ? 'checked' : ''}>
+                    <span style="margin-left:8px; ${item.purchased ? 'text-decoration:line-through;color:#999;' : ''}">${item.name} (x${item.qty})</span>
+                </div>
+                <div class="price-wrapper">
+                    <input type="text" class="price-input" inputmode="decimal" placeholder="Ks" value="${item.price ? formatNumber(item.price) : ''}" oninput="handlePriceInput(${idx}, this)">
+                </div>
+            `;
+            cartList.appendChild(row);
+        });
+        document.getElementById('cartCount').innerText = (globalData.cartData || []).length;
+        updateTotal();
+    }
+
+    function handlePriceInput(idx, inputElement) {
+        let rawVal = inputElement.value.replace(/,/g, "");
+        if (isNaN(rawVal)) rawVal = "";
+        globalData.cartData[idx].price = rawVal;
+        globalData.cartData[idx].purchased = rawVal.length > 0;
+        inputElement.value = formatNumber(rawVal);
+        updateTotal();
+        debounceSync();
+    }
+
+    function copyText() {
+        const incomeInput = prompt("请输入今日收入 (Ks):", "");
+        if (incomeInput === null) return;
+        const income = parseFloat(incomeInput.replace(/,/g, "")) || 0;
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+        
+        let text = `📅 日期: ${dateStr}\n📋 采购清单\n----------------------\n`;
+        let totalCost = 0;
+        (globalData.cartData || []).forEach(i => {
+            const price = parseFloat(i.price) || 0;
+            text += `${i.purchased ? '✅' : '⬜'} ${i.name} (x${i.qty})${i.price ? ' : '+formatNumber(i.price)+' Ks' : ''}\n`;
+            totalCost += price;
+        });
+        const diff = income - totalCost;
+        text += `----------------------\n💰 总计支出: ${formatNumber(totalCost)} Ks\n💰 今日收入：${formatNumber(income)} Ks\n${diff >= 0 ? "💵 今日盈利" : "💵 今日亏损"}：${formatNumber(diff)} Ks`;
+
+        navigator.clipboard.writeText(text).then(() => alert("清单已复制！"));
+    }
+
+    async function sync() {
+        document.getElementById('saveIndicator').classList.add('show');
+        await db.collection("shopping_list").doc(DOC_ID).set(globalData);
+        setTimeout(() => document.getElementById('saveIndicator').classList.remove('show'), 800);
+    }
+
+    function debounceSync() { clearTimeout(timer); timer = setTimeout(sync, 1200); }
+    function updateTotal() { 
+        const total = (globalData.cartData || []).reduce((sum, i) => sum + (parseFloat(i.price) || 0), 0); 
+        document.getElementById('grandTotal').innerText = formatNumber(total) + " Ks"; 
+    }
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tab + 'Tab').classList.add('active');
+        document.getElementById('btn-' + tab).classList.add('active');
+        document.getElementById('totalBar').style.display = (tab === 'cart') ? 'flex' : 'none';
+        window.scrollTo(0, 0); // 切换时回到顶部
+    }
+    function toggleCart(name, checked, qty) { 
+        if (checked) globalData.cartData.push({ name, qty, purchased: false, price: '' }); 
+        else globalData.cartData = globalData.cartData.filter(i => i.name !== name); 
+        sync(); 
+    }
+    function changeQty(cat, idx, delta) { globalData.productTemplate[cat][idx].qty = Math.max(1, globalData.productTemplate[cat][idx].qty + delta); sync(); }
+    function toggleDone(idx, checked) { globalData.cartData[idx].purchased = checked; sync(); }
+    function clearPurchased() { if(confirm("清除已买？")) { globalData.cartData = globalData.cartData.filter(i => !i.purchased); sync(); } }
+    
+    function deleteItem(cat, idx) {
+        if(confirm("确定删除这个商品模板吗？")) {
+            globalData.productTemplate[cat].splice(idx, 1);
+            if(globalData.productTemplate[cat].length === 0) delete globalData.productTemplate[cat];
+            sync();
+        }
+    }
+
+    function openItemModal(cat = null, idx = null) {
+        window.currentEditing = cat ? { cat, idx } : null;
+        if (cat) { document.getElementById('itemName').value = globalData.productTemplate[cat][idx].name; document.getElementById('itemCat').value = cat; }
+        else { document.getElementById('itemName').value = ''; document.getElementById('itemCat').value = ''; }
+        document.getElementById('itemModal').classList.add('open');
+        document.getElementById('catDropdown').style.display = 'none';
+    }
+    function closeItemModal() { document.getElementById('itemModal').classList.remove('open'); }
+    function saveItem() {
+        const name = document.getElementById('itemName').value.trim();
+        const cat = document.getElementById('itemCat').value.trim() || "未分类";
+        if (!name) return;
+        if (window.currentEditing) {
+            globalData.productTemplate[window.currentEditing.cat].splice(window.currentEditing.idx, 1);
+            if(globalData.productTemplate[window.currentEditing.cat].length === 0) delete globalData.productTemplate[window.currentEditing.cat];
+        }
+        if (!globalData.productTemplate[cat]) globalData.productTemplate[cat] = [];
+        globalData.productTemplate[cat].push({ name, qty: 1 });
+        closeItemModal();
+        sync();
+    }
+    function showDropdown() {
+        const dropdown = document.getElementById('catDropdown');
+        const cats = Object.keys(globalData.productTemplate || {}).sort();
+        if (cats.length === 0) return;
+        dropdown.innerHTML = cats.map(c => `<div class="cat-option" onclick="selectCat('${c}')">${c}</div>`).join('');
+        dropdown.style.display = 'block';
+    }
+    function selectCat(val) { document.getElementById('itemCat').value = val; document.getElementById('catDropdown').style.display = 'none'; }
+    
+    document.addEventListener('click', function(e) {
+        if (e.target.id !== 'itemCat') document.getElementById('catDropdown').style.display = 'none';
+    });
+</script>
+</body>
+</html>
