@@ -8,53 +8,69 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
         body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background-color: #f4f6f8; color: #333; }
-        .admin-container { width: 100%; max-width: 1200px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+        .admin-container { width: 100%; max-width: 1400px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
         
         .admin-header { 
-            background: white; padding: 15px 20px; display: flex; justify-content: space-between; 
+            background: white; padding: 10px 20px; display: flex; justify-content: space-between; 
             align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
         }
-        .btn-back { background: #f0f0f0; color: #666; padding: 8px 18px; border-radius: 20px; font-size: 14px; cursor: pointer; text-decoration: none; font-weight: 500; }
+        .btn-back { background: #f0f0f0; color: #666; padding: 6px 15px; border-radius: 20px; font-size: 13px; cursor: pointer; text-decoration: none; font-weight: 500; }
         
         .order-list { 
-            padding: 20px; 
+            padding: 15px; 
             display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); 
-            gap: 20px; 
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
+            gap: 12px; 
             align-content: start;
         }
         
-        @media (max-width: 450px) { .order-list { grid-template-columns: 1fr; padding: 10px; } }
+        @media (max-width: 450px) { .order-list { grid-template-columns: 1fr; padding: 8px; } }
 
         .order-card { 
-            background: white; border-radius: 25px; padding: 20px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #eee;
+            background: white; border-radius: 18px; padding: 15px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #eee;
             display: flex; flex-direction: column;
+            transition: all 0.3s ease;
         }
 
-        /* 顶部桌号标签 */
-        .table-label { background: #ff8c2d; color: white; padding: 8px 20px; border-radius: 12px; font-weight: bold; font-size: 22px; margin-bottom: 20px; align-self: flex-start; }
+        .table-label { background: #ff8c2d; color: white; padding: 4px 12px; border-radius: 8px; font-weight: bold; font-size: 18px; margin-bottom: 12px; align-self: flex-start; }
         
-        /* 订单块样式 */
-        .sub-order { border-left: 4px solid #ffe4cc; padding-left: 15px; margin-bottom: 25px; position: relative; }
-        .order-header { display: flex; align-items: center; margin-bottom: 10px; }
-        
-        /* 初始订单和加单标签 */
-        .order-tag { font-size: 11px; background: #fff1e6; color: #ff8c2d; padding: 3px 8px; border-radius: 6px; font-weight: bold; margin-right: 10px; }
-        .order-time { color: #aaa; font-size: 13px; }
-        
-        .food-item { color: #333; font-size: 18px; font-weight: 600; margin: 8px 0; }
-        
-        /* 气泡备注框 */
-        .remark-box { background: #fff7f0; border-radius: 12px; padding: 10px 15px; margin-top: 10px; font-size: 14px; color: #ff5e1a; display: flex; align-items: center; gap: 5px; }
-        .device-info { font-size: 11px; color: #ccc; margin-top: 8px; }
+        /* 订单内容区容器 */
+        .orders-wrapper {
+            position: relative;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
 
-        /* 底部合计和按钮 */
-        .card-bottom { margin-top: auto; padding-top: 20px; border-top: 2px dashed #eee; display: flex; justify-content: space-between; align-items: center; }
-        .total-price { font-size: 30px; font-weight: 900; color: #ff5e1a; }
-        .total-price::after { content: " Ks"; font-size: 16px; margin-left: 3px; font-weight: bold; }
+        /* 默认状态：限制高度，隐藏超出的部分 */
+        .orders-wrapper.collapsed {
+            max-height: 280px; /* 这个高度大约能放下4个紧凑的订单块 */
+        }
+
+        .sub-order { border-left: 3px solid #ffe4cc; padding-left: 10px; margin-bottom: 12px; position: relative; }
+        .order-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
         
-        .btn-pay { background: #32d74b; color: white; padding: 12px 35px; border-radius: 30px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; }
+        .order-tag { font-size: 10px; background: #fff1e6; color: #ff8c2d; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .order-time { color: #aaa; font-size: 11px; margin-left: 5px; }
+        
+        .btn-cancel-small { color: #ff4d4d; font-size: 12px; cursor: pointer; font-weight: bold; padding: 2px 5px; }
+        .food-item { color: #333; font-size: 15px; font-weight: 600; margin: 3px 0; }
+        .remark-box { background: #fdf2e9; border-radius: 6px; padding: 4px 8px; margin-top: 5px; font-size: 12px; color: #ff5e1a; display: inline-block; }
+
+        /* 展开/收起 按钮样式 */
+        .toggle-btn { 
+            text-align: center; color: #ff8c2d; font-size: 13px; font-weight: bold; 
+            padding: 10px 0; cursor: pointer; border-top: 1px solid #f9f9f9;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,1) 20%);
+            margin-top: -20px; position: relative; z-index: 5;
+        }
+        .toggle-btn.expanded { margin-top: 0; background: none; }
+
+        .card-bottom { margin-top: auto; padding-top: 10px; border-top: 1px dashed #eee; display: flex; justify-content: space-between; align-items: center; }
+        .total-price { font-size: 22px; font-weight: 900; color: #ff5e1a; }
+        .total-price::after { content: " Ks"; font-size: 13px; margin-left: 2px; }
+        
+        .btn-pay { background: #32d74b; color: white; padding: 8px 20px; border-radius: 12px; font-size: 15px; font-weight: bold; cursor: pointer; border: none; }
 
         #toast {
             display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -65,14 +81,14 @@
 </head>
 <body>
 
-<div id="toast">结算成功！已入账</div>
+<div id="toast">操作成功！</div>
 
 <div class="admin-container">
     <div class="admin-header">
-        <a href="index.html" class="btn-back">⬅ 返回点单</a>
+        <a href="index.html" class="btn-back">⬅ 返回点餐</a>
         <div style="text-align:right">
-            <div style="font-size:16px; font-weight:bold;">待结算订单</div>
-            <div id="online-status" style="font-size:11px; color:#32d74b;">● 实时同步中</div>
+            <div style="font-size:14px; font-weight:bold;">待结算订单</div>
+            <div id="online-status" style="font-size:10px; color:#32d74b;">● 实时同步中</div>
         </div>
     </div>
     
@@ -99,6 +115,23 @@
         toast.innerText = text;
         toast.style.display = 'block';
         setTimeout(() => { toast.style.display = 'none'; }, 1500);
+    }
+
+    // 切换折叠/展开函数
+    function toggleOrderHeight(btn) {
+        const card = btn.closest('.order-card');
+        const wrapper = card.querySelector('.orders-wrapper');
+        if (wrapper.classList.contains('collapsed')) {
+            wrapper.classList.remove('collapsed');
+            wrapper.style.maxHeight = '2000px'; // 设一个足够大的高度
+            btn.innerText = '收起订单 ▴';
+            btn.classList.add('expanded');
+        } else {
+            wrapper.classList.add('collapsed');
+            wrapper.style.maxHeight = '280px';
+            btn.innerText = '查看全部订单 ▾';
+            btn.classList.remove('expanded');
+        }
     }
 
     function startListening() {
@@ -128,8 +161,8 @@
                 let ordersHtml = '';
 
                 orders.forEach((order, index) => {
-                    const tag = index === 0 ? "初始订单" : "加单";
-                    const time = order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}) : "...";
+                    const tag = index === 0 ? "初始" : "加单";
+                    const time = order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "...";
                     
                     let itemsHtml = order.items.map(item => {
                         tableTotal += (Number(item.price) * Number(item.quantity));
@@ -139,33 +172,46 @@
                     ordersHtml += `
                         <div class="sub-order">
                             <div class="order-header">
-                                <span class="order-tag">${tag}</span>
-                                <span class="order-time">${time}</span>
+                                <div><span class="order-tag">${tag}</span><span class="order-time">${time}</span></div>
+                                <div class="btn-cancel-small" onclick="deleteOrder('${order.docId}', '${order.table}')">取消</div>
                             </div>
                             ${itemsHtml}
-                            <div class="remark-box">
-                                <span>💬</span> ${order.notes || '无备注'}
-                            </div>
-                            <div class="device-info">设备: ${order.device || '未知设备'}</div>
+                            ${order.notes && order.notes !== '无备注' ? `<div class="remark-box">💬 ${order.notes}</div>` : ''}
                         </div>`;
                 });
 
                 const card = document.createElement('div');
                 card.className = 'order-card';
                 const docIds = JSON.stringify(orders.map(o => o.docId));
+                
+                // 只有当订单多的时候才显示展开按钮
+                const needsToggle = orders.length > 4;
+
                 card.innerHTML = `
-                    <div class="table-label">第 ${tableNum} 桌</div>
-                    <div style="flex:1;">${ordersHtml}</div>
+                    <div class="table-label"># ${tableNum}</div>
+                    <div class="orders-wrapper ${needsToggle ? 'collapsed' : ''}">
+                        ${ordersHtml}
+                    </div>
+                    ${needsToggle ? `<div class="toggle-btn" onclick="toggleOrderHeight(this)">查看全部订单 ▾</div>` : ''}
                     <div class="card-bottom">
                         <div class="total-price">${tableTotal.toLocaleString()}</div>
-                        <button class="btn-pay" onclick='confirmPay("${tableNum}", ${docIds}, ${tableTotal})'>确认结账</button>
+                        <button class="btn-pay" onclick='confirmPay("${tableNum}", ${docIds}, ${tableTotal})'>结账</button>
                     </div>`;
                 container.appendChild(card);
             });
         });
     }
 
+    async function deleteOrder(docId, tableNum) {
+        if(!confirm(`确定取消这笔订单吗？`)) return;
+        try {
+            await db.collection("pending_orders").doc(docId).delete();
+            showToast("已成功取消");
+        } catch (e) { alert("失败: " + e.message); }
+    }
+
     async function confirmPay(tableNum, docIds, total) {
+        if(!confirm(`确定为 ${tableNum} 号桌结算 ${total.toLocaleString()} Ks 吗？`)) return;
         try {
             const snap = await db.collection("pending_orders").where("table", "==", tableNum).get();
             const allItems = [];
@@ -178,32 +224,19 @@
                 if(d.notes && d.notes !== "无备注") {
                     combinedNotes += (combinedNotes ? " | " : "") + d.notes;
                 }
-                // 修复：获取待结算单中的设备信息
                 if(d.device) deviceName = d.device; 
             });
 
             await db.collection("orders").add({
-                table: tableNum,
-                total: total,
-                items: allItems,
-                remark: combinedNotes || "无备注",
-                device: deviceName, // 修复：存入最终账单
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                type: "快速结算"
+                table: tableNum, total: total, items: allItems, remark: combinedNotes || "无备注",
+                device: deviceName, timestamp: firebase.firestore.FieldValue.serverTimestamp(), type: "快速结算"
             });
 
             const batch = db.batch();
-            docIds.forEach(id => {
-                batch.delete(db.collection("pending_orders").doc(id));
-            });
+            docIds.forEach(id => { batch.delete(db.collection("pending_orders").doc(id)); });
             await batch.commit();
-
             showToast(`✅ ${tableNum}号桌 结算成功！`);
-            
-        } catch (e) {
-            console.error(e);
-            alert("操作失败: " + e.message);
-        }
+        } catch (e) { alert("失败: " + e.message); }
     }
 
     window.onload = startListening;
