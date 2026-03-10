@@ -14,7 +14,12 @@
         .header-bar button { background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; }
         .menu-list { padding: 15px; padding-bottom: 80px; }
         .category-block { margin-bottom: 20px; }
-        .category-title { font-size: 16px; color: #FF8C00; font-weight: 800; margin-bottom: 10px; border-left: 4px solid #FF8C00; padding-left: 8px; }
+        
+        /* 分类标题样式修改 */
+        .category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-left: 4px solid #FF8C00; padding-left: 8px; }
+        .category-title { font-size: 16px; color: #FF8C00; font-weight: 800; }
+        .rename-cat-btn { background: none; border: 1px solid #FF8C00; color: #FF8C00; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+
         .menu-item-card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
         .item-info .name { font-size: 16px; font-weight: 600; }
         .item-info .price { font-size: 14px; color: #888; }
@@ -63,7 +68,6 @@
     </div>
 
     <script>
-        // --- Firebase 配置更新 ---
         const firebaseConfig = {
             apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE",
             authDomain: "yeyekao-3878d.firebaseapp.com",
@@ -108,7 +112,12 @@
             for (const [cat, catItems] of Object.entries(groups)) {
                 const block = document.createElement('div');
                 block.className = 'category-block';
-                block.innerHTML = `<div class="category-title">${cat}</div>`;
+                // 修改此处：增加重命名按钮
+                block.innerHTML = `
+                    <div class="category-header">
+                        <div class="category-title">${cat}</div>
+                        <button class="rename-cat-btn" onclick="renameCategory('${cat}')">改名</button>
+                    </div>`;
                 catItems.forEach(item => {
                     const div = document.createElement('div');
                     div.className = 'menu-item-card';
@@ -127,6 +136,20 @@
             }
             renderCategoryOptions();
         }
+
+        // --- 新增功能：重命名分类 ---
+        window.renameCategory = async (oldName) => {
+            const newName = prompt(`将分类 "${oldName}" 重命名为:`, oldName);
+            if (newName && newName !== oldName) {
+                globalData.menu_data.forEach(item => {
+                    if (item.category === oldName) {
+                        item.category = newName;
+                    }
+                });
+                renderList();
+                await saveData();
+            }
+        };
 
         function renderCategoryOptions() {
             const select = document.getElementById('itemCategory');
