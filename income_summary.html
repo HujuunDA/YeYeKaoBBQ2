@@ -41,20 +41,7 @@
         .table-no { font-weight: 800; font-size: 16px; color: #333; }
         .order-time { font-size: 12px; color: #bbb; }
 
-        /* 修改后的删除按钮样式 - 放在右下角 */
-        .btn-del { 
-            background: #f5f5f5; 
-            color: #ccc; 
-            border: none; 
-            width: 28px; 
-            height: 28px; 
-            border-radius: 8px; 
-            font-size: 18px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            cursor: pointer;
-        }
+        .btn-del { background: #f5f5f5; color: #ccc; border: none; width: 28px; height: 28px; border-radius: 8px; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         .btn-del:active { background: #ffebeb; color: #ff4d4d; }
 
         .order-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px; border-top: 1px solid #f9f9f9; padding-top: 8px; }
@@ -78,6 +65,7 @@
 
     <div class="filter-row">
         <button class="filter-btn active" id="f-today" onclick="setFilter('today')">今日</button>
+        <button class="filter-btn" id="f-yesterday" onclick="setFilter('yesterday')">昨天</button>
         <button class="filter-btn" id="f-p1" onclick="setFilter('p1')">1-10号</button>
         <button class="filter-btn" id="f-p2" onclick="setFilter('p2')">11-20号</button>
         <button class="filter-btn" id="f-p3" onclick="setFilter('p3')">21-月底</button>
@@ -132,9 +120,15 @@
             let displayOrders = [];
             let title = "";
 
+            // 核心逻辑：增加了昨天的判断
             if (currentFilter === 'today') {
                 displayOrders = allOrders.filter(o => o.date.toDateString() === now.toDateString());
                 title = "今日总营收";
+            } else if (currentFilter === 'yesterday') {
+                const yesterday = new Date();
+                yesterday.setDate(now.getDate() - 1);
+                displayOrders = allOrders.filter(o => o.date.toDateString() === yesterday.toDateString());
+                title = "昨日总营收";
             } else if (currentFilter === 'all') {
                 displayOrders = allOrders;
                 title = "全部历史营收";
