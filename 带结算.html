@@ -47,8 +47,12 @@
         .order-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
         .order-tag { font-size: 10px; background: #fff1e6; color: #ff8c2d; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
         .order-time { color: #aaa; font-size: 11px; margin-left: 5px; }
+        .device-tag { font-size: 10px; color: #999; margin-left: 8px; font-style: italic; }
+        
         .btn-cancel-small { color: #ff4d4d; font-size: 12px; cursor: pointer; font-weight: bold; padding: 2px 5px; }
-        .food-item { color: #333; font-size: 15px; font-weight: 600; margin: 3px 0; }
+        .food-item { color: #333; font-size: 15px; font-weight: 600; margin: 3px 0; display: flex; justify-content: space-between; }
+        .item-price-tag { color: #888; font-size: 12px; font-weight: normal; }
+        
         .remark-box { background: #fdf2e9; border-radius: 6px; padding: 4px 8px; margin-top: 5px; font-size: 12px; color: #ff5e1a; display: inline-block; }
 
         .toggle-btn { 
@@ -57,25 +61,21 @@
             margin-bottom: 10px;
         }
 
-        /* 优惠输入框样式 */
         .discount-section {
             background: #fff9f5; padding: 10px; border-radius: 10px; margin-bottom: 10px;
             display: flex; align-items: center; justify-content: space-between;
         }
         .discount-label { font-size: 13px; color: #666; font-weight: bold; }
         
-        /* 核心修改：去掉上下键箭头并美化输入框 */
         .discount-input { 
             width: 110px; border: 1px solid #ddd; border-radius: 8px; 
             padding: 8px; text-align: right; font-size: 16px; color: #ff5e1a; font-weight: bold;
             outline: none; -webkit-appearance: none; appearance: none;
         }
-        /* 隐藏 Chrome, Safari, Edge 的上下键 */
         .discount-input::-webkit-outer-spin-button,
         .discount-input::-webkit-inner-spin-button {
             -webkit-appearance: none; margin: 0;
         }
-        /* 隐藏 Firefox 的上下键 */
         .discount-input[type=number] { -moz-appearance: textfield; }
 
         .card-bottom { margin-top: auto; padding-top: 10px; border-top: 1px dashed #eee; display: flex; justify-content: space-between; align-items: center; }
@@ -139,7 +139,6 @@
         }
     }
 
-    // 更新显示的总价
     function updateDisplayPrice(tableNum, originalTotal) {
         const input = document.getElementById(`discount-${tableNum}`);
         const display = document.getElementById(`price-display-${tableNum}`);
@@ -177,16 +176,28 @@
                 orders.forEach((order, index) => {
                     const tag = index === 0 ? "初始" : "加单";
                     const time = order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "...";
+                    const deviceName = order.device || "未知设备";
                     
                     let itemsHtml = order.items.map(item => {
-                        tableTotal += (Number(item.price) * Number(item.quantity));
-                        return `<div class="food-item">${item.name} × ${item.quantity}</div>`;
+                        const price = Number(item.price);
+                        const qty = Number(item.quantity);
+                        tableTotal += (price * qty);
+                        // 修改这里：增加单价显示
+                        return `
+                        <div class="food-item">
+                            <span>${item.name} × ${qty}</span>
+                            <span class="item-price-tag">(${price.toLocaleString()} Ks)</span>
+                        </div>`;
                     }).join('');
 
                     ordersHtml += `
                         <div class="sub-order">
                             <div class="order-header">
-                                <div><span class="order-tag">${tag}</span><span class="order-time">${time}</span></div>
+                                <div>
+                                    <span class="order-tag">${tag}</span>
+                                    <span class="order-time">${time}</span>
+                                    <span class="device-tag">📱 ${deviceName}</span>
+                                </div>
                                 <div class="btn-cancel-small" onclick="deleteOrder('${order.docId}', '${order.table}')">取消</div>
                             </div>
                             ${itemsHtml}
@@ -230,16 +241,17 @@
     }
 
     async function confirmPay(tableNum, docIds, originalTotal) {
-        const discount = Number(document.getElementById(`discount-${tableNum}`).value) || 0;
+        const discountInput = document.getElementById(`discount-${tableNum}`);
+        const discount = Number(discountInput.value) || 0;
         const finalTotal = Math.max(0, originalTotal - discount);
 
-        if(!confirm(`确定为 ${tableNum} 号桌结算吗？\n原价: ${originalTotal.toLocaleString()} Ks\n优惠: ${discount.toLocaleString()} Ks\n应收: ${finalTotal.toLocaleString()} Ks`)) return;
+        if(!confirm(`✅ 结算确认 (#${tableNum}号桌)\n\n原价总计: ${originalTotal.toLocaleString()} Ks\n优惠减免: ${discount.toLocaleString()} Ks\n最终应收: ${finalTotal.toLocaleString()} Ks\n\n确定完成结算吗？`)) return;
         
         try {
             const snap = await db.collection("pending_orders").where("table", "==", tableNum).get();
             const allItems = [];
             let combinedNotes = "";
-            let deviceName = "未知设备";
+            let lastDevice = "未知设备";
 
             snap.forEach(doc => {
                 const d = doc.data();
@@ -247,7 +259,7 @@
                 if(d.notes && d.notes !== "无备注") {
                     combinedNotes += (combinedNotes ? " | " : "") + d.notes;
                 }
-                if(d.device) deviceName = d.device; 
+                if(d.device) lastDevice = d.device; 
             });
 
             await db.collection("orders").add({
@@ -257,7 +269,7 @@
                 originalTotal: originalTotal,
                 items: allItems, 
                 remark: combinedNotes || "无备注",
-                device: deviceName, 
+                device: lastDevice, 
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(), 
                 type: "快速结算"
             });
