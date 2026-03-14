@@ -37,11 +37,8 @@
         .detail-remark-edit { width: 100%; border: none; background: transparent; font-size: 14px; color: #333; outline: none; resize: none; font-family: inherit; padding: 0; }
         .table-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 20px; }
         .table-item { border: 1px solid #eee; padding: 15px 0; text-align: center; border-radius: 10px; cursor: pointer; font-weight: bold; }
-        
-        /* 变色辅助：有订单的桌号显示橙色 */
         .table-item.has-order { background-color: #ff8c2d !important; color: white !important; border-color: #ff8c2d !important; }
         .table-item:active { background: #ff5e1a; color: white; }
-
         .dialog-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
         .btn-trash { cursor: pointer; padding: 5px; display: flex; align-items: center; }
         .trash-icon { width: 20px; height: 20px; fill: #ff4d4d; }
@@ -50,10 +47,7 @@
         .dialog-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px; }
         .btn-back-small { padding: 10px 20px; border: 1px solid #ddd; border-radius: 10px; background: white; cursor: pointer; }
         .btn-submit-small { padding: 10px 20px; border: none; border-radius: 10px; background: #3cc51f; color: white; font-weight: bold; cursor: pointer; }
-        
-        /* 防连击：禁用状态按钮变灰 */
         .btn-submit-small:disabled { background-color: #ccc !important; cursor: not-allowed; }
-
         #settings-dialog { border-radius: 35px; padding: 30px 25px; text-align: center; width: 80%; }
         .admin-title { color: #ff8c2d; font-size: 26px; font-weight: bold; margin-bottom: 25px; }
         .device-box { border: 2px dashed #ffb37a; border-radius: 15px; padding: 15px; margin-bottom: 25px; }
@@ -71,7 +65,7 @@
 <div class="container">
     <div class="header">
         <div class="table-select" id="table-btn" onclick="openTableSelect()">未选桌号 ▾</div>
-        <div class="submitted-btn" onclick="location.href='带结算.html'">待结算订单</div>
+        <div class="submitted-btn" onclick="location.href='待结算.html'">待结算订单</div>
         <input type="text" class="remark-input" id="main-remark" placeholder="备注..." oninput="syncRemarkToDetail(this.value)">
         <div class="settings-icon" onclick="openAdmin()">⚙</div>
     </div>
@@ -140,7 +134,6 @@
     let currentTable = null;
     const mask = document.getElementById('global-mask');
 
-    // --- 反馈反馈函数 ---
     function playFeedback() {
         if (navigator.vibrate) navigator.vibrate(40);
         try {
@@ -158,7 +151,6 @@
         } catch (e) {}
     }
 
-    // --- 检查哪些桌子有未结算订单并变色 ---
     async function checkActiveTables() {
         try {
             const snapshot = await db.collection("pending_orders").get();
@@ -177,9 +169,9 @@
         } catch (e) { console.error("同步桌号失败", e); }
     }
 
-    // --- 初始化桌号网格 ---
+    // --- 初始化桌号网格 (已修改为20桌) ---
     const grid = document.getElementById('table-grid');
-    for(let i=1; i<=10; i++) {
+    for(let i=1; i<=20; i++) {
         const div = document.createElement('div');
         div.className = 'table-item';
         div.innerText = i;
@@ -187,7 +179,6 @@
         grid.appendChild(div);
     }
 
-    // --- 数据持久化逻辑 ---
     function saveTempOrder() {
         const orderData = {
             table: currentTable,
@@ -219,7 +210,6 @@
         }
     }
 
-    // --- 菜单加载逻辑 ---
     async function loadMenu() {
         const localCache = localStorage.getItem('menu_cache');
         if(localCache) {
@@ -267,7 +257,6 @@
         menuContainer.innerHTML = menuHtml || '<p style="padding:20px;text-align:center;">暂无数据</p>';
     }
 
-    // --- 交互功能 ---
     function syncRemarkToDetail(val) { document.getElementById('detail-remark-edit').value = val; saveTempOrder(); }
     function syncRemarkToHeader(val) { document.getElementById('main-remark').value = val; saveTempOrder(); }
     function scrollToCategory(id) {
@@ -277,7 +266,7 @@
 
     function openTableSelect() { 
         playFeedback();
-        checkActiveTables(); // 打开桌号面板时刷新状态
+        checkActiveTables();
         mask.style.display = 'block'; 
         document.getElementById('table-dialog').style.display = 'block'; 
     }
@@ -350,11 +339,10 @@
         setTimeout(() => { toast.style.display = 'none'; }, 1500);
     }
 
-    // --- 核心修改：防连击下单逻辑 ---
     async function submitOrder() {
         playFeedback();
         const btn = document.getElementById('submit-btn-el');
-        if(btn.disabled) return; // 拦截连击
+        if(btn.disabled) return;
 
         if(!currentTable) { openTableSelect(); return; }
         
@@ -369,7 +357,6 @@
         });
         if(items.length === 0) { alert('请先点单'); return; }
 
-        // 锁定按钮
         btn.disabled = true;
         btn.innerText = "正在提交...";
 
@@ -391,7 +378,6 @@
         } catch (e) { 
             alert("提交失败，请检查网络: " + e); 
         } finally {
-            // 恢复按钮状态
             btn.disabled = false;
             btn.innerText = "确认下单";
         }
