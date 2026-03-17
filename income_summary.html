@@ -53,7 +53,7 @@
     <div class="header">
         <div class="header-left">
             <a href="index.html" class="back-btn">返回</a>
-            <a href="带结算.html" class="pending-link">待结算</a>
+            <a href="带结算.html" class="pending-link" id="pending-btn">待结算</a>
         </div>
         <button onclick="exportDetailedCSV()" style="border:none; background:var(--success); color:white; padding:8px 12px; border-radius:10px; font-size:12px;">导出报表</button>
     </div>
@@ -99,6 +99,7 @@
         let isRankExpanded = false;
 
         function loadData() {
+            // 监听已结算订单集合
             db.collection("orders").orderBy("timestamp", "desc").onSnapshot(snap => {
                 allOrders = [];
                 snap.forEach(doc => {
@@ -106,6 +107,23 @@
                     allOrders.push({ ...d, id: doc.id, date: d.timestamp?.toDate() || new Date() });
                 });
                 render();
+            });
+
+            // 监听待结算订单集合，统计金额并更新按钮
+            db.collection("pending_orders").onSnapshot(snap => {
+                let pendingTotal = 0;
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    if (d.items) {
+                        d.items.forEach(item => {
+                            pendingTotal += (Number(item.price) * Number(item.quantity));
+                        });
+                    }
+                });
+                const btn = document.getElementById('pending-btn');
+                if (btn) {
+                    btn.innerText = `待结算 (${pendingTotal.toLocaleString()} Ks)`;
+                }
             });
         }
 
@@ -120,7 +138,6 @@
             let displayOrders = [];
             let title = "";
 
-            // 核心逻辑：增加了昨天的判断
             if (currentFilter === 'today') {
                 displayOrders = allOrders.filter(o => o.date.toDateString() === now.toDateString());
                 title = "今日总营收";
@@ -144,7 +161,6 @@
             document.getElementById('revenue-title').innerText = title;
             document.getElementById('today-total').innerText = displayOrders.reduce((s, o)=>s+(Number(o.total)||0), 0).toLocaleString() + ' Ks';
 
-            // 排行榜渲染
             const salesMap = {};
             displayOrders.forEach(o => (o.items || []).forEach(i => salesMap[i.name] = (salesMap[i.name] || 0) + (Number(i.quantity) || 0)));
             const sortedSales = Object.entries(salesMap).sort((a, b) => b[1] - a[1]);
@@ -169,17 +185,22 @@
                 rankSection.style.display = 'none';
             }
 
-            // 订单历史渲染
             const container = document.getElementById('order-history');
             container.innerHTML = displayOrders.map(o => {
                 const discountValue = Number(o.discount || 0);
                 const discountHTML = discountValue > 0 ? `<div style="font-size:12px; color:#999;">已优惠: -${discountValue.toLocaleString()} Ks</div>` : '';
                 const timeStr = `${o.date.getHours().toString().padStart(2,'0')}:${o.date.getMinutes().toString().padStart(2,'0')}`;
                 
+                // 获取设备来源信息
+                const deviceName = o.device || "未知设备";
+
                 return `
                 <div class="order-card">
                     <div class="order-top">
-                        <span class="table-no">桌号: ${o.table}</span>
+                        <div style="display: flex; flex-direction: column;">
+                            <span class="table-no">桌号: ${o.table}</span>
+                            <span style="font-size: 10px; color: #aaa; margin-top: 2px;">📱 来源: ${deviceName}</span>
+                        </div>
                         <span class="order-time">${timeStr}</span>
                     </div>
                     ${(o.items || []).map(i => `<div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:5px;"><span>${i.name}</span><span>x${i.quantity}</span></div>`).join('')}
