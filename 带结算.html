@@ -7,87 +7,46 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
+        /* --- 完全保留你原有的样式 --- */
         body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background-color: #f4f6f8; color: #333; }
         .admin-container { width: 100%; max-width: 1400px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
-        
-        .admin-header { 
-            background: white; padding: 10px 20px; display: flex; justify-content: space-between; 
-            align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
-        }
+        .admin-header { background: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .btn-back { background: #f0f0f0; color: #666; padding: 6px 15px; border-radius: 20px; font-size: 13px; cursor: pointer; text-decoration: none; font-weight: 500; }
-        
         .order-list { padding: 15px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
         @media (max-width: 450px) { .order-list { grid-template-columns: 1fr; padding: 8px; } }
-
-        .order-card { 
-            background: white; border-radius: 18px; padding: 15px; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #eee;
-            display: flex; flex-direction: column; position: relative;
-        }
-
+        .order-card { background: white; border-radius: 18px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #eee; display: flex; flex-direction: column; position: relative; }
         .table-label { background: #ff8c2d; color: white; padding: 4px 12px; border-radius: 8px; font-weight: bold; font-size: 18px; margin-bottom: 12px; align-self: flex-start; }
-        
-        .orders-wrapper {
-            position: relative;
-            max-height: 200px; 
-            overflow: hidden;
-            transition: max-height 0.4s ease;
-        }
+        .orders-wrapper { position: relative; max-height: 200px; overflow: hidden; transition: max-height 0.4s ease; }
         .orders-wrapper.expanded { max-height: 5000px; }
-
-        .fade-overlay {
-            position: absolute; bottom: 0; left: 0; right: 0;
-            height: 40px;
-            background: linear-gradient(to top, white, rgba(255,255,255,0));
-            pointer-events: none; z-index: 2;
-        }
+        .fade-overlay { position: absolute; bottom: 0; left: 0; right: 0; height: 40px; background: linear-gradient(to top, white, rgba(255,255,255,0)); pointer-events: none; z-index: 2; }
         .expanded .fade-overlay { display: none; }
-
         .sub-order { border-left: 3px solid #ffe4cc; padding-left: 10px; margin-bottom: 12px; }
         .order-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
         .order-tag { font-size: 10px; background: #fff1e6; color: #ff8c2d; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
         .order-time { color: #aaa; font-size: 11px; margin-left: 5px; }
         .device-tag { font-size: 10px; color: #999; margin-left: 8px; font-style: italic; }
-        
         .btn-cancel-small { color: #ff4d4d; font-size: 12px; cursor: pointer; font-weight: bold; padding: 2px 5px; }
         .food-item { color: #333; font-size: 15px; font-weight: 600; margin: 3px 0; display: flex; justify-content: space-between; }
         .item-price-tag { color: #888; font-size: 12px; font-weight: normal; }
-        
         .remark-box { background: #fdf2e9; border-radius: 6px; padding: 4px 8px; margin-top: 5px; font-size: 12px; color: #ff5e1a; display: inline-block; }
+        .toggle-btn { text-align: center; color: #ff8c2d; font-size: 13px; font-weight: bold; padding: 8px 0; cursor: pointer; border-bottom: 1px solid #f9f9f9; margin-bottom: 10px; }
 
-        .toggle-btn { 
-            text-align: center; color: #ff8c2d; font-size: 13px; font-weight: bold; 
-            padding: 8px 0; cursor: pointer; border-bottom: 1px solid #f9f9f9;
-            margin-bottom: 10px;
-        }
+        /* --- 新增：紧凑型结算辅助样式 --- */
+        .settle-inputs { display: flex; gap: 8px; margin-bottom: 10px; }
+        .mini-input { border: 1px solid #ddd; border-radius: 8px; padding: 8px; font-size: 14px; outline: none; background: #fafafa; }
+        .disc-input { width: 85px; color: #ff5e1a; font-weight: bold; text-align: center; }
+        .note-input { flex: 1; }
 
-        .discount-section {
-            background: #fff9f5; padding: 10px; border-radius: 10px; margin-bottom: 10px;
-            display: flex; align-items: center; justify-content: space-between;
-        }
-        .discount-label { font-size: 13px; color: #666; font-weight: bold; }
-        
-        .discount-input { 
-            width: 110px; border: 1px solid #ddd; border-radius: 8px; 
-            padding: 8px; text-align: right; font-size: 16px; color: #ff5e1a; font-weight: bold;
-            outline: none; -webkit-appearance: none; appearance: none;
-        }
-        .discount-input::-webkit-outer-spin-button,
-        .discount-input::-webkit-inner-spin-button {
-            -webkit-appearance: none; margin: 0;
-        }
-        .discount-input[type=number] { -moz-appearance: textfield; }
+        .pay-row { display: flex; align-items: center; justify-content: space-between; border-top: 1px dashed #eee; padding-top: 10px; }
+        .pay-methods { display: flex; background: #f0f0f0; border-radius: 10px; padding: 2px; gap: 2px; }
+        .method-btn { padding: 6px 12px; cursor: pointer; border-radius: 8px; font-size: 18px; transition: 0.2s; filter: grayscale(1); opacity: 0.4; }
+        .method-btn.active { background: white; filter: grayscale(0); opacity: 1; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 
-        .card-bottom { margin-top: auto; padding-top: 10px; border-top: 1px dashed #eee; display: flex; justify-content: space-between; align-items: center; }
-        .total-price { font-size: 22px; font-weight: 900; color: #ff5e1a; }
+        .total-price { font-size: 24px; font-weight: 900; color: #ff5e1a; }
         .total-price::after { content: " Ks"; font-size: 13px; margin-left: 2px; }
-        .btn-pay { background: #32d74b; color: white; padding: 8px 20px; border-radius: 12px; font-size: 15px; font-weight: bold; cursor: pointer; border: none; }
+        .btn-pay { background: #32d74b; color: white; padding: 10px 22px; border-radius: 12px; font-size: 16px; font-weight: bold; border: none; cursor: pointer; }
 
-        #toast {
-            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.85); color: white; padding: 16px 32px; border-radius: 50px;
-            z-index: 1000; font-weight: bold; font-size: 16px; text-align: center;
-        }
+        #toast { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); color: white; padding: 16px 32px; border-radius: 50px; z-index: 1000; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -102,7 +61,6 @@
             <div id="online-status" style="font-size:10px; color:#32d74b;">● 实时同步中</div>
         </div>
     </div>
-    
     <div class="order-list" id="list-container">
         <div style="text-align:center; padding-top:100px; color:#999; grid-column: 1/-1;">正在加载云端数据...</div>
     </div>
@@ -120,164 +78,136 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const tablePayMethods = {}; // 记录每桌选择的支付方式
 
     function showToast(text) {
-        const toast = document.getElementById('toast');
-        toast.innerText = text;
-        toast.style.display = 'block';
-        setTimeout(() => { toast.style.display = 'none'; }, 1500);
+        const t = document.getElementById('toast');
+        t.innerText = text; t.style.display = 'block';
+        setTimeout(() => { t.style.display = 'none'; }, 1500);
     }
 
     function toggleOrder(btn) {
         const wrapper = btn.previousElementSibling;
-        if (wrapper.classList.contains('expanded')) {
-            wrapper.classList.remove('expanded');
-            btn.innerText = '查看全部订单 ▾';
-        } else {
-            wrapper.classList.add('expanded');
-            btn.innerText = '收起订单 ▴';
-        }
+        wrapper.classList.toggle('expanded');
+        btn.innerText = wrapper.classList.contains('expanded') ? '收起订单 ▴' : '查看全部订单 ▾';
     }
 
-    function updateDisplayPrice(tableNum, originalTotal) {
-        const input = document.getElementById(`discount-${tableNum}`);
-        const display = document.getElementById(`price-display-${tableNum}`);
-        const discount = Number(input.value) || 0;
-        const finalPrice = Math.max(0, originalTotal - discount);
-        display.innerText = finalPrice.toLocaleString();
+    function updatePrice(tableNum, originalTotal) {
+        const discount = Number(document.getElementById(`disc-${tableNum}`).value) || 0;
+        const final = Math.max(0, originalTotal - discount);
+        document.getElementById(`price-${tableNum}`).innerText = final.toLocaleString();
+    }
+
+    function setMethod(table, method, el) {
+        tablePayMethods[table] = method;
+        el.parentElement.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+    }
+
+    // 自动获取设备名
+    function getDeviceName() {
+        const ua = navigator.userAgent;
+        if (/iPhone/i.test(ua)) return "iPhone 14ProMax";
+        if (/Macintosh/i.test(ua)) return "MacBook 2018";
+        return "其它设备";
     }
 
     function startListening() {
-        db.collection("pending_orders").orderBy("timestamp", "asc")
-        .onSnapshot((querySnapshot) => {
+        db.collection("pending_orders").orderBy("timestamp", "asc").onSnapshot(snap => {
             const container = document.getElementById('list-container');
-            const tableGroups = {};
-            
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                data.docId = doc.id;
-                const tableNum = data.table;
-                if (!tableGroups[tableNum]) tableGroups[tableNum] = [];
-                tableGroups[tableNum].push(data);
+            const groups = {};
+            snap.forEach(doc => {
+                const d = doc.data(); d.docId = doc.id;
+                if (!groups[d.table]) groups[d.table] = [];
+                groups[d.table].push(d);
             });
 
-            const tableKeys = Object.keys(tableGroups);
-            if(tableKeys.length === 0) {
+            if (Object.keys(groups).length === 0) {
                 container.innerHTML = '<div style="text-align:center; padding-top:100px; color:#999; grid-column: 1/-1;">目前没有待结算的桌位</div>';
                 return;
             }
 
             container.innerHTML = '';
-            tableKeys.forEach(tableNum => {
-                const orders = tableGroups[tableNum];
+            Object.keys(groups).forEach(tableNum => {
+                const orders = groups[tableNum];
                 let tableTotal = 0;
                 let ordersHtml = '';
+                if (!tablePayMethods[tableNum]) tablePayMethods[tableNum] = '现金';
 
                 orders.forEach((order, index) => {
                     const tag = index === 0 ? "初始" : "加单";
                     const time = order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "...";
-                    const deviceName = order.device || "未知设备";
-                    
-                    let itemsHtml = order.items.map(item => {
-                        const price = Number(item.price);
-                        const qty = Number(item.quantity);
-                        tableTotal += (price * qty);
-                        // 修改这里：增加单价显示
-                        return `
-                        <div class="food-item">
-                            <span>${item.name} × ${qty}</span>
-                            <span class="item-price-tag">(${price.toLocaleString()} Ks)</span>
-                        </div>`;
+                    let itemsHtml = order.items.map(i => {
+                        tableTotal += (Number(i.price) * Number(i.quantity));
+                        return `<div class="food-item"><span>${i.name} × ${i.quantity}</span><span class="item-price-tag">(${Number(i.price).toLocaleString()} Ks)</span></div>`;
                     }).join('');
 
-                    ordersHtml += `
-                        <div class="sub-order">
-                            <div class="order-header">
-                                <div>
-                                    <span class="order-tag">${tag}</span>
-                                    <span class="order-time">${time}</span>
-                                    <span class="device-tag">📱 ${deviceName}</span>
-                                </div>
-                                <div class="btn-cancel-small" onclick="deleteOrder('${order.docId}', '${order.table}')">取消</div>
-                            </div>
-                            ${itemsHtml}
-                            ${order.notes && order.notes !== '无备注' ? `<div class="remark-box">💬 ${order.notes}</div>` : ''}
-                        </div>`;
+                    ordersHtml += `<div class="sub-order"><div class="order-header"><div><span class="order-tag">${tag}</span><span class="order-time">${time}</span><span class="device-tag">📱 ${order.device||'未知'}</span></div><div class="btn-cancel-small" onclick="deleteOrder('${order.docId}')">取消</div></div>${itemsHtml}${order.notes && order.notes !== '无备注' ? `<div class="remark-box">💬 ${order.notes}</div>` : ''}</div>`;
                 });
 
                 const card = document.createElement('div');
                 card.className = 'order-card';
-                const docIds = JSON.stringify(orders.map(o => o.docId));
-                
                 card.innerHTML = `
                     <div class="table-label"># ${tableNum}</div>
-                    <div class="orders-wrapper">
-                        ${ordersHtml}
-                        <div class="fade-overlay"></div>
-                    </div>
+                    <div class="orders-wrapper">${ordersHtml}<div class="fade-overlay"></div></div>
                     <div class="toggle-btn" onclick="toggleOrder(this)">查看全部订单 ▾</div>
                     
-                    <div class="discount-section">
-                        <span class="discount-label">减免优惠:</span>
-                        <input type="tel" class="discount-input" id="discount-${tableNum}" 
-                            placeholder="0" oninput="updateDisplayPrice('${tableNum}', ${tableTotal})">
+                    <div class="settle-inputs">
+                        <input type="tel" id="disc-${tableNum}" class="mini-input disc-input" placeholder="优惠" oninput="updatePrice('${tableNum}', ${tableTotal})">
+                        <input type="text" id="note-${tableNum}" class="mini-input note-input" placeholder="添加备注...">
                     </div>
 
-                    <div class="card-bottom">
-                        <div class="total-price" id="price-display-${tableNum}">${tableTotal.toLocaleString()}</div>
-                        <button class="btn-pay" onclick='confirmPay("${tableNum}", ${docIds}, ${tableTotal})'>结账</button>
+                    <div class="pay-row">
+                        <div class="pay-methods">
+                            <div class="method-btn ${tablePayMethods[tableNum]==='现金'?'active':''}" onclick="setMethod('${tableNum}','现金',this)">💵</div>
+                            <div class="method-btn ${tablePayMethods[tableNum]==='转账'?'active':''}" onclick="setMethod('${tableNum}','转账',this)">🏦</div>
+                        </div>
+                        <div class="total-price" id="price-${tableNum}">${tableTotal.toLocaleString()}</div>
+                        <button class="btn-pay" onclick='confirmPay("${tableNum}", ${tableTotal})'>结账</button>
                     </div>`;
                 container.appendChild(card);
             });
         });
     }
 
-    async function deleteOrder(docId, tableNum) {
-        if(!confirm(`确定取消这笔订单吗？`)) return;
-        try {
-            await db.collection("pending_orders").doc(docId).delete();
-            showToast("已成功取消");
-        } catch (e) { alert("失败: " + e.message); }
+    async function deleteOrder(id) {
+        if(confirm("确定取消吗？")) await db.collection("pending_orders").doc(id).delete();
     }
 
-    async function confirmPay(tableNum, docIds, originalTotal) {
-        const discountInput = document.getElementById(`discount-${tableNum}`);
-        const discount = Number(discountInput.value) || 0;
-        const finalTotal = Math.max(0, originalTotal - discount);
+    async function confirmPay(tableNum, originalTotal) {
+        const disc = Number(document.getElementById(`disc-${tableNum}`).value) || 0;
+        const final = originalTotal - disc;
+        const method = tablePayMethods[tableNum];
+        const settleNote = document.getElementById(`note-${tableNum}`).value;
+        const deviceName = getDeviceName();
 
-        if(!confirm(`✅ 结算确认 (#${tableNum}号桌)\n\n原价总计: ${originalTotal.toLocaleString()} Ks\n优惠减免: ${discount.toLocaleString()} Ks\n最终应收: ${finalTotal.toLocaleString()} Ks\n\n确定完成结算吗？`)) return;
-        
+        if(!confirm(`#${tableNum}号桌 确认结算？\n\n实收: ${final.toLocaleString()} Ks\n方式: ${method}`)) return;
+
         try {
             const snap = await db.collection("pending_orders").where("table", "==", tableNum).get();
             const allItems = [];
-            let combinedNotes = "";
-            let lastDevice = "未知设备";
-
+            const ids = [];
             snap.forEach(doc => {
-                const d = doc.data();
-                if(d.items) allItems.push(...d.items);
-                if(d.notes && d.notes !== "无备注") {
-                    combinedNotes += (combinedNotes ? " | " : "") + d.notes;
-                }
-                if(d.device) lastDevice = d.device; 
+                allItems.push(...doc.data().items);
+                ids.push(doc.id);
             });
 
             await db.collection("orders").add({
-                table: tableNum, 
-                total: finalTotal,
-                discount: discount,
-                originalTotal: originalTotal,
-                items: allItems, 
-                remark: combinedNotes || "无备注",
-                device: lastDevice, 
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(), 
+                table: tableNum,
+                total: final,
+                discount: disc,
+                paymentMethod: method,
+                settleNote: settleNote,
+                items: allItems,
+                device: deviceName,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 type: "快速结算"
             });
 
             const batch = db.batch();
-            docIds.forEach(id => { batch.delete(db.collection("pending_orders").doc(id)); });
+            ids.forEach(id => batch.delete(db.collection("pending_orders").doc(id)));
             await batch.commit();
-            showToast(`✅ ${tableNum}号桌 结算成功！`);
+            showToast("✅ 结算成功！");
         } catch (e) { alert("失败: " + e.message); }
     }
 
