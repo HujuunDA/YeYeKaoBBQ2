@@ -41,6 +41,12 @@
         .table-no { font-weight: 800; font-size: 16px; color: #333; }
         .order-time { font-size: 12px; color: #bbb; }
 
+        /* 新增：支付方式和备注的样式 */
+        .pay-method-tag { font-size: 11px; padding: 2px 6px; border-radius: 5px; margin-left: 8px; font-weight: bold; }
+        .method-cash { background: #e8f5e9; color: #2e7d32; }
+        .method-transfer { background: #e3f2fd; color: #1565c0; }
+        .settle-remark { background: #fff5eb; color: #d35400; font-size: 12px; padding: 4px 8px; border-radius: 6px; margin-top: 8px; display: block; border: 1px solid #ffe0c1; }
+
         .btn-del { background: #f5f5f5; color: #ccc; border: none; width: 28px; height: 28px; border-radius: 8px; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         .btn-del:active { background: #ffebeb; color: #ff4d4d; }
 
@@ -99,7 +105,6 @@
         let isRankExpanded = false;
 
         function loadData() {
-            // 监听已结算订单集合
             db.collection("orders").orderBy("timestamp", "desc").onSnapshot(snap => {
                 allOrders = [];
                 snap.forEach(doc => {
@@ -109,7 +114,6 @@
                 render();
             });
 
-            // 监听待结算订单集合，统计金额并更新按钮
             db.collection("pending_orders").onSnapshot(snap => {
                 let pendingTotal = 0;
                 snap.forEach(doc => {
@@ -191,19 +195,28 @@
                 const discountHTML = discountValue > 0 ? `<div style="font-size:12px; color:#999;">已优惠: -${discountValue.toLocaleString()} Ks</div>` : '';
                 const timeStr = `${o.date.getHours().toString().padStart(2,'0')}:${o.date.getMinutes().toString().padStart(2,'0')}`;
                 
-                // 获取设备来源信息
                 const deviceName = o.device || "未知设备";
+                
+                // 新增：支付方式显示逻辑
+                const payMethod = o.paymentMethod || "现金";
+                const methodClass = payMethod === "现金" ? "method-cash" : "method-transfer";
+                const methodIcon = payMethod === "现金" ? "💵" : "🏦";
 
                 return `
                 <div class="order-card">
                     <div class="order-top">
                         <div style="display: flex; flex-direction: column;">
-                            <span class="table-no">桌号: ${o.table}</span>
+                            <div style="display: flex; align-items: center;">
+                                <span class="table-no">桌号: ${o.table}</span>
+                                <span class="pay-method-tag ${methodClass}">${methodIcon} ${payMethod}</span>
+                            </div>
                             <span style="font-size: 10px; color: #aaa; margin-top: 2px;">📱 来源: ${deviceName}</span>
                         </div>
                         <span class="order-time">${timeStr}</span>
                     </div>
                     ${(o.items || []).map(i => `<div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:5px;"><span>${i.name}</span><span>x${i.quantity}</span></div>`).join('')}
+                    
+                    ${o.settleNote ? `<span class="settle-remark">结算备注: ${o.settleNote}</span>` : ''}
                     
                     <div class="order-footer">
                         <button class="btn-del" onclick="deleteOrder('${o.id}')" title="删除订单">×</button>
@@ -235,12 +248,12 @@
 
         function exportDetailedCSV() {
             if (allOrders.length === 0) return;
-            let csv = "\uFEFF日期,时间,桌号,菜品,数量,单价,总额\n";
+            let csv = "\uFEFF日期,时间,桌号,支付方式,备注,菜品,数量,单价,总额\n";
             allOrders.forEach(o => {
                 const d = o.date.toLocaleDateString();
                 const t = o.date.toLocaleTimeString();
                 (o.items || []).forEach((i, idx) => {
-                    csv += `${idx===0?d:''},${idx===0?t:''},${idx===0?o.table:''},${i.name},${i.quantity},${i.price},${idx===0?o.total:''}\n`;
+                    csv += `${idx===0?d:''},${idx===0?t:''},${idx===0?o.table:''},${idx===0?(o.paymentMethod||'现金'):''},${idx===0?(o.settleNote||''):''},${i.name},${i.quantity},${i.price},${idx===0?o.total:''}\n`;
                 });
             });
             const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
