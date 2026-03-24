@@ -2,20 +2,29 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>待结算订单 - YeYeKao</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
-        /* --- 完全保留你原有的样式 --- */
-        body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background-color: #f4f6f8; color: #333; }
+        /* --- 核心优化：背景色与 index.html 保持一致，消除缝隙感 --- */
+        body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background-color: #fff; color: #333; }
         .admin-container { width: 100%; max-width: 1400px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
-        .admin-header { background: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .admin-header { background: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #eee; padding-top: calc(10px + env(safe-area-inset-top)); }
+        
         .btn-back { background: #f0f0f0; color: #666; padding: 6px 15px; border-radius: 20px; font-size: 13px; cursor: pointer; text-decoration: none; font-weight: 500; }
         .order-list { padding: 15px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
-        @media (max-width: 450px) { .order-list { grid-template-columns: 1fr; padding: 8px; } }
-        .order-card { background: white; border-radius: 18px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #eee; display: flex; flex-direction: column; position: relative; }
+        @media (max-width: 450px) { .order-list { grid-column-gap: 0; padding: 10px 0; } } /* 手机端取消左右间距 */
+
+        /* 优化 2：移除阴影，确保贴边感 */
+        .order-card { background: white; border-radius: 18px; padding: 15px; box-shadow: none; border-bottom: 1px solid #eee; display: flex; flex-direction: column; position: relative; margin-bottom: 10px; }
         .table-label { background: #ff8c2d; color: white; padding: 4px 12px; border-radius: 8px; font-weight: bold; font-size: 18px; margin-bottom: 12px; align-self: flex-start; }
+        
+        /* 优化 3：输入框全部设为 16px，彻底解决 iOS 点击放大问题 */
+        .mini-input { border: 1px solid #ddd; border-radius: 8px; padding: 10px; font-size: 16px; outline: none; background: #fafafa; -webkit-appearance: none; }
+        .disc-input { width: 85px; color: #ff5e1a; font-weight: bold; text-align: center; }
+        .note-input { flex: 1; }
+
         .orders-wrapper { position: relative; max-height: 200px; overflow: hidden; transition: max-height 0.4s ease; }
         .orders-wrapper.expanded { max-height: 5000px; }
         .fade-overlay { position: absolute; bottom: 0; left: 0; right: 0; height: 40px; background: linear-gradient(to top, white, rgba(255,255,255,0)); pointer-events: none; z-index: 2; }
@@ -30,22 +39,14 @@
         .item-price-tag { color: #888; font-size: 12px; font-weight: normal; }
         .remark-box { background: #fdf2e9; border-radius: 6px; padding: 4px 8px; margin-top: 5px; font-size: 12px; color: #ff5e1a; display: inline-block; }
         .toggle-btn { text-align: center; color: #ff8c2d; font-size: 13px; font-weight: bold; padding: 8px 0; cursor: pointer; border-bottom: 1px solid #f9f9f9; margin-bottom: 10px; }
-
-        /* --- 新增：紧凑型结算辅助样式 --- */
         .settle-inputs { display: flex; gap: 8px; margin-bottom: 10px; }
-        .mini-input { border: 1px solid #ddd; border-radius: 8px; padding: 8px; font-size: 14px; outline: none; background: #fafafa; }
-        .disc-input { width: 85px; color: #ff5e1a; font-weight: bold; text-align: center; }
-        .note-input { flex: 1; }
-
         .pay-row { display: flex; align-items: center; justify-content: space-between; border-top: 1px dashed #eee; padding-top: 10px; }
         .pay-methods { display: flex; background: #f0f0f0; border-radius: 10px; padding: 2px; gap: 2px; }
         .method-btn { padding: 6px 12px; cursor: pointer; border-radius: 8px; font-size: 18px; transition: 0.2s; filter: grayscale(1); opacity: 0.4; }
         .method-btn.active { background: white; filter: grayscale(0); opacity: 1; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-
         .total-price { font-size: 24px; font-weight: 900; color: #ff5e1a; }
         .total-price::after { content: " Ks"; font-size: 13px; margin-left: 2px; }
         .btn-pay { background: #32d74b; color: white; padding: 10px 22px; border-radius: 12px; font-size: 16px; font-weight: bold; border: none; cursor: pointer; }
-
         #toast { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); color: white; padding: 16px 32px; border-radius: 50px; z-index: 1000; font-weight: bold; }
     </style>
 </head>
@@ -78,7 +79,7 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    const tablePayMethods = {}; // 记录每桌选择的支付方式
+    const tablePayMethods = {};
 
     function showToast(text) {
         const t = document.getElementById('toast');
@@ -104,7 +105,6 @@
         el.classList.add('active');
     }
 
-    // 自动获取设备名
     function getDeviceName() {
         const ua = navigator.userAgent;
         if (/iPhone/i.test(ua)) return "iPhone 14ProMax";
@@ -179,7 +179,9 @@
         const final = originalTotal - disc;
         const method = tablePayMethods[tableNum];
         const settleNote = document.getElementById(`note-${tableNum}`).value;
-        const deviceName = getDeviceName();
+        
+        // 动态获取存放在本地的设备名，如果没有则取默认
+        const deviceName = localStorage.getItem('deviceName') || getDeviceName();
 
         if(!confirm(`#${tableNum}号桌 确认结算？\n\n实收: ${final.toLocaleString()} Ks\n方式: ${method}`)) return;
 
