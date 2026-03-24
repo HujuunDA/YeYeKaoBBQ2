@@ -1,4 +1,4 @@
-、<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -13,8 +13,12 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8f8f8; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 1200px; background-color: #fff; min-height: 100vh; position: relative; display: flex; flex-direction: column; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
+        /* 优化：背景改为纯白，防止边缘出现灰线/白边 */
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #fff; display: flex; justify-content: center; }
+        
+        /* 优化：使用 100vw 确保完全撑满手机屏幕，移除阴影防止边缘渲染异常 */
+        .container { width: 100vw; max-width: 1200px; background-color: #fff; min-height: 100vh; position: relative; display: flex; flex-direction: column; box-shadow: none; }
+        
         .item-list { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); }
         @media (max-width: 600px) { .item-list { grid-template-columns: 1fr; } }
         .header { background-color: #ff8c2d; padding: 15px; display: flex; align-items: center; gap: 8px; position: sticky; top: 0; z-index: 20; padding-top: calc(15px + env(safe-area-inset-top)); }
@@ -25,7 +29,7 @@
         .table-select { background-color: #ff5e1a; color: white; padding: 8px 12px; border-radius: 20px; font-weight: bold; font-size: 13px; white-space: nowrap; cursor: pointer; }
         .submitted-btn { background-color: rgba(255, 255, 255, 0.2); color: white; padding: 8px 12px; border-radius: 20px; font-weight: bold; font-size: 13px; white-space: nowrap; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.3); }
         
-        /* 优化点 1：顶部备注输入框，设置 16px 防止 iOS 缩放 */
+        /* 优化：16px 字体防止 iOS 自动放大页面 */
         .remark-input { flex: 1; border: none; border-radius: 8px; padding: 8px 12px; outline: none; min-width: 50px; font-size: 16px; }
         
         .settings-icon { color: white; font-size: 24px; cursor: pointer; padding-left: 5px; }
@@ -44,7 +48,7 @@
         .dialog { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 20px; padding: 20px; width: 85%; max-width: 340px; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
         .detail-remark-section { margin: 15px 0; background: #f9f9f9; border-radius: 8px; padding: 10px; border: 1px solid #eee; }
         
-        /* 优化点 2：详情备注输入框，设置 16px 防止 iOS 缩放 */
+        /* 优化：16px 字体防止 iOS 自动放大页面 */
         .detail-remark-edit { width: 100%; border: none; background: transparent; font-size: 16px; color: #333; outline: none; resize: none; font-family: inherit; padding: 0; }
         
         .table-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 20px; }
@@ -65,7 +69,7 @@
         .device-box { border: 2px dashed #ffb37a; border-radius: 15px; padding: 15px; margin-bottom: 25px; }
         .device-label { color: #ff8c2d; font-weight: bold; font-size: 14px; margin-bottom: 10px; display: block; text-align: left; }
         
-        /* 优化点 3：设置页面输入框，设置 16px 防止 iOS 缩放 */
+        /* 优化：16px 字体防止 iOS 自动放大页面 */
         .device-input { width: 100%; border: 2px solid #ffdec2; border-radius: 12px; padding: 12px; box-sizing: border-box; outline: none; font-size: 16px; }
         
         .admin-btn { background: #f6f7fb; border-radius: 18px; padding: 18px; margin-bottom: 15px; display: flex; align-items: center; border-left: 8px solid #ff8c2d; font-weight: bold; font-size: 17px; cursor: pointer; color: #333; text-decoration: none; }
@@ -135,7 +139,6 @@
 </div>
 
 <script>
-    // Firebase 配置保持不变
     const firebaseConfig = { 
         apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
         authDomain: "yeyekao-3878d.firebaseapp.com", 
@@ -150,7 +153,6 @@
     let currentTable = null;
     const mask = document.getElementById('global-mask');
 
-    // 触感反馈
     function playFeedback() {
         if (navigator.vibrate) navigator.vibrate(40);
         try {
