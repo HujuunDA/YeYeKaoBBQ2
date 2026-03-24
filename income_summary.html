@@ -2,56 +2,61 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>数据中心 - 智能排行版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>数据中心 - YeYeKao</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
-        :root { --primary: #FF8C00; --bg: #f6f7fb; --text: #333; --danger: #ff4d4d; --success: #4CAF50; --gold: #FFD700; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text); padding-bottom: 50px; }
+        :root { --primary: #FF8C00; --bg: #ffffff; --text: #333; --danger: #ff4d4d; --success: #32d74b; --gold: #FFD700; }
         
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .header-left { display: flex; gap: 8px; }
-        .back-btn { padding: 10px 18px; background: #666; color: white; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: bold; }
-        .pending-link { padding: 10px 18px; background: var(--primary); color: white; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: bold; }
-
-        .revenue-card { background: white; padding: 20px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-bottom: 15px; background: linear-gradient(135deg, #ffffff 0%, #fff9f0 100%); }
-        .rev-label { font-size: 13px; color: #999; }
-        .rev-val { font-size: 30px; font-weight: 900; color: #FF4500; margin-top: 5px; }
-
-        .rank-box { background: #fff; border-radius: 22px; padding: 18px; margin-bottom: 15px; border: 1px solid #eee; }
-        .rank-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .rank-title { font-size: 16px; font-weight: 800; }
-        .rank-list { display: flex; flex-direction: column; gap: 8px; }
-        .rank-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f9f9f9; }
-        .rank-left { display: flex; align-items: center; gap: 10px; }
-        .rank-num { width: 22px; height: 22px; border-radius: 6px; background: #f0f0f0; font-size: 11px; display: flex; align-items: center; justify-content: center; color: #777; font-weight: bold; }
-        .rank-top3 { background: var(--gold); color: #fff; }
-        .rank-name { font-size: 14px; color: #444; }
-        .rank-qty { font-weight: 800; color: var(--primary); font-size: 14px; }
+        /* 基础设置：统一字体大小，防止缩放 */
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text); padding-bottom: calc(50px + env(safe-area-inset-bottom)); -webkit-tap-highlight-color: transparent; }
         
-        .toggle-btn { width: 100%; padding: 12px; margin-top: 10px; background: #fdfdfd; border: 1px solid #eee; border-radius: 12px; color: var(--primary); font-size: 13px; font-weight: bold; cursor: pointer; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-top: env(safe-area-inset-top); }
+        .header-left { display: flex; gap: 10px; }
+        
+        /* 按钮字体设为 16px 防止 iOS 缩放 */
+        .back-btn, .pending-link, .filter-btn, .export-btn { font-size: 16px !important; font-weight: 600; border-radius: 12px; cursor: pointer; border: none; }
+        
+        .back-btn { padding: 8px 16px; background: #f0f0f0; color: #666; text-decoration: none; }
+        .pending-link { padding: 8px 16px; background: var(--primary); color: white; text-decoration: none; }
+        .export-btn { background: var(--success); color: white; padding: 8px 12px; }
 
-        .filter-row { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; }
-        .filter-btn { padding: 10px 16px; background: white; border-radius: 12px; font-size: 13px; border: none; color: #666; font-weight: 600; white-space: nowrap; }
+        .revenue-card { background: linear-gradient(135deg, #fff 0%, #fff9f0 100%); padding: 25px 20px; border-radius: 24px; border: 1px solid #fdf2e9; margin-bottom: 20px; }
+        .rev-label { font-size: 14px; color: #999; margin-bottom: 5px; }
+        .rev-val { font-size: 34px; font-weight: 900; color: #FF4500; }
+
+        .filter-row { display: flex; gap: 8px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch; }
+        .filter-row::-webkit-scrollbar { display: none; }
+        .filter-btn { padding: 10px 18px; background: #f5f5f7; color: #666; white-space: nowrap; transition: 0.2s; }
         .filter-btn.active { background: var(--primary); color: white; }
 
-        .order-card { background: white; padding: 16px; border-radius: 20px; margin-bottom: 12px; border: 1px solid #f0f0f0; position: relative; }
-        .order-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 8px; }
-        .table-no { font-weight: 800; font-size: 16px; color: #333; }
-        .order-time { font-size: 12px; color: #bbb; }
+        .rank-box { background: #fff; border-radius: 24px; padding: 20px; margin-bottom: 15px; border: 1px solid #eee; }
+        .rank-title { font-size: 17px; font-weight: 800; margin-bottom: 15px; }
+        .rank-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f9f9f9; }
+        .rank-num { width: 24px; height: 24px; border-radius: 8px; background: #f0f0f0; font-size: 12px; display: flex; align-items: center; justify-content: center; color: #777; font-weight: bold; }
+        .rank-top3 { background: var(--gold); color: #fff; }
+        .rank-name { font-size: 15px; font-weight: 500; }
+        .rank-qty { font-weight: 800; color: var(--primary); font-size: 16px; }
 
-        /* 新增：支付方式和备注的样式 */
-        .pay-method-tag { font-size: 11px; padding: 2px 6px; border-radius: 5px; margin-left: 8px; font-weight: bold; }
+        .order-card { background: white; padding: 18px; border-radius: 22px; margin-bottom: 12px; border: 1px solid #f0f0f0; }
+        .order-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; border-bottom: 1px dashed #eee; padding-bottom: 10px; }
+        .table-no { font-weight: 800; font-size: 18px; color: #333; }
+        .pay-method-tag { font-size: 12px; padding: 3px 8px; border-radius: 6px; margin-left: 8px; font-weight: bold; }
         .method-cash { background: #e8f5e9; color: #2e7d32; }
         .method-transfer { background: #e3f2fd; color: #1565c0; }
-        .settle-remark { background: #fff5eb; color: #d35400; font-size: 12px; padding: 4px 8px; border-radius: 6px; margin-top: 8px; display: block; border: 1px solid #ffe0c1; }
+        
+        /* 详情文本稍微加大，方便阅读 */
+        .food-row { display: flex; justify-content: space-between; font-size: 15px; margin-bottom: 6px; color: #444; }
+        .settle-remark { background: #fff5eb; color: #d35400; font-size: 13px; padding: 8px 12px; border-radius: 10px; margin-top: 10px; display: block; border: 1px solid #ffe0c1; }
 
-        .btn-del { background: #f5f5f5; color: #ccc; border: none; width: 28px; height: 28px; border-radius: 8px; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        .btn-del:active { background: #ffebeb; color: #ff4d4d; }
+        .order-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 12px; border-top: 1px solid #f9f9f9; padding-top: 10px; }
+        .btn-del { background: #fdfdfd; color: #ddd; border: 1px solid #eee; width: 32px; height: 32px; border-radius: 10px; font-size: 20px; display: flex; align-items: center; justify-content: center; }
+        .total-info { text-align: right; }
+        .final-pay { font-weight: 900; color: #FF4500; font-size: 18px; }
 
-        .order-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px; border-top: 1px solid #f9f9f9; padding-top: 8px; }
-        .total-info { text-align: right; flex-grow: 1; }
+        #pending-btn { transition: transform 0.2s; }
+        #pending-btn:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
@@ -61,7 +66,7 @@
             <a href="index.html" class="back-btn">返回</a>
             <a href="带结算.html" class="pending-link" id="pending-btn">待结算</a>
         </div>
-        <button onclick="exportDetailedCSV()" style="border:none; background:var(--success); color:white; padding:8px 12px; border-radius:10px; font-size:12px;">导出报表</button>
+        <button onclick="exportDetailedCSV()" class="export-btn">导出报表</button>
     </div>
 
     <div class="revenue-card">
@@ -79,11 +84,9 @@
     </div>
 
     <div class="rank-box" id="rank-section" style="display: none;">
-        <div class="rank-header">
-            <div class="rank-title">📊 菜品销量排行</div>
-        </div>
-        <div class="rank-list" id="rank-content"></div>
-        <button class="toggle-btn" id="toggle-rank-btn" onclick="toggleRank()">查看全部排行 ↓</button>
+        <div class="rank-title">📊 菜品销量排行</div>
+        <div id="rank-content"></div>
+        <button style="width:100%; padding:12px; margin-top:10px; background:none; border:none; color:var(--primary); font-size:14px; font-weight:bold;" id="toggle-rank-btn" onclick="toggleRank()">查看全部排行 ↓</button>
     </div>
 
     <div id="order-history"></div>
@@ -118,16 +121,10 @@
                 let pendingTotal = 0;
                 snap.forEach(doc => {
                     const d = doc.data();
-                    if (d.items) {
-                        d.items.forEach(item => {
-                            pendingTotal += (Number(item.price) * Number(item.quantity));
-                        });
-                    }
+                    if (d.items) d.items.forEach(item => { pendingTotal += (Number(item.price) * Number(item.quantity)); });
                 });
                 const btn = document.getElementById('pending-btn');
-                if (btn) {
-                    btn.innerText = `待结算 (${pendingTotal.toLocaleString()} Ks)`;
-                }
+                if (btn) btn.innerText = `待结算 (${pendingTotal.toLocaleString()} Ks)`;
             });
         }
 
@@ -146,8 +143,7 @@
                 displayOrders = allOrders.filter(o => o.date.toDateString() === now.toDateString());
                 title = "今日总营收";
             } else if (currentFilter === 'yesterday') {
-                const yesterday = new Date();
-                yesterday.setDate(now.getDate() - 1);
+                const yesterday = new Date(); yesterday.setDate(now.getDate() - 1);
                 displayOrders = allOrders.filter(o => o.date.toDateString() === yesterday.toDateString());
                 title = "昨日总营收";
             } else if (currentFilter === 'all') {
@@ -155,8 +151,7 @@
                 title = "全部历史营收";
             } else {
                 displayOrders = allOrders.filter(o => {
-                    const d = o.date.getDate();
-                    const m = o.date.getMonth();
+                    const d = o.date.getDate(); const m = o.date.getMonth();
                     return m === now.getMonth() && (currentFilter==='p1'? (d>=1&&d<=10): currentFilter==='p2'? (d>=11&&d<=20): (d>=21));
                 });
                 title = currentFilter==='p1'?"上旬营收":currentFilter==='p2'?"中旬营收":"下旬营收";
@@ -165,68 +160,55 @@
             document.getElementById('revenue-title').innerText = title;
             document.getElementById('today-total').innerText = displayOrders.reduce((s, o)=>s+(Number(o.total)||0), 0).toLocaleString() + ' Ks';
 
+            // 排行逻辑
             const salesMap = {};
             displayOrders.forEach(o => (o.items || []).forEach(i => salesMap[i.name] = (salesMap[i.name] || 0) + (Number(i.quantity) || 0)));
             const sortedSales = Object.entries(salesMap).sort((a, b) => b[1] - a[1]);
             const rankSection = document.getElementById('rank-section');
-            const rankContent = document.getElementById('rank-content');
-            const toggleBtn = document.getElementById('toggle-rank-btn');
-
             if (sortedSales.length > 0) {
                 rankSection.style.display = 'block';
                 const showCount = isRankExpanded ? sortedSales.length : 5;
-                toggleBtn.style.display = sortedSales.length > 5 ? 'block' : 'none';
-                rankContent.innerHTML = sortedSales.slice(0, showCount).map(([name, qty], idx) => `
+                document.getElementById('toggle-rank-btn').style.display = sortedSales.length > 5 ? 'block' : 'none';
+                document.getElementById('rank-content').innerHTML = sortedSales.slice(0, showCount).map(([name, qty], idx) => `
                     <div class="rank-item">
-                        <div class="rank-left">
+                        <div class="rank-left" style="display:flex; align-items:center; gap:12px;">
                             <div class="rank-num ${idx < 3 ? 'rank-top3' : ''}">${idx + 1}</div>
                             <div class="rank-name">${name}</div>
                         </div>
                         <div class="rank-qty">${qty} 份</div>
                     </div>
                 `).join('');
-            } else {
-                rankSection.style.display = 'none';
-            }
+            } else { rankSection.style.display = 'none'; }
 
-            const container = document.getElementById('order-history');
-            container.innerHTML = displayOrders.map(o => {
+            // 订单列表逻辑
+            document.getElementById('order-history').innerHTML = displayOrders.map(o => {
                 const discountValue = Number(o.discount || 0);
-                const discountHTML = discountValue > 0 ? `<div style="font-size:12px; color:#999;">已优惠: -${discountValue.toLocaleString()} Ks</div>` : '';
                 const timeStr = `${o.date.getHours().toString().padStart(2,'0')}:${o.date.getMinutes().toString().padStart(2,'0')}`;
-                
-                const deviceName = o.device || "未知设备";
-                
-                // 新增：支付方式显示逻辑
                 const payMethod = o.paymentMethod || "现金";
                 const methodClass = payMethod === "现金" ? "method-cash" : "method-transfer";
-                const methodIcon = payMethod === "现金" ? "💵" : "🏦";
 
                 return `
                 <div class="order-card">
                     <div class="order-top">
-                        <div style="display: flex; flex-direction: column;">
+                        <div>
                             <div style="display: flex; align-items: center;">
-                                <span class="table-no">桌号: ${o.table}</span>
-                                <span class="pay-method-tag ${methodClass}">${methodIcon} ${payMethod}</span>
+                                <span class="table-no"># ${o.table}</span>
+                                <span class="pay-method-tag ${methodClass}">${payMethod === "现金" ? "💵" : "🏦"} ${payMethod}</span>
                             </div>
-                            <span style="font-size: 10px; color: #aaa; margin-top: 2px;">📱 来源: ${deviceName}</span>
+                            <div style="font-size: 11px; color: #bbb; margin-top: 4px;">📱 ${o.device || "未知设备"}</div>
                         </div>
-                        <span class="order-time">${timeStr}</span>
+                        <span style="font-size:12px; color:#aaa;">${timeStr}</span>
                     </div>
-                    ${(o.items || []).map(i => `<div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:5px;"><span>${i.name}</span><span>x${i.quantity}</span></div>`).join('')}
-                    
-                    ${o.settleNote ? `<span class="settle-remark">结算备注: ${o.settleNote}</span>` : ''}
-                    
+                    ${(o.items || []).map(i => `<div class="food-row"><span>${i.name}</span><span>x${i.quantity}</span></div>`).join('')}
+                    ${o.settleNote ? `<span class="settle-remark">💬 ${o.settleNote}</span>` : ''}
                     <div class="order-footer">
-                        <button class="btn-del" onclick="deleteOrder('${o.id}')" title="删除订单">×</button>
+                        <button class="btn-del" onclick="deleteOrder('${o.id}')">×</button>
                         <div class="total-info">
-                            ${discountHTML}
-                            <div style="font-weight:800;color:#FF4500;font-size:16px;">实付: ${Number(o.total).toLocaleString()} Ks</div>
+                            ${discountValue > 0 ? `<div style="font-size:12px; color:#999; margin-bottom:2px;">已优: -${discountValue.toLocaleString()} Ks</div>` : ''}
+                            <div class="final-pay">实付: ${Number(o.total).toLocaleString()} Ks</div>
                         </div>
                     </div>
-                </div>
-            `}).join('');
+                </div>`}).join('');
         }
 
         function setFilter(f) {
@@ -238,11 +220,8 @@
 
         async function deleteOrder(id) {
             if(confirm("确定要删除这条订单吗？删除后营收数据会同步扣除。")) {
-                try {
-                    await db.collection("orders").doc(id).delete();
-                } catch (e) {
-                    alert("删除失败: " + e.message);
-                }
+                try { await db.collection("orders").doc(id).delete(); } 
+                catch (e) { alert("删除失败: " + e.message); }
             }
         }
 
