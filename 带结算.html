@@ -7,24 +7,17 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
-        /* --- 核心优化：背景色与 index.html 保持一致，消除缝隙感 --- */
         body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background-color: #fff; color: #333; }
         .admin-container { width: 100%; max-width: 1400px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
         .admin-header { background: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #eee; padding-top: calc(10px + env(safe-area-inset-top)); }
-        
         .btn-back { background: #f0f0f0; color: #666; padding: 6px 15px; border-radius: 20px; font-size: 13px; cursor: pointer; text-decoration: none; font-weight: 500; }
         .order-list { padding: 15px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
-        @media (max-width: 450px) { .order-list { grid-column-gap: 0; padding: 10px 0; } } /* 手机端取消左右间距 */
-
-        /* 优化 2：移除阴影，确保贴边感 */
+        @media (max-width: 450px) { .order-list { grid-column-gap: 0; padding: 10px 0; } }
         .order-card { background: white; border-radius: 18px; padding: 15px; box-shadow: none; border-bottom: 1px solid #eee; display: flex; flex-direction: column; position: relative; margin-bottom: 10px; }
         .table-label { background: #ff8c2d; color: white; padding: 4px 12px; border-radius: 8px; font-weight: bold; font-size: 18px; margin-bottom: 12px; align-self: flex-start; }
-        
-        /* 优化 3：输入框全部设为 16px，彻底解决 iOS 点击放大问题 */
         .mini-input { border: 1px solid #ddd; border-radius: 8px; padding: 10px; font-size: 16px; outline: none; background: #fafafa; -webkit-appearance: none; }
         .disc-input { width: 85px; color: #ff5e1a; font-weight: bold; text-align: center; }
         .note-input { flex: 1; }
-
         .orders-wrapper { position: relative; max-height: 200px; overflow: hidden; transition: max-height 0.4s ease; }
         .orders-wrapper.expanded { max-height: 5000px; }
         .fade-overlay { position: absolute; bottom: 0; left: 0; right: 0; height: 40px; background: linear-gradient(to top, white, rgba(255,255,255,0)); pointer-events: none; z-index: 2; }
@@ -48,6 +41,7 @@
         .total-price::after { content: " Ks"; font-size: 13px; margin-left: 2px; }
         .btn-pay { background: #32d74b; color: white; padding: 10px 22px; border-radius: 12px; font-size: 16px; font-weight: bold; border: none; cursor: pointer; }
         #toast { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); color: white; padding: 16px 32px; border-radius: 50px; z-index: 1000; font-weight: bold; }
+        .debug-panel { background: #f0f0f0; padding: 8px; margin: 10px; border-radius: 8px; font-size: 11px; display: none; }
     </style>
 </head>
 <body>
@@ -107,9 +101,225 @@
 
     function getDeviceName() {
         const ua = navigator.userAgent;
-        if (/iPhone/i.test(ua)) return "iPhone 14ProMax";
-        if (/Macintosh/i.test(ua)) return "MacBook 2018";
+        if (/iPhone/i.test(ua)) return "iPhone";
+        if (/Macintosh/i.test(ua)) return "MacBook";
         return "其它设备";
+    }
+
+    // ========= 自动扣减库存 + 写入历史记录（完全兼容出入库程序）=========
+    async function deductStockFromInventory(orderItems, tableNum) {
+        console.log("========== 开始扣减库存 ==========");
+        console.log("订单商品列表:", JSON.stringify(orderItems, null, 2));
+        
+        // 获取所有库存商品
+        const inventorySnapshot = await db.collection("inventory").get();
+        
+        if (inventorySnapshot.empty) {
+            console.log("❌ 库存集合为空！请先在出入库程序中添加商品");
+            return ["⚠️ 库存系统为空，请先在出入库程序中添加商品"];
+        }
+        
+        // 构建 Map，key 是商品名称（统一转小写比较）
+        const inventoryMap = new Map();
+        
+        inventorySnapshot.forEach(doc => {
+            const data = doc.data();
+            // 兼容 name 或 productName 字段（出入库程序用的是 name）
+            const productName = data.name || data.productName;
+            if (productName) {
+                inventoryMap.set(productName.trim().toLowerCase(), { 
+                    id: doc.id, 
+                    ...data, 
+                    originalName: productName 
+                });
+                console.log(`📦 库存商品: "${productName}" (库存: ${data.stock} ${data.unit || ''})`);
+            }
+        });
+        
+        console.log(`共找到 ${inventoryMap.size} 个库存商品`);
+        
+        let errorMessages = [];
+        let successItems = []; // 记录成功扣减的商品，用于写入历史
+        
+        // 遍历订单中的每个菜品
+        for (let item of orderItems) {
+            const itemName = item.name;
+            const quantityToDeduct = Number(item.quantity) || 0;
+            
+            if (!itemName || quantityToDeduct <= 0) {
+                continue;
+            }
+            
+            console.log(`\n🔍 处理: "${itemName}", 数量: ${quantityToDeduct}`);
+            
+            // 标准化查找
+            const normalizedItemName = itemName.trim().toLowerCase();
+            let inventoryItem = inventoryMap.get(normalizedItemName);
+            
+            // 如果没找到，尝试去除末尾标点符号再匹配
+            if (!inventoryItem) {
+                const cleanedName = normalizedItemName.replace(/[.,，。、!！?？]$/, '');
+                if (cleanedName !== normalizedItemName) {
+                    inventoryItem = inventoryMap.get(cleanedName);
+                    if (inventoryItem) {
+                        console.log(`✅ 模糊匹配成功: "${itemName}" → "${inventoryItem.originalName}"`);
+                    }
+                }
+            }
+            
+            if (!inventoryItem) {
+                console.log(`❌ 未找到商品: "${itemName}"`);
+                errorMessages.push(`⚠️ 库存中未找到商品“${itemName}”`);
+                continue;
+            }
+            
+            // 检查库存是否充足
+            if (inventoryItem.stock < quantityToDeduct) {
+                errorMessages.push(`❌ 商品“${itemName}”库存不足（现有 ${inventoryItem.stock}，需要 ${quantityToDeduct}）`);
+                console.log(`❌ 库存不足: ${itemName}`);
+                continue;
+            }
+            
+            const newStock = inventoryItem.stock - quantityToDeduct;
+            
+            try {
+                // 更新库存
+                await db.collection("inventory").doc(inventoryItem.id).update({ stock: newStock });
+                console.log(`✅ 扣减成功：${itemName} ${inventoryItem.stock} → ${newStock}`);
+                
+                // 记录成功扣减的商品，稍后写入历史
+                successItems.push({
+                    productId: inventoryItem.id,
+                    productName: inventoryItem.originalName,
+                    oldStock: inventoryItem.stock,
+                    newStock: newStock,
+                    quantity: quantityToDeduct,
+                    unit: inventoryItem.unit || '个',
+                    type: 'out',
+                    tableNum: tableNum
+                });
+                
+            } catch (err) {
+                console.error(`❌ 更新失败: ${itemName}`, err);
+                errorMessages.push(`❌ 更新库存失败（${itemName}）: ${err.message}`);
+            }
+        }
+        
+        // ========= 写入库存历史记录（关键修复！）=========
+        if (successItems.length > 0) {
+            console.log(`\n📝 正在写入 ${successItems.length} 条库存历史记录...`);
+            const historyBatch = db.batch();
+            const nowTimestamp = firebase.firestore.FieldValue.serverTimestamp();
+            const nowStr = new Date().toLocaleString('zh-CN');
+            
+            for (let item of successItems) {
+                const historyRef = db.collection("inventory_history").doc(); // 自动生成ID
+                const historyRecord = {
+                    id: Date.now() + Math.floor(Math.random() * 10000),
+                    timestamp: nowStr,
+                    timestampServer: nowTimestamp,
+                    productName: item.productName,
+                    productId: item.productId,
+                    type: 'out',  // 'out' 表示出库（售卖扣减）
+                    quantity: item.quantity,
+                    unit: item.unit,
+                    oldStock: item.oldStock,
+                    newStock: item.newStock,
+                    source: 'pos-settlement',  // 标记来源：来自点餐系统结算
+                    tableNum: item.tableNum    // 记录是哪一桌结算的
+                };
+                historyBatch.set(historyRef, historyRecord);
+                console.log(`   ✅ 历史记录: ${item.productName} 出库 ${item.quantity}${item.unit} (${item.oldStock} → ${item.newStock})`);
+            }
+            
+            try {
+                await historyBatch.commit();
+                console.log("✅ 所有库存历史记录已成功写入 inventory_history 集合");
+            } catch (histError) {
+                console.error("❌ 写入历史记录失败:", histError);
+                errorMessages.push(`⚠️ 历史记录写入失败: ${histError.message}，但库存已更新`);
+            }
+        } else {
+            console.log("⚠️ 没有商品成功扣减，跳过历史记录写入");
+        }
+        
+        console.log(`\n========== 扣减完成 ==========`);
+        console.log(`成功扣减: ${successItems.length} 种商品`);
+        if (errorMessages.length > 0) {
+            console.log(`警告/错误:`, errorMessages);
+        }
+        
+        return errorMessages;
+    }
+
+    async function confirmPay(tableNum, originalTotal) {
+        const disc = Number(document.getElementById(`disc-${tableNum}`).value) || 0;
+        const final = originalTotal - disc;
+        const method = tablePayMethods[tableNum];
+        const settleNote = document.getElementById(`note-${tableNum}`).value;
+        const deviceName = localStorage.getItem('deviceName') || getDeviceName();
+
+        if(!confirm(`#${tableNum}号桌 确认结算？\n\n实收: ${final.toLocaleString()} Ks\n方式: ${method}`)) return;
+
+        try {
+            // 获取该桌所有订单
+            const snap = await db.collection("pending_orders").where("table", "==", tableNum).get();
+            const allItems = [];
+            const ids = [];
+            snap.forEach(doc => {
+                const data = doc.data();
+                if (data.items && data.items.length > 0) {
+                    allItems.push(...data.items);
+                }
+                ids.push(doc.id);
+            });
+
+            console.log("该桌所有商品明细:", allItems);
+
+            // 扣减库存（会自动写入历史记录）
+            const stockErrors = await deductStockFromInventory(allItems, tableNum);
+            
+            if (stockErrors.length > 0) {
+                const errorMsg = stockErrors.join("\n");
+                const continueAnyway = confirm(`⚠️ 库存问题：\n\n${errorMsg}\n\n是否继续结账？`);
+                if (!continueAnyway) {
+                    return;
+                }
+            }
+
+            // 保存到历史订单
+            await db.collection("orders").add({
+                table: tableNum,
+                total: final,
+                discount: disc,
+                paymentMethod: method,
+                settleNote: settleNote,
+                items: allItems,
+                device: deviceName,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                type: "快速结算"
+            });
+
+            // 删除待结算订单
+            const batch = db.batch();
+            ids.forEach(id => batch.delete(db.collection("pending_orders").doc(id)));
+            await batch.commit();
+            
+            let successMsg = `✅ #${tableNum}号桌 结算成功！`;
+            if (stockErrors.length > 0) {
+                successMsg += ` 但部分商品库存未扣减，请检查出入库程序。`;
+            } else {
+                successMsg += ` 库存已自动扣减，可在出入库程序历史中查看。`;
+            }
+            showToast(successMsg);
+        } catch (e) { 
+            console.error("结算错误:", e);
+            alert("结算失败: " + e.message); 
+        }
+    }
+
+    async function deleteOrder(id) {
+        if(confirm("确定取消吗？")) await db.collection("pending_orders").doc(id).delete();
     }
 
     function startListening() {
@@ -137,10 +347,13 @@
                 orders.forEach((order, index) => {
                     const tag = index === 0 ? "初始" : "加单";
                     const time = order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "...";
-                    let itemsHtml = order.items.map(i => {
-                        tableTotal += (Number(i.price) * Number(i.quantity));
-                        return `<div class="food-item"><span>${i.name} × ${i.quantity}</span><span class="item-price-tag">(${Number(i.price).toLocaleString()} Ks)</span></div>`;
-                    }).join('');
+                    let itemsHtml = '';
+                    if (order.items) {
+                        itemsHtml = order.items.map(i => {
+                            tableTotal += (Number(i.price) * Number(i.quantity));
+                            return `<div class="food-item"><span>${i.name} × ${i.quantity}</span><span class="item-price-tag">(${Number(i.price).toLocaleString()} Ks)</span></div>`;
+                        }).join('');
+                    }
 
                     ordersHtml += `<div class="sub-order"><div class="order-header"><div><span class="order-tag">${tag}</span><span class="order-time">${time}</span><span class="device-tag">📱 ${order.device||'未知'}</span></div><div class="btn-cancel-small" onclick="deleteOrder('${order.docId}')">取消</div></div>${itemsHtml}${order.notes && order.notes !== '无备注' ? `<div class="remark-box">💬 ${order.notes}</div>` : ''}</div>`;
                 });
@@ -168,49 +381,6 @@
                 container.appendChild(card);
             });
         });
-    }
-
-    async function deleteOrder(id) {
-        if(confirm("确定取消吗？")) await db.collection("pending_orders").doc(id).delete();
-    }
-
-    async function confirmPay(tableNum, originalTotal) {
-        const disc = Number(document.getElementById(`disc-${tableNum}`).value) || 0;
-        const final = originalTotal - disc;
-        const method = tablePayMethods[tableNum];
-        const settleNote = document.getElementById(`note-${tableNum}`).value;
-        
-        // 动态获取存放在本地的设备名，如果没有则取默认
-        const deviceName = localStorage.getItem('deviceName') || getDeviceName();
-
-        if(!confirm(`#${tableNum}号桌 确认结算？\n\n实收: ${final.toLocaleString()} Ks\n方式: ${method}`)) return;
-
-        try {
-            const snap = await db.collection("pending_orders").where("table", "==", tableNum).get();
-            const allItems = [];
-            const ids = [];
-            snap.forEach(doc => {
-                allItems.push(...doc.data().items);
-                ids.push(doc.id);
-            });
-
-            await db.collection("orders").add({
-                table: tableNum,
-                total: final,
-                discount: disc,
-                paymentMethod: method,
-                settleNote: settleNote,
-                items: allItems,
-                device: deviceName,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                type: "快速结算"
-            });
-
-            const batch = db.batch();
-            ids.forEach(id => batch.delete(db.collection("pending_orders").doc(id)));
-            await batch.commit();
-            showToast("✅ 结算成功！");
-        } catch (e) { alert("失败: " + e.message); }
     }
 
     window.onload = startListening;
