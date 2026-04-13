@@ -50,7 +50,7 @@
 
 <div class="admin-container">
     <div class="admin-header">
-        <a href="index.html" class="btn-back">⬅ 返回点餐</a>
+        <a href="index.html" class="btn-back">⬅ 返回</a>
         <div style="text-align:right">
             <div style="font-size:14px; font-weight:bold;">待结算订单</div>
             <div id="online-status" style="font-size:10px; color:#32d74b;">● 实时同步中</div>
@@ -106,17 +106,17 @@
         return "其它设备";
     }
 
-    // ========= 自动扣减库存 + 写入历史记录（完全兼容出入库程序）=========
+    // ========= 静默扣减库存 + 写入历史记录（完全兼容出入库程序，无任何弹窗提示）=========
     async function deductStockFromInventory(orderItems, tableNum) {
-        console.log("========== 开始扣减库存 ==========");
+        console.log("========== 开始扣减库存（静默模式）==========");
         console.log("订单商品列表:", JSON.stringify(orderItems, null, 2));
         
         // 获取所有库存商品
         const inventorySnapshot = await db.collection("inventory").get();
         
         if (inventorySnapshot.empty) {
-            console.log("❌ 库存集合为空！请先在出入库程序中添加商品");
-            return ["⚠️ 库存系统为空，请先在出入库程序中添加商品"];
+            console.log("❌ 库存集合为空！跳过扣减");
+            return []; // 直接返回空数组，不弹出任何提示
         }
         
         // 构建 Map，key 是商品名称（统一转小写比较）
@@ -138,7 +138,6 @@
         
         console.log(`共找到 ${inventoryMap.size} 个库存商品`);
         
-        let errorMessages = [];
         let successItems = []; // 记录成功扣减的商品，用于写入历史
         
         // 遍历订单中的每个菜品
@@ -168,15 +167,13 @@
             }
             
             if (!inventoryItem) {
-                console.log(`❌ 未找到商品: "${itemName}"`);
-                errorMessages.push(`⚠️ 库存中未找到商品“${itemName}”`);
+                console.log(`❌ 未找到商品: "${itemName}"，跳过扣减`);
                 continue;
             }
             
-            // 检查库存是否充足
+            // 检查库存是否充足，如果不充足则跳过此商品（不扣减，也不报错）
             if (inventoryItem.stock < quantityToDeduct) {
-                errorMessages.push(`❌ 商品“${itemName}”库存不足（现有 ${inventoryItem.stock}，需要 ${quantityToDeduct}）`);
-                console.log(`❌ 库存不足: ${itemName}`);
+                console.log(`⚠️ 商品“${itemName}”库存不足（现有 ${inventoryItem.stock}，需要 ${quantityToDeduct}），跳过扣减`);
                 continue;
             }
             
@@ -201,7 +198,7 @@
                 
             } catch (err) {
                 console.error(`❌ 更新失败: ${itemName}`, err);
-                errorMessages.push(`❌ 更新库存失败（${itemName}）: ${err.message}`);
+                // 静默失败，不弹出提示
             }
         }
         
@@ -237,7 +234,7 @@
                 console.log("✅ 所有库存历史记录已成功写入 inventory_history 集合");
             } catch (histError) {
                 console.error("❌ 写入历史记录失败:", histError);
-                errorMessages.push(`⚠️ 历史记录写入失败: ${histError.message}，但库存已更新`);
+                // 静默失败，不弹出提示
             }
         } else {
             console.log("⚠️ 没有商品成功扣减，跳过历史记录写入");
@@ -245,11 +242,8 @@
         
         console.log(`\n========== 扣减完成 ==========`);
         console.log(`成功扣减: ${successItems.length} 种商品`);
-        if (errorMessages.length > 0) {
-            console.log(`警告/错误:`, errorMessages);
-        }
         
-        return errorMessages;
+        return []; // 始终返回空数组，避免任何弹窗提示
     }
 
     async function confirmPay(tableNum, originalTotal) {
@@ -276,16 +270,8 @@
 
             console.log("该桌所有商品明细:", allItems);
 
-            // 扣减库存（会自动写入历史记录）
-            const stockErrors = await deductStockFromInventory(allItems, tableNum);
-            
-            if (stockErrors.length > 0) {
-                const errorMsg = stockErrors.join("\n");
-                const continueAnyway = confirm(`⚠️ 库存问题：\n\n${errorMsg}\n\n是否继续结账？`);
-                if (!continueAnyway) {
-                    return;
-                }
-            }
+            // 静默扣减库存（会自动写入历史记录，无任何弹窗）
+            await deductStockFromInventory(allItems, tableNum);
 
             // 保存到历史订单
             await db.collection("orders").add({
@@ -305,13 +291,8 @@
             ids.forEach(id => batch.delete(db.collection("pending_orders").doc(id)));
             await batch.commit();
             
-            let successMsg = `✅ #${tableNum}号桌 结算成功！`;
-            if (stockErrors.length > 0) {
-                successMsg += ` 但部分商品库存未扣减，请检查出入库程序。`;
-            } else {
-                successMsg += ` 库存已自动扣减，可在出入库程序历史中查看。`;
-            }
-            showToast(successMsg);
+            // 简洁的成功提示，不提及库存相关
+            showToast(`✅ #${tableNum}号桌 结算成功！`);
         } catch (e) { 
             console.error("结算错误:", e);
             alert("结算失败: " + e.message); 
