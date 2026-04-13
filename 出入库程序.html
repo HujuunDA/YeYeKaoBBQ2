@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-    <title>烧烤库存·自动扣减 | 手机优化版</title>
+    <title>烧烤库存·自动扣减 | 网格选品版</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
@@ -16,7 +16,6 @@
         .back-btn:active { background: #f2f2f5; transform: scale(0.95); }
         .header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; background: linear-gradient(135deg, #c2410c, #e65c1e); background-clip: text; -webkit-background-clip: text; color: transparent; display: inline-flex; align-items: center; gap: 6px; }
         .header p { font-size: 13px; color: #8e8e93; margin-top: 4px; }
-        .clear-trash { position: absolute; top: 0; right: 0; background: transparent; border: none; font-size: 24px; cursor: pointer; color: #8e8e93; padding: 8px; }
         .card { background: rgba(255, 255, 255, 0.96); border-radius: 24px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); padding: 18px 16px 20px; margin-bottom: 16px; border: 0.5px solid rgba(224, 224, 230, 0.6); }
         .form-group { margin-bottom: 16px; }
         .form-label { font-size: 14px; font-weight: 600; color: #1c1c1e; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
@@ -30,20 +29,65 @@
         .btn { border: none; border-radius: 14px; padding: 12px 16px; font-weight: 600; font-size: 16px; width: 100%; cursor: pointer; transition: 0.2s; }
         .btn-primary { background: #c2410c; color: white; }
         .btn-primary:active { background: #9a3412; transform: scale(0.97); }
-        .btn-success { background: #2c6e4e; color: white; }
-        .btn-success:active { background: #20573d; transform: scale(0.97);}
+        /* 出库按钮 - 红色系 */
+        .btn-outstock { background: #dc2626; color: white; }
+        .btn-outstock:active { background: #b91c1c; transform: scale(0.97); }
+        /* 入库按钮 - 绿色系 */
+        .btn-instock { background: #16a34a; color: white; }
+        .btn-instock:active { background: #15803d; transform: scale(0.97); }
         .segmented-control { background: #e9e9ef; border-radius: 100px; padding: 4px; display: flex; gap: 6px; margin-bottom: 16px; }
         .segment { flex: 1; text-align: center; padding: 7px 0; font-size: 13px; font-weight: 500; border-radius: 40px; background: transparent; color: #5e5e66; cursor: pointer; border: none; }
         .segment.active { background: #ffffff; color: #c2410c; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08); font-weight: 600; }
-        .table-wrapper { overflow-x: auto; border-radius: 20px; margin-bottom: 8px; }
-        .inventory-table, .history-table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 420px; }
-        .inventory-table th, .history-table th { text-align: left; padding: 12px 6px 8px 6px; font-size: 12px; color: #6c6c70; border-bottom: 0.5px solid #e3e3e8; }
-        .inventory-table td, .history-table td { padding: 12px 6px; border-bottom: 0.5px solid #efeff4; font-size: 13px; color: #1c1c1e; }
-        .stock-badge { font-weight: 600; background: #f2f2f5; padding: 3px 10px; border-radius: 30px; font-size: 13px; display: inline-block; }
+        .table-wrapper { overflow-x: auto; border-radius: 20px; margin-bottom: 8px; -webkit-overflow-scrolling: touch; }
+        .inventory-table, .history-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .inventory-table th, .history-table th { text-align: left; padding: 12px 8px 8px 8px; font-size: 12px; color: #6c6c70; border-bottom: 0.5px solid #e3e3e8; }
+        .inventory-table td, .history-table td { padding: 12px 8px; border-bottom: 0.5px solid #efeff4; font-size: 13px; color: #1c1c1e; vertical-align: middle; }
+        .inventory-table th:first-child, .inventory-table td:first-child { width: auto; min-width: 80px; }
+        .inventory-table th:nth-child(2), .inventory-table td:nth-child(2) { width: 68px; }
+        .inventory-table th:nth-child(3), .inventory-table td:nth-child(3) { width: 55px; text-align: center; }
+        .inventory-table th:nth-child(4), .inventory-table td:nth-child(4) { width: 50px; text-align: center; }
+        .inventory-table th:last-child, .inventory-table td:last-child { width: 44px; text-align: center; }
+        .history-table th:first-child, .history-table td:first-child { width: 92px; }
+        .history-table th:nth-child(2), .history-table td:nth-child(2) { width: auto; min-width: 70px; }
+        .history-table th:nth-child(3), .history-table td:nth-child(3) { width: 70px; text-align: center; }
+        .history-table th:nth-child(4), .history-table td:nth-child(4) { width: 68px; text-align: center; }
+        .history-table th:last-child, .history-table td:last-child { width: 60px; text-align: center; }
+        
+        .stock-badge { font-weight: 600; background: #f2f2f5; padding: 3px 10px; border-radius: 30px; font-size: 13px; display: inline-block; text-align: center; width: 100%; box-sizing: border-box; }
         .stock-low { background: #fee2e2; color: #b91c1c; }
-        .category-tag { font-size: 11px; padding: 3px 8px; border-radius: 40px; font-weight: 500; background: #eef2ff; color: #1e40af; }
+        .category-tag { font-size: 11px; padding: 3px 8px; border-radius: 40px; font-weight: 500; background: #eef2ff; color: #1e40af; display: inline-block; white-space: nowrap; }
         .category-drink { background: #e6f7ec; color: #166534; }
-        .delete-btn { background: none; border: none; font-size: 18px; cursor: pointer; color: #8e8e93; }
+        
+        /* 优化的历史记录标签样式 - 参考分类tag风格 */
+        .history-type-badge {
+            font-size: 11px;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-weight: 600;
+            display: inline-block;
+            white-space: nowrap;
+            letter-spacing: 0.3px;
+            text-align: center;
+            min-width: 52px;
+        }
+        .history-badge-in {
+            background: #e6f7ec;
+            color: #166534;
+            box-shadow: inset 0 0 0 0.5px rgba(22, 101, 52, 0.1);
+        }
+        .history-badge-out {
+            background: #fee2e2;
+            color: #b91c1c;
+            box-shadow: inset 0 0 0 0.5px rgba(185, 28, 28, 0.1);
+        }
+        /* 确保表格对齐完美 */
+        .history-table td:nth-child(3) {
+            text-align: center;
+            vertical-align: middle;
+        }
+        
+        .delete-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: #8e8e93; padding: 4px 6px; display: inline-flex; align-items: center; justify-content: center; border-radius: 30px; background: #f2f2f5; width: 32px; height: 32px; }
+        .delete-btn:active { background: #e5e5ea; transform: scale(0.96); }
         .stats-row { display: flex; justify-content: space-between; background: #f9f9fb; border-radius: 20px; padding: 12px 12px; margin-top: 12px; flex-wrap: wrap; gap: 8px; }
         .stat-item { text-align: center; flex: 1; }
         .stat-value { font-size: 20px; font-weight: 700; color: #1c1c1e; }
@@ -51,73 +95,186 @@
         .message-bubble { background: #e9f5ff; border-radius: 40px; padding: 8px 14px; font-size: 12px; margin-top: 14px; text-align: center; color: #0369a1; }
         .flex-between { display: flex; justify-content: space-between; align-items: baseline; }
         .total-badge { background: #e9e9ef; padding: 4px 10px; border-radius: 40px; font-size: 12px; }
-        .time-text { font-size: 11px; color: #8e8e93; font-family: monospace; }
-        .history-badge-in { background: #e0f2e9; color: #2c6e4e; padding: 2px 10px; border-radius: 30px; font-size: 11px; font-weight: 600; display: inline-block; }
-        .history-badge-out { background: #fee2e2; color: #b45353; padding: 2px 10px; border-radius: 30px; font-size: 11px; font-weight: 600; }
-        .history-scroll { max-height: 360px; overflow-y: auto; border-radius: 16px; }
+        
+        /* 历史时间双层样式 */
+        .history-time-cell { display: flex; flex-direction: column; line-height: 1.3; }
+        .history-date { font-size: 11px; font-weight: 500; color: #1c1c1e; font-family: monospace; }
+        .history-time { font-size: 10px; color: #8e8e93; font-family: monospace; margin-top: 2px; }
+        
+        .history-scroll { max-height: 360px; overflow-y: auto; border-radius: 16px; -webkit-overflow-scrolling: touch; }
         .section-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-        .undo-btn { background: #f2f2f5; border: none; padding: 4px 12px; border-radius: 30px; font-size: 11px; font-weight: 500; color: #c2410c; cursor: pointer; }
+        .undo-btn { background: #f2f2f5; border: none; padding: 6px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; color: #c2410c; cursor: pointer; white-space: nowrap; }
+        .undo-btn:active { background: #e5e5ea; transform: scale(0.96); }
         .loading { text-align: center; padding: 20px; color: #8e8e93; }
+        
+        /* 商品网格样式 */
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+            max-height: 280px;
+            overflow-y: auto;
+            padding: 4px 0;
+        }
+        .product-card {
+            background: #f9f9fb;
+            border-radius: 16px;
+            padding: 12px 6px;
+            text-align: center;
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            border: 0.5px solid #e3e3e8;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .product-card.selected {
+            background: #c2410c;
+            color: white;
+            border-color: #c2410c;
+            transform: scale(0.98);
+        }
+        .product-name { font-size: 13px; margin-bottom: 4px; word-break: keep-all; }
+        .product-stock { font-size: 12px; opacity: 0.8; }
+        .selected .product-stock { color: rgba(255,255,255,0.9); }
+        
+        /* 双按钮布局 */
+        .double-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        .double-buttons .btn {
+            flex: 1;
+            margin-top: 0;
+        }
+        
+        .fab-add {
+            position: fixed;
+            bottom: 24px;
+            right: 20px;
+            background: #c2410c;
+            width: 56px;
+            height: 56px;
+            border-radius: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 28px;
+            font-weight: 400;
+            box-shadow: 0 4px 12px rgba(194, 65, 12, 0.35);
+            cursor: pointer;
+            border: none;
+            z-index: 1000;
+            transition: 0.2s;
+        }
+        .fab-add:active { transform: scale(0.92); background: #9a3412; }
+        .modal-mask {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            visibility: hidden;
+            opacity: 0;
+            transition: 0.2s;
+        }
+        .modal-mask.active {
+            visibility: visible;
+            opacity: 1;
+        }
+        .modal-container {
+            background: white;
+            width: 90%;
+            max-width: 380px;
+            border-radius: 32px;
+            padding: 24px 20px 28px;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .modal-header {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #1c1c1e;
+        }
+        .modal-close {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            font-size: 24px;
+            background: none;
+            border: none;
+            color: #8e8e93;
+            cursor: pointer;
+        }
+        .modal-footer {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        .modal-footer .btn { flex: 1; }
+        .btn-outline {
+            background: #f2f2f5;
+            color: #c2410c;
+        }
+        .original-add-card { display: none; }
+        @media (max-width: 480px) {
+            .inventory-table th, .inventory-table td { padding: 10px 6px; }
+            .history-table th, .history-table td { padding: 10px 6px; }
+            .history-table th:first-child, .history-table td:first-child { width: 85px; }
+            .history-table th:last-child, .history-table td:last-child { width: 55px; }
+            .history-table th:nth-child(3), .history-table td:nth-child(3) { width: 64px; }
+        }
     </style>
 </head>
 <body>
 <div class="mobile-container">
     <div class="header">
-        <a href="index.html" class="back-btn">⬅ 返回点单</a>
-        <h1>🍢 烤仓 · 冰饮管家</h1>
-        <p>自动同步 | 可撤销历史</p>
-        <button id="clearAllBtn" class="clear-trash" title="清空全部数据">🗑️</button>
+        <a href="index.html" class="back-btn">⬅ 返回</a>
+        <h1>库存管理</h1>
+        
+        <!-- 垃圾桶按钮已移除 -->
     </div>
 
-    <div class="card">
-        <div class="form-label">➕ 新增商品</div>
-        <div class="form-group">
-            <input type="text" id="productName" class="ios-input" placeholder="例: 羊肉串、雪花啤酒" autocomplete="off">
-        </div>
-        <div class="row-2">
-            <div class="form-group">
-                <select id="category" class="ios-select">
-                    <option value="freeze">❄️ 冰冻食品</option>
-                    <option value="drink">🥤 饮料 / 酒水</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <input type="text" id="unit" class="ios-input" placeholder="单位" value="串">
-            </div>
-        </div>
-        <div class="unit-chips">
-            <span class="chip" data-unit="串">🍢 串</span>
-            <span class="chip" data-unit="袋">📦 袋</span>
-            <span class="chip" data-unit="箱">📦 箱</span>
-            <span class="chip" data-unit="瓶">🍾 瓶</span>
-            <span class="chip" data-unit="听">🥫 听</span>
-            <span class="chip" data-unit="斤">⚖️ 斤</span>
-        </div>
-        <div class="form-group" style="margin-top: 8px;">
-            <input type="number" id="initialStock" class="ios-input" value="0" min="0" step="1" placeholder="初始库存">
-        </div>
-        <button class="btn btn-primary" id="addProductBtn">✨ 添加商品</button>
-        <div id="addMessage" class="message-bubble" style="margin-top: 12px; display: none;"></div>
-    </div>
+    <div class="original-add-card" style="display:none;"></div>
 
+    <!-- 出入库卡片 - 全新网格交互 -->
     <div class="card">
-        <div class="form-label">🔄 快速出入库 · 可撤销</div>
+        <div class="form-label">🔄 快速出入库</div>
+        
+        <!-- 分类快速切换 -->
+        <div class="segmented-control" id="productCategoryFilter" style="margin-bottom: 12px;">
+            <button class="segment active" data-cat="all">全部</button>
+            <button class="segment" data-cat="freeze">❄️ 冰冻</button>
+            <button class="segment" data-cat="drink">🥤 饮料</button>
+        </div>
+
+        <!-- 商品网格区域 -->
+        <div id="productGrid" class="product-grid">
+            <div style="grid-column:span 3; text-align:center; padding:20px;">加载中...</div>
+        </div>
+
+        <!-- 操作行：只保留数量输入框 -->
         <div class="form-group">
-            <select id="selectProduct" class="ios-select"></select>
+            <input type="number" id="quantity" class="ios-input" value="1" min="1" step="1" placeholder="数量">
         </div>
-        <div class="row-2">
-            <div class="form-group">
-                <select id="operationType" class="ios-select">
-                    <option value="in">📥 入库 (进货)</option>
-                    <option value="out">📤 出库 (售卖)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <input type="number" id="quantity" class="ios-input" value="1" min="1" step="1">
-            </div>
+        
+        <!-- 双按钮布局：出库（红色） + 入库（绿色） -->
+        <div class="double-buttons">
+            <button class="btn btn-outstock" id="outstockBtn">📤 出库 (售卖)</button>
+            <button class="btn btn-instock" id="instockBtn">📥 入库 (进货)</button>
         </div>
-        <button class="btn btn-success" id="applyStockBtn">执行出入库</button>
-        <div id="actionMessage" class="message-bubble" style="margin-top: 12px;">✨ 操作后可在历史记录中撤销</div>
+        <div id="actionMessage" class="message-bubble" style="margin-top: 12px; display: none;"></div>
     </div>
 
     <div class="card" style="padding-bottom: 16px;">
@@ -133,8 +290,8 @@
         </div>
         <div class="table-wrapper">
             <table class="inventory-table">
-                <thead><tr><th>商品</th><th>分类</th><th>库存</th><th>单位</th><th></th></tr></thead>
-                <tbody id="tableBody"><tr><td colspan="5" class="loading">加载中...</td></tr></tbody>
+                <thead><tr><th>商品</th><th>分类</th><th>库存</th><th>单位</th><th></th></thead>
+                <tbody id="tableBody"><tr><td colspan="5" class="loading">加载中...</td></tr>
             </table>
         </div>
         <div class="stats-row">
@@ -152,10 +309,49 @@
         </div>
         <div class="history-scroll">
             <table class="history-table">
-                <thead><tr><th>时间</th><th>商品</th><th>类型</th><th>数量</th><th></th></tr></thead>
-                <tbody id="historyBody"><tr><td colspan="5" class="loading">加载中...</td></tr></tbody>
+                <thead><th>时间</th><th>商品</th><th>类型</th><th>数量</th><th></th></thead>
+                <tbody id="historyBody"><tr><td colspan="5" class="loading">加载中...</td></tr>
             </table>
         </div>
+    </div>
+</div>
+
+<button class="fab-add" id="fabAddBtn">+</button>
+
+<div id="productModal" class="modal-mask">
+    <div class="modal-container">
+        <button class="modal-close" id="closeModalBtn">&times;</button>
+        <div class="modal-header">➕ 新增食材</div>
+        <div class="form-group">
+            <input type="text" id="modalProductName" class="ios-input" placeholder="例: 羊肉串，饮料" autocomplete="off">
+        </div>
+        <div class="row-2">
+            <div class="form-group">
+                <select id="modalCategory" class="ios-select">
+                    <option value="freeze">❄️ 冰冻食品</option>
+                    <option value="drink">🥤 饮料 / 酒水</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <input type="text" id="modalUnit" class="ios-input" placeholder="单位" value="串">
+            </div>
+        </div>
+        <div class="unit-chips" id="modalUnitChips">
+            <span class="chip" data-unit="串">🍢 串</span>
+            <span class="chip" data-unit="袋">📦 袋</span>
+            <span class="chip" data-unit="箱">📦 箱</span>
+            <span class="chip" data-unit="瓶">🍾 瓶</span>
+            <span class="chip" data-unit="听">🥫 听</span>
+            <span class="chip" data-unit="斤">⚖️ 斤</span>
+        </div>
+        <div class="form-group" style="margin-top: 8px;">
+            <input type="number" id="modalInitialStock" class="ios-input" value="0" min="0" step="1" placeholder="初始库存">
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" id="cancelModalBtn">取消</button>
+            <button class="btn btn-primary" id="confirmAddBtn">添加商品</button>
+        </div>
+        <div id="modalMessage" class="message-bubble" style="margin-top: 12px; display: none;"></div>
     </div>
 </div>
 
@@ -175,15 +371,79 @@
     let products = [];
     let historyRecords = [];
     let currentFilter = "all";
+    // 网格相关变量
+    let currentProductFilter = "all";
+    let selectedProductId = null;
     
-    function showMessage(elId, msg, isError) {
-        const el = document.getElementById(elId);
+    function getCurrentTimestampWithoutSeconds() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        return `${year}/${month}/${day} ${hours}:${minutes}`;
+    }
+    
+    function formatHistoryTimestamp(timestampStr) {
+        let dateObj = new Date();
+        if (timestampStr && typeof timestampStr === 'string') {
+            let parsed = new Date(timestampStr.replace(/-/g, '/'));
+            if (!isNaN(parsed.getTime())) dateObj = parsed;
+        }
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        const hours = String(dateObj.getHours()).padStart(2, '0');
+        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+        return { dateStr: `${year}/${month}/${day}`, timeStr: `${hours}:${minutes}` };
+    }
+    
+    function showMessageInModal(msg, isError) {
+        const el = document.getElementById('modalMessage');
         if (el) {
             el.innerText = msg;
             el.style.display = 'block';
             el.style.color = isError ? '#b91c1c' : '#0369a1';
             setTimeout(() => el.style.display = 'none', 3000);
         }
+    }
+    
+    function showToastMessage(msg, isError) {
+        const el = document.getElementById('actionMessage');
+        if (el) {
+            el.innerText = msg;
+            el.style.display = 'block';
+            el.style.color = isError ? '#b91c1c' : '#0369a1';
+            setTimeout(() => el.style.display = 'none', 3000);
+        }
+    }
+    
+    // 渲染商品网格
+    function renderProductGrid() {
+        const grid = document.getElementById('productGrid');
+        if (!grid) return;
+        let filtered = products;
+        if (currentProductFilter !== 'all') {
+            filtered = products.filter(p => p.category === currentProductFilter);
+        }
+        if (filtered.length === 0) {
+            grid.innerHTML = '<div style="grid-column:span 3; text-align:center; color:#8e8e93; padding:20px;">暂无商品，请先添加</div>';
+            return;
+        }
+        grid.innerHTML = filtered.map(p => `
+            <div class="product-card ${selectedProductId === p.id ? 'selected' : ''}" data-id="${p.id}">
+                <div class="product-name">${escapeHtml(p.name)}</div>
+                <div class="product-stock">库存: ${p.stock} ${escapeHtml(p.unit)}</div>
+            </div>
+        `).join('');
+        document.querySelectorAll('.product-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                const id = card.dataset.id;
+                selectedProductId = id;
+                renderProductGrid();
+            });
+        });
     }
     
     async function loadData() {
@@ -194,7 +454,7 @@
                 products.push({ id: doc.id, ...doc.data() });
             });
             renderTable();
-            renderSelect();
+            renderProductGrid();    // 更新网格
             updateStats();
             
             const histSnap = await db.collection("inventory_history").orderBy("timestamp", "desc").get();
@@ -211,44 +471,52 @@
         let filtered = products;
         if (currentFilter === 'lowstock') filtered = products.filter(p => p.stock <= 5);
         else if (currentFilter !== 'all') filtered = products.filter(p => p.category === currentFilter);
-        
         if (!filtered.length) {
             tbody.innerHTML = '<tr><td colspan="5">暂无商品，请添加</td></tr>';
             return;
         }
         tbody.innerHTML = filtered.map(p => `
             <tr>
-                <td>${p.name}</td>
+                <td>${escapeHtml(p.name)}</td>
                 <td><span class="category-tag ${p.category==='drink'?'category-drink':''}">${p.category==='freeze'?'❄️ 冰冻':'🥤 饮料'}</span></td>
-                <td><span class="stock-badge ${p.stock<=5?'stock-low':''}">${p.stock}</span></td>
-                <td>${p.unit}</td>
-                <td><button class="delete-btn" onclick="deleteProduct('${p.id}')">🗑️</button></td>
+                <td style="text-align:center"><span class="stock-badge ${p.stock<=5?'stock-low':''}">${p.stock}</span></td>
+                <td style="text-align:center">${escapeHtml(p.unit)}</td>
+                <td style="text-align:center"><button class="delete-btn" onclick="deleteProduct('${p.id}')">🗑️</button></td>
             </tr>
         `).join('');
         document.getElementById('totalItemsBadge').innerText = `${products.length} 项`;
     }
     
-    function renderSelect() {
-        const sel = document.getElementById('selectProduct');
-        if (!products.length) { sel.innerHTML = '<option>暂无商品</option>'; return; }
-        sel.innerHTML = products.map(p => `<option value="${p.id}">${p.category==='freeze'?'❄️':'🥤'} ${p.name} (${p.stock} ${p.unit})</option>`).join('');
-    }
+    function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;});}
     
+    // 优化后的历史记录渲染 —— 采用类似分类标签的精致样式（出库/入库独立徽章）
     function renderHistory() {
         const tbody = document.getElementById('historyBody');
         if (!historyRecords.length) {
             tbody.innerHTML = '<tr><td colspan="5">暂无记录</td></tr>';
             return;
         }
-        tbody.innerHTML = historyRecords.slice(0, 50).map(r => `
-            <tr>
-                <td class="time-text">${r.timestamp}</td>
-                <td>${r.productName}</td>
-                <td><span class="${r.type==='in'?'history-badge-in':'history-badge-out'}">${r.type==='in'?'📥 入库':'📤 出库'}</span></td>
-                <td>${r.type==='in'?'+':'-'}${r.quantity} ${r.unit}</td>
-                <td><button class="undo-btn" onclick="undoHistory('${r.id}')">撤销</button></td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = historyRecords.slice(0, 50).map(r => {
+            let displayDate = '', displayTime = '';
+            if (r.timestamp) {
+                const formatted = formatHistoryTimestamp(r.timestamp);
+                displayDate = formatted.dateStr;
+                displayTime = formatted.timeStr;
+            } else { displayDate = '未知日期'; displayTime = ''; }
+            const typeText = r.type === 'in' ? '入库' : '出库';
+            // 应用优化样式：参考当前库存分类标签的圆润、底色和视觉层次，但保留各自语义色彩
+            const typeClass = r.type === 'in' ? 'history-badge-in' : 'history-badge-out';
+            const quantityPrefix = r.type === 'in' ? '+' : '-';
+            return `
+                <tr>
+                    <td><div class="history-time-cell"><span class="history-date">${escapeHtml(displayDate)}</span><span class="history-time">${escapeHtml(displayTime)}</span></div></td>
+                    <td>${escapeHtml(r.productName)}</td>
+                    <td style="text-align:center"><span class="history-type-badge ${typeClass}">${typeText}</span></td>
+                    <td style="text-align:center">${quantityPrefix}${r.quantity} ${escapeHtml(r.unit)}</td>
+                    <td style="text-align:center"><button class="undo-btn" onclick="undoHistory('${r.id}')">撤销</button></td>
+                </tr>
+            `;
+        }).join('');
     }
     
     function updateStats() {
@@ -261,7 +529,9 @@
     window.deleteProduct = async function(id) {
         if (!confirm('删除商品？')) return;
         await db.collection("inventory").doc(id).delete();
+        if(selectedProductId === id) selectedProductId = null;
         await loadData();
+        showToastMessage('商品已删除', false);
     };
     
     window.undoHistory = async function(historyId) {
@@ -269,108 +539,139 @@
         if (!record) return;
         const product = products.find(p => p.id === record.productId);
         if (!product || product.stock !== record.newStock) {
-            showMessage('actionMessage', '无法撤销：库存已变化', true);
+            showToastMessage('无法撤销：库存已变化', true);
             return;
         }
         await db.collection("inventory").doc(product.id).update({ stock: record.oldStock });
         const histSnap = await db.collection("inventory_history").where("id", "==", record.id).get();
         histSnap.forEach(d => d.ref.delete());
         await loadData();
-        showMessage('actionMessage', '已撤销', false);
+        showToastMessage('已撤销', false);
+    };
+    
+    // 统一的出入库处理函数
+    async function handleStockChange(type) {
+        if (!selectedProductId) {
+            showToastMessage('请先点击选择一个商品', true);
+            return;
+        }
+        const product = products.find(p => p.id === selectedProductId);
+        if (!product) {
+            showToastMessage('商品不存在，请重新选择', true);
+            return;
+        }
+        const qty = parseInt(document.getElementById('quantity').value) || 0;
+        if (qty <= 0) {
+            showToastMessage('数量无效', true);
+            return;
+        }
+        if (type === 'out' && product.stock < qty) {
+            showToastMessage(`库存不足！现有 ${product.stock} ${product.unit}`, true);
+            return;
+        }
+        const oldStock = product.stock;
+        const newStock = type === 'in' ? oldStock + qty : oldStock - qty;
+        await db.collection("inventory").doc(product.id).update({ stock: newStock });
+        await db.collection("inventory_history").add({
+            id: Date.now(),
+            timestamp: getCurrentTimestampWithoutSeconds(),
+            productName: product.name,
+            productId: product.id,
+            type: type,
+            quantity: qty,
+            unit: product.unit,
+            oldStock: oldStock,
+            newStock: newStock
+        });
+        await loadData();
+        showToastMessage(`${type === 'in' ? '入库' : '出库'}成功`, false);
+        document.getElementById('quantity').value = '1';
+    }
+    
+    // 悬浮添加模态窗
+    const modal = document.getElementById('productModal');
+    const fabBtn = document.getElementById('fabAddBtn');
+    const closeModal = document.getElementById('closeModalBtn');
+    const cancelModal = document.getElementById('cancelModalBtn');
+    const confirmAdd = document.getElementById('confirmAddBtn');
+    function openModal() {
+        document.getElementById('modalProductName').value = '';
+        document.getElementById('modalCategory').value = 'freeze';
+        document.getElementById('modalUnit').value = '串';
+        document.getElementById('modalInitialStock').value = '0';
+        const msgDiv = document.getElementById('modalMessage');
+        if(msgDiv) msgDiv.style.display = 'none';
+        modal.classList.add('active');
+    }
+    function closeModalFunc() { modal.classList.remove('active'); }
+    fabBtn.onclick = openModal;
+    closeModal.onclick = closeModalFunc;
+    cancelModal.onclick = closeModalFunc;
+    modal.onclick = (e) => { if(e.target === modal) closeModalFunc(); };
+    document.querySelectorAll('#modalUnitChips .chip').forEach(c => {
+        c.onclick = () => document.getElementById('modalUnit').value = c.dataset.unit;
+    });
+    
+    confirmAdd.onclick = async () => {
+        const name = document.getElementById('modalProductName').value.trim();
+        const category = document.getElementById('modalCategory').value;
+        const unit = document.getElementById('modalUnit').value.trim();
+        const stock = parseInt(document.getElementById('modalInitialStock').value) || 0;
+        if (!name) { showMessageInModal('请输入名称', true); return; }
+        if (!unit) { showMessageInModal('请输入单位', true); return; }
+        if (products.some(p => p.name === name)) {
+            showMessageInModal('商品已存在，请勿重复添加', true);
+            return;
+        }
+        const newProduct = { name, category, stock, unit };
+        const docRef = await db.collection("inventory").add(newProduct);
+        if (stock > 0) {
+            await db.collection("inventory_history").add({
+                id: Date.now(),
+                timestamp: getCurrentTimestampWithoutSeconds(),
+                productName: name,
+                productId: docRef.id,
+                type: 'in',
+                quantity: stock,
+                unit: unit,
+                oldStock: 0,
+                newStock: stock
+            });
+        }
+        await loadData();
+        selectedProductId = docRef.id;
+        renderProductGrid();
+        showMessageInModal('添加成功', false);
+        setTimeout(() => closeModalFunc(), 800);
     };
     
     document.addEventListener('DOMContentLoaded', async () => {
         await loadData();
-        
-        document.querySelectorAll('.segment').forEach(btn => {
+        // 库存分类筛选
+        document.querySelectorAll('.card .segmented-control .segment').forEach(btn => {
+            if(btn.closest('.card') && btn.closest('.card').querySelector('.inventory-table')) {
+                btn.onclick = () => {
+                    document.querySelectorAll('.card .segmented-control .segment').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentFilter = btn.dataset.filter;
+                    renderTable();
+                };
+            }
+        });
+        // 出入库网格分类筛选
+        const catFilterBtns = document.querySelectorAll('#productCategoryFilter .segment');
+        catFilterBtns.forEach(btn => {
             btn.onclick = () => {
-                document.querySelectorAll('.segment').forEach(b => b.classList.remove('active'));
+                catFilterBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                currentFilter = btn.dataset.filter;
-                renderTable();
+                currentProductFilter = btn.dataset.cat;
+                renderProductGrid();
             };
         });
         
-        document.querySelectorAll('.chip').forEach(c => {
-            c.onclick = () => document.getElementById('unit').value = c.dataset.unit;
-        });
-        
-        document.getElementById('addProductBtn').onclick = async () => {
-            const name = document.getElementById('productName').value.trim();
-            const category = document.getElementById('category').value;
-            const unit = document.getElementById('unit').value.trim();
-            const stock = parseInt(document.getElementById('initialStock').value) || 0;
-            if (!name) { showMessage('addMessage', '请输入名称', true); return; }
-            if (!unit) { showMessage('addMessage', '请输入单位', true); return; }
-            
-            // 检查是否已存在同名商品
-            if (products.some(p => p.name === name)) {
-                showMessage('addMessage', '商品已存在，请勿重复添加', true);
-                return;
-            }
-            
-            const newProduct = { name, category, stock, unit };
-            const docRef = await db.collection("inventory").add(newProduct);
-            if (stock > 0) {
-                await db.collection("inventory_history").add({
-                    id: Date.now(),
-                    timestamp: new Date().toLocaleString('zh-CN'),
-                    productName: name,
-                    productId: docRef.id,
-                    type: 'in',
-                    quantity: stock,
-                    unit: unit,
-                    oldStock: 0,
-                    newStock: stock
-                });
-            }
-            document.getElementById('productName').value = '';
-            document.getElementById('initialStock').value = '0';
-            await loadData();
-            showMessage('addMessage', '添加成功', false);
-        };
-        
-        document.getElementById('applyStockBtn').onclick = async () => {
-            const productId = document.getElementById('selectProduct').value;
-            const qty = parseInt(document.getElementById('quantity').value) || 0;
-            const type = document.getElementById('operationType').value;
-            const product = products.find(p => p.id === productId);
-            if (!product) { showMessage('actionMessage', '请选择商品', true); return; }
-            if (qty <= 0) { showMessage('actionMessage', '数量无效', true); return; }
-            if (type === 'out' && product.stock < qty) {
-                showMessage('actionMessage', `库存不足！现有 ${product.stock}`, true);
-                return;
-            }
-            const oldStock = product.stock;
-            const newStock = type === 'in' ? oldStock + qty : oldStock - qty;
-            await db.collection("inventory").doc(product.id).update({ stock: newStock });
-            await db.collection("inventory_history").add({
-                id: Date.now(),
-                timestamp: new Date().toLocaleString('zh-CN'),
-                productName: product.name,
-                productId: product.id,
-                type: type,
-                quantity: qty,
-                unit: product.unit,
-                oldStock: oldStock,
-                newStock: newStock
-            });
-            await loadData();
-            showMessage('actionMessage', `${type==='in'?'入库':'出库'}成功`, false);
-            document.getElementById('quantity').value = '1';
-        };
-        
-        document.getElementById('clearAllBtn').onclick = async () => {
-            if (!confirm('删除所有数据？')) return;
-            const inv = await db.collection("inventory").get();
-            const hist = await db.collection("inventory_history").get();
-            const batch = db.batch();
-            inv.forEach(d => batch.delete(d.ref));
-            hist.forEach(d => batch.delete(d.ref));
-            await batch.commit();
-            await loadData();
-            showMessage('actionMessage', '已清空', false);
-        };
+        // 绑定独立按钮事件
+        document.getElementById('outstockBtn').onclick = () => handleStockChange('out');
+        document.getElementById('instockBtn').onclick = () => handleStockChange('in');
         
         document.getElementById('clearHistoryBtn').onclick = async () => {
             if (!confirm('清空历史？')) return;
@@ -379,7 +680,7 @@
             hist.forEach(d => batch.delete(d.ref));
             await batch.commit();
             await loadData();
-            showMessage('actionMessage', '历史已清空', false);
+            showToastMessage('历史已清空', false);
         };
     });
 </script>
