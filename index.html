@@ -347,7 +347,7 @@
             z-index: 99;
         }
 
-        /* 对话框通用样式 - 玻璃质感 + 悬浮圆润 */
+        /* 对话框通用样式 - 玻璃质感 + 悬浮圆润， 关键修改：高度改为auto，最大高度限制并允许滚动 */
         .dialog {
             display: none;
             position: fixed;
@@ -360,10 +360,29 @@
             padding: 24px;
             width: 85%;
             max-width: 360px;
+            /* 关键修改：固定高度改为自动高度，内容多时自动撑开，同时增加最大高度防止溢出屏幕 */
+            height: auto;
+            max-height: 85vh;
+            overflow-y: auto;
             z-index: 100;
             border: 1px solid rgba(255, 140, 50, 0.8);
             box-shadow: 0 25px 40px rgba(0, 0, 0, 0.5);
             transition: all 0.2s ease;
+            /* 优化滚动条样式 */
+            scrollbar-width: thin;
+            scrollbar-color: #ffaa55 #3a2a1e;
+        }
+        
+        .dialog::-webkit-scrollbar {
+            width: 5px;
+        }
+        .dialog::-webkit-scrollbar-track {
+            background: #3a2a1e;
+            border-radius: 10px;
+        }
+        .dialog::-webkit-scrollbar-thumb {
+            background: #ffaa55;
+            border-radius: 10px;
         }
 
         .dialog h2 {
@@ -661,7 +680,7 @@
     </div>
 </div>
 
-<div class="modal-mask" id="global-mask"></div>
+<div class="modal-mask" id="global-mask" onclick="handleMaskClick()"></div>
 <div id="table-dialog" class="dialog">
     <h2 style="margin:0; text-align:center;">请选桌号</h2>
     <div class="table-grid" id="table-grid"></div>
@@ -674,7 +693,7 @@
             <svg class="trash-icon" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
         </div>
     </div>
-    <div id="order-list" style="max-height: 200px; overflow-y: auto;"></div>
+    <div id="order-list" style="max-height: none; overflow-y: visible;"></div>
     <div class="detail-remark-section">
         <div style="font-size: 11px; color: #ffcd94; margin-bottom: 4px; font-weight: bold;">备注 ：</div>
         <textarea id="detail-remark-edit" class="detail-remark-edit" rows="2" placeholder="输入备注..." oninput="saveTempOrder()"></textarea>
@@ -700,7 +719,7 @@
 </div>
 
 <script>
-    // ==================== 功能代码 100% 原样保留 ====================
+    // ==================== 功能代码 100% 原样保留，仅增加点击遮罩关闭功能 ====================
     const firebaseConfig = { 
         apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
         authDomain: "yeyekao-3878d.firebaseapp.com", 
@@ -714,6 +733,11 @@
 
     let currentTable = null;
     const mask = document.getElementById('global-mask');
+
+    // 新增函数：点击遮罩关闭所有对话框
+    function handleMaskClick() {
+        closeModals();
+    }
 
     function playFeedback() {
         if (navigator.vibrate) navigator.vibrate(40);
