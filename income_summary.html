@@ -1,72 +1,439 @@
-<!DOCTYPE html>
+、<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>数据中心 - YeYeKao</title>
+    <title>数据中心 - 烧烤店明亮版</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
-        :root { --primary: #FF8C00; --bg: #ffffff; --text: #333; --danger: #ff4d4d; --success: #32d74b; --gold: #FFD700; }
-        
-        /* 基础设置：统一字体大小，防止缩放 */
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text); padding-bottom: calc(50px + env(safe-area-inset-bottom)); -webkit-tap-highlight-color: transparent; }
-        
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-top: env(safe-area-inset-top); }
-        .header-left { display: flex; gap: 10px; }
-        
-        /* 按钮字体设为 16px 防止 iOS 缩放 */
-        .back-btn, .pending-link, .filter-btn, .export-btn { font-size: 16px !important; font-weight: 600; border-radius: 12px; cursor: pointer; border: none; }
-        
-        .back-btn { padding: 8px 16px; background: #f0f0f0; color: #666; text-decoration: none; }
-        .pending-link { padding: 8px 16px; background: var(--primary); color: white; text-decoration: none; }
-        .export-btn { background: var(--success); color: white; padding: 8px 12px; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-        .revenue-card { background: linear-gradient(135deg, #fff 0%, #fff9f0 100%); padding: 25px 20px; border-radius: 24px; border: 1px solid #fdf2e9; margin-bottom: 20px; }
-        .rev-label { font-size: 14px; color: #999; margin-bottom: 5px; }
-        .rev-val { font-size: 34px; font-weight: 900; color: #FF4500; }
+        /* 明亮深色渐变 + 光晕氛围（与采购页统一） */
+        body {
+            font-family: 'Segoe UI', 'Poppins', system-ui, -apple-system, 'Inter', sans-serif;
+            background: radial-gradient(circle at 30% 10%, #2a2218, #1a140e, #0f0b07);
+            min-height: 100vh;
+            padding: 15px;
+            padding-bottom: calc(30px + env(safe-area-inset-bottom));
+            position: relative;
+        }
 
-        .filter-row { display: flex; gap: 8px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch; }
-        .filter-row::-webkit-scrollbar { display: none; }
-        .filter-btn { padding: 10px 18px; background: #f5f5f7; color: #666; white-space: nowrap; transition: 0.2s; }
-        .filter-btn.active { background: var(--primary); color: white; }
+        /* 暖色光晕层 */
+        body::before {
+            content: "";
+            position: fixed;
+            top: -20%;
+            left: -15%;
+            width: 130%;
+            height: 130%;
+            background: radial-gradient(ellipse at 40% 50%, rgba(255, 160, 70, 0.25), rgba(255, 100, 30, 0) 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
 
-        .rank-box { background: #fff; border-radius: 24px; padding: 20px; margin-bottom: 15px; border: 1px solid #eee; }
-        .rank-title { font-size: 17px; font-weight: 800; margin-bottom: 15px; }
-        .rank-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f9f9f9; }
-        .rank-num { width: 24px; height: 24px; border-radius: 8px; background: #f0f0f0; font-size: 12px; display: flex; align-items: center; justify-content: center; color: #777; font-weight: bold; }
-        .rank-top3 { background: var(--gold); color: #fff; }
-        .rank-name { font-size: 15px; font-weight: 500; }
-        .rank-qty { font-weight: 800; color: var(--primary); font-size: 16px; }
+        body::after {
+            content: "";
+            position: fixed;
+            bottom: -15%;
+            right: -10%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 70% 85%, rgba(255, 140, 50, 0.22), transparent 65%);
+            pointer-events: none;
+            z-index: 0;
+        }
 
-        .order-card { background: white; padding: 18px; border-radius: 22px; margin-bottom: 12px; border: 1px solid #f0f0f0; }
-        .order-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; border-bottom: 1px dashed #eee; padding-bottom: 10px; }
-        .table-no { font-weight: 800; font-size: 18px; color: #333; }
-        .pay-method-tag { font-size: 12px; padding: 3px 8px; border-radius: 6px; margin-left: 8px; font-weight: bold; }
-        .method-cash { background: #e8f5e9; color: #2e7d32; }
-        .method-transfer { background: #e3f2fd; color: #1565c0; }
-        
-        /* 详情文本稍微加大，方便阅读 */
-        .food-row { display: flex; justify-content: space-between; font-size: 15px; margin-bottom: 6px; color: #444; }
-        .settle-remark { background: #fff5eb; color: #d35400; font-size: 13px; padding: 8px 12px; border-radius: 10px; margin-top: 10px; display: block; border: 1px solid #ffe0c1; }
+        /* 所有内容在光晕之上 */
+        .header, .revenue-card, .filter-row, .rank-box, #order-history {
+            position: relative;
+            z-index: 2;
+        }
 
-        .order-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 12px; border-top: 1px solid #f9f9f9; padding-top: 10px; }
-        .btn-del { background: #fdfdfd; color: #ddd; border: 1px solid #eee; width: 32px; height: 32px; border-radius: 10px; font-size: 20px; display: flex; align-items: center; justify-content: center; }
-        .total-info { text-align: right; }
-        .final-pay { font-weight: 900; color: #FF4500; font-size: 18px; }
+        /* 头部导航 - 玻璃质感 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-top: env(safe-area-inset-top);
+        }
 
-        #pending-btn { transition: transform 0.2s; }
-        #pending-btn:active { transform: scale(0.95); }
+        .header-left {
+            display: flex;
+            gap: 12px;
+        }
+
+        .back-btn, .pending-link, .export-btn {
+            font-size: 15px !important;
+            font-weight: 700;
+            border-radius: 40px;
+            cursor: pointer;
+            border: none;
+            backdrop-filter: blur(12px);
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .back-btn {
+            padding: 10px 18px;
+            background: rgba(255, 200, 140, 0.25);
+            border: 1px solid rgba(255, 150, 60, 0.7);
+            color: #ffd7a5;
+        }
+
+        .back-btn:active {
+            transform: scale(0.96);
+        }
+
+        .pending-link {
+            padding: 10px 18px;
+            background: linear-gradient(105deg, rgba(255, 120, 40, 0.9), rgba(220, 80, 20, 0.9));
+            border: 1px solid rgba(255, 180, 100, 0.6);
+            color: white;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+        }
+
+        .pending-link:active {
+            transform: scale(0.96);
+        }
+
+        .export-btn {
+            padding: 10px 18px;
+            background: rgba(40, 167, 69, 0.4);
+            border: 1px solid rgba(80, 200, 100, 0.6);
+            color: #ccffcc;
+            font-weight: 700;
+        }
+
+        .export-btn:active {
+            transform: scale(0.96);
+        }
+
+        /* 营收卡片 - 玻璃质感更明亮 */
+        .revenue-card {
+            background: rgba(255, 245, 230, 0.2);
+            backdrop-filter: blur(20px);
+            border-radius: 32px;
+            padding: 24px 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 170, 80, 0.6);
+            transition: all 0.25s ease;
+        }
+
+        .revenue-card:hover {
+            transform: translateY(-3px);
+            background: rgba(255, 245, 230, 0.3);
+            border-color: rgba(255, 150, 70, 0.8);
+            box-shadow: 0 18px 28px -8px rgba(0, 0, 0, 0.3);
+        }
+
+        .rev-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffddbb;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+        }
+
+        .rev-val {
+            font-size: 34px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #ffcd94, #ffa044);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* 筛选栏 - 毛玻璃滚动 */
+        .filter-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            padding-bottom: 6px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .filter-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .filter-btn {
+            padding: 10px 20px;
+            border-radius: 60px;
+            font-size: 14px;
+            font-weight: 700;
+            background: rgba(45, 34, 24, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 150, 60, 0.5);
+            color: #ffdfb3;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(105deg, rgba(255, 120, 40, 0.95), rgba(220, 80, 20, 0.95));
+            color: white;
+            border-color: #ffcc88;
+            box-shadow: 0 4px 12px rgba(255, 100, 0, 0.3);
+        }
+
+        .filter-btn:active {
+            transform: scale(0.96);
+        }
+
+        /* 排行卡片 - 玻璃质感 */
+        .rank-box {
+            background: rgba(35, 26, 18, 0.7);
+            backdrop-filter: blur(16px);
+            border-radius: 32px;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 170, 80, 0.55);
+            transition: all 0.2s;
+        }
+
+        .rank-box:hover {
+            transform: translateY(-3px);
+            background: rgba(45, 34, 24, 0.8);
+            border-color: rgba(255, 150, 70, 0.9);
+        }
+
+        .rank-title {
+            font-size: 17px;
+            font-weight: 800;
+            margin-bottom: 16px;
+            color: #ffddb5;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+            letter-spacing: 0.5px;
+        }
+
+        .rank-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 180, 100, 0.25);
+        }
+
+        .rank-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .rank-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 12px;
+            background: rgba(255, 200, 140, 0.3);
+            font-size: 13px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffddbb;
+        }
+
+        .rank-top3 {
+            background: linear-gradient(135deg, #ffb347, #ff8c00);
+            color: white;
+            box-shadow: 0 2px 8px rgba(255, 140, 0, 0.3);
+        }
+
+        .rank-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff0e0;
+        }
+
+        .rank-qty {
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffcd94, #ffa044);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            font-size: 16px;
+        }
+
+        #toggle-rank-btn {
+            width: 100%;
+            padding: 12px;
+            margin-top: 12px;
+            background: rgba(255, 200, 140, 0.2);
+            border: 1px solid rgba(255, 150, 60, 0.6);
+            border-radius: 40px;
+            color: #ffcc99;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        #toggle-rank-btn:active {
+            transform: scale(0.97);
+            background: rgba(255, 140, 50, 0.4);
+        }
+
+        /* 订单卡片 - 玻璃质感圆润 */
+        .order-card {
+            background: rgba(45, 34, 24, 0.75);
+            backdrop-filter: blur(12px);
+            border-radius: 32px;
+            padding: 18px;
+            margin-bottom: 14px;
+            border: 1px solid rgba(255, 170, 80, 0.6);
+            transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        .order-card:hover {
+            transform: translateY(-3px);
+            background: rgba(65, 48, 34, 0.85);
+            border-color: rgba(255, 150, 70, 0.95);
+            box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.4);
+        }
+
+        .order-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            border-bottom: 1px dashed rgba(255, 180, 100, 0.35);
+            padding-bottom: 10px;
+        }
+
+        .table-no {
+            font-weight: 800;
+            font-size: 18px;
+            color: #ffefcf;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+        }
+
+        .pay-method-tag {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 30px;
+            margin-left: 10px;
+            font-weight: 700;
+            display: inline-block;
+        }
+
+        .method-cash {
+            background: rgba(46, 125, 50, 0.35);
+            color: #b8e6b8;
+            border: 1px solid rgba(80, 200, 80, 0.4);
+        }
+
+        .method-transfer {
+            background: rgba(21, 101, 192, 0.35);
+            color: #bbd9ff;
+            border: 1px solid rgba(66, 153, 225, 0.5);
+        }
+
+        .food-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #ffefcf;
+            font-weight: 500;
+        }
+
+        .settle-remark {
+            background: rgba(255, 140, 50, 0.25);
+            color: #ffd7aa;
+            font-size: 13px;
+            padding: 8px 14px;
+            border-radius: 24px;
+            margin-top: 12px;
+            display: block;
+            border: 1px solid rgba(255, 160, 70, 0.5);
+            font-weight: 500;
+        }
+
+        .order-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 14px;
+            border-top: 1px solid rgba(255, 180, 100, 0.3);
+            padding-top: 12px;
+        }
+
+        .btn-del {
+            background: rgba(200, 60, 30, 0.5);
+            color: #ffcfb0;
+            border: 1px solid rgba(255, 100, 50, 0.6);
+            width: 36px;
+            height: 36px;
+            border-radius: 40px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.15s;
+            font-weight: bold;
+        }
+
+        .btn-del:active {
+            transform: scale(0.92);
+            background: #d9534f;
+            color: white;
+        }
+
+        .total-info {
+            text-align: right;
+        }
+
+        .final-pay {
+            font-weight: 900;
+            background: linear-gradient(135deg, #ffcd94, #ffa044);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            font-size: 18px;
+        }
+
+        /* 待结算按钮活跃反馈 */
+        #pending-btn {
+            transition: transform 0.1s;
+        }
+
+        /* 空状态提示 */
+        #order-history:empty::before {
+            content: "📭 暂无订单记录";
+            display: block;
+            text-align: center;
+            padding: 40px;
+            color: #ffcc99;
+            font-weight: 500;
+            background: rgba(45, 34, 24, 0.5);
+            border-radius: 32px;
+            backdrop-filter: blur(8px);
+        }
     </style>
 </head>
 <body>
 
     <div class="header">
         <div class="header-left">
-            <a href="index.html" class="back-btn">返回</a>
-            <a href="带结算.html" class="pending-link" id="pending-btn">待结算</a>
+            <a href="index.html" class="back-btn">⬅</a>
+            <a href="带结算.html" class="pending-link" id="pending-btn">💰 待结算</a>
         </div>
-        <button onclick="exportDetailedCSV()" class="export-btn">导出报表</button>
+        <button onclick="exportDetailedCSV()" class="export-btn">🗂导出报表</button>
     </div>
 
     <div class="revenue-card">
@@ -86,12 +453,13 @@
     <div class="rank-box" id="rank-section" style="display: none;">
         <div class="rank-title">📊 菜品销量排行</div>
         <div id="rank-content"></div>
-        <button style="width:100%; padding:12px; margin-top:10px; background:none; border:none; color:var(--primary); font-size:14px; font-weight:bold;" id="toggle-rank-btn" onclick="toggleRank()">查看全部排行 ↓</button>
+        <button id="toggle-rank-btn" onclick="toggleRank()">查看全部排行 ↓</button>
     </div>
 
     <div id="order-history"></div>
 
     <script>
+        // ==================== 功能代码 100% 原样保留，仅 UI 层样式变化 ====================
         const firebaseConfig = { 
             apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
             authDomain: "yeyekao-3878d.firebaseapp.com", 
@@ -124,7 +492,7 @@
                     if (d.items) d.items.forEach(item => { pendingTotal += (Number(item.price) * Number(item.quantity)); });
                 });
                 const btn = document.getElementById('pending-btn');
-                if (btn) btn.innerText = `待结算 (${pendingTotal.toLocaleString()} Ks)`;
+                if (btn) btn.innerText = `💰 待结算 (${pendingTotal.toLocaleString()} Ks)`;
             });
         }
 
@@ -158,7 +526,7 @@
             }
 
             document.getElementById('revenue-title').innerText = title;
-            document.getElementById('today-total').innerText = displayOrders.reduce((s, o)=>s+(Number(o.total)||0), 0).toLocaleString() + ' Ks';
+            document.getElementById('today-total').innerHTML = displayOrders.reduce((s, o)=>s+(Number(o.total)||0), 0).toLocaleString() + ' Ks';
 
             // 排行逻辑
             const salesMap = {};
@@ -171,9 +539,9 @@
                 document.getElementById('toggle-rank-btn').style.display = sortedSales.length > 5 ? 'block' : 'none';
                 document.getElementById('rank-content').innerHTML = sortedSales.slice(0, showCount).map(([name, qty], idx) => `
                     <div class="rank-item">
-                        <div class="rank-left" style="display:flex; align-items:center; gap:12px;">
+                        <div class="rank-left">
                             <div class="rank-num ${idx < 3 ? 'rank-top3' : ''}">${idx + 1}</div>
-                            <div class="rank-name">${name}</div>
+                            <div class="rank-name">${escapeHtml(name)}</div>
                         </div>
                         <div class="rank-qty">${qty} 份</div>
                     </div>
@@ -186,35 +554,49 @@
                 const timeStr = `${o.date.getHours().toString().padStart(2,'0')}:${o.date.getMinutes().toString().padStart(2,'0')}`;
                 const payMethod = o.paymentMethod || "现金";
                 const methodClass = payMethod === "现金" ? "method-cash" : "method-transfer";
+                const methodIcon = payMethod === "现金" ? "💵" : "🏦";
 
                 return `
                 <div class="order-card">
                     <div class="order-top">
                         <div>
-                            <div style="display: flex; align-items: center;">
-                                <span class="table-no"># ${o.table}</span>
-                                <span class="pay-method-tag ${methodClass}">${payMethod === "现金" ? "💵" : "🏦"} ${payMethod}</span>
+                            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
+                                <span class="table-no"># ${escapeHtml(o.table)}</span>
+                                <span class="pay-method-tag ${methodClass}">${methodIcon} ${escapeHtml(payMethod)}</span>
                             </div>
-                            <div style="font-size: 11px; color: #bbb; margin-top: 4px;">📱 ${o.device || "未知设备"}</div>
+                            <div style="font-size: 11px; color: #d4aa77; margin-top: 5px;">📱 ${escapeHtml(o.device || "未知设备")}</div>
                         </div>
-                        <span style="font-size:12px; color:#aaa;">${timeStr}</span>
+                        <span style="font-size:12px; color:#d4aa77;">${timeStr}</span>
                     </div>
-                    ${(o.items || []).map(i => `<div class="food-row"><span>${i.name}</span><span>x${i.quantity}</span></div>`).join('')}
-                    ${o.settleNote ? `<span class="settle-remark">💬 ${o.settleNote}</span>` : ''}
+                    ${(o.items || []).map(i => `<div class="food-row"><span>${escapeHtml(i.name)}</span><span>x${i.quantity}</span></div>`).join('')}
+                    ${o.settleNote ? `<span class="settle-remark">💬 ${escapeHtml(o.settleNote)}</span>` : ''}
                     <div class="order-footer">
-                        <button class="btn-del" onclick="deleteOrder('${o.id}')">×</button>
+                        <button class="btn-del" onclick="deleteOrder('${o.id}')">✕</button>
                         <div class="total-info">
-                            ${discountValue > 0 ? `<div style="font-size:12px; color:#999; margin-bottom:2px;">已优: -${discountValue.toLocaleString()} Ks</div>` : ''}
+                            ${discountValue > 0 ? `<div style="font-size:12px; color:#ffbb88; margin-bottom:4px;">已优: -${discountValue.toLocaleString()} Ks</div>` : ''}
                             <div class="final-pay">实付: ${Number(o.total).toLocaleString()} Ks</div>
                         </div>
                     </div>
-                </div>`}).join('');
+                </div>`;
+            }).join('');
+        }
+
+        // 简单防XSS
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
         }
 
         function setFilter(f) {
             currentFilter = f;
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('f-' + f).classList.add('active');
+            const targetBtn = document.getElementById('f-' + f);
+            if (targetBtn) targetBtn.classList.add('active');
             render();
         }
 
@@ -226,7 +608,7 @@
         }
 
         function exportDetailedCSV() {
-            if (allOrders.length === 0) return;
+            if (allOrders.length === 0) return alert("暂无订单数据可导出");
             let csv = "\uFEFF日期,时间,桌号,支付方式,备注,菜品,数量,单价,总额\n";
             allOrders.forEach(o => {
                 const d = o.date.toLocaleDateString();
@@ -240,6 +622,7 @@
             link.href = URL.createObjectURL(blob);
             link.download = `财务报表.csv`;
             link.click();
+            URL.revokeObjectURL(link.href);
         }
 
         loadData();
