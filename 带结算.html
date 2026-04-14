@@ -3,45 +3,423 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>待结算订单 - YeYeKao</title>
+    <title>待结算订单 - 烧烤店明亮版</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
-        body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background-color: #fff; color: #333; }
-        .admin-container { width: 100%; max-width: 1400px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
-        .admin-header { background: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #eee; padding-top: calc(10px + env(safe-area-inset-top)); }
-        .btn-back { background: #f0f0f0; color: #666; padding: 6px 15px; border-radius: 20px; font-size: 13px; cursor: pointer; text-decoration: none; font-weight: 500; }
-        .order-list { padding: 15px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
-        @media (max-width: 450px) { .order-list { grid-column-gap: 0; padding: 10px 0; } }
-        .order-card { background: white; border-radius: 18px; padding: 15px; box-shadow: none; border-bottom: 1px solid #eee; display: flex; flex-direction: column; position: relative; margin-bottom: 10px; }
-        .table-label { background: #ff8c2d; color: white; padding: 4px 12px; border-radius: 8px; font-weight: bold; font-size: 18px; margin-bottom: 12px; align-self: flex-start; }
-        .mini-input { border: 1px solid #ddd; border-radius: 8px; padding: 10px; font-size: 16px; outline: none; background: #fafafa; -webkit-appearance: none; }
-        .disc-input { width: 85px; color: #ff5e1a; font-weight: bold; text-align: center; }
-        .note-input { flex: 1; }
-        .orders-wrapper { position: relative; max-height: 200px; overflow: hidden; transition: max-height 0.4s ease; }
-        .orders-wrapper.expanded { max-height: 5000px; }
-        .fade-overlay { position: absolute; bottom: 0; left: 0; right: 0; height: 40px; background: linear-gradient(to top, white, rgba(255,255,255,0)); pointer-events: none; z-index: 2; }
-        .expanded .fade-overlay { display: none; }
-        .sub-order { border-left: 3px solid #ffe4cc; padding-left: 10px; margin-bottom: 12px; }
-        .order-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
-        .order-tag { font-size: 10px; background: #fff1e6; color: #ff8c2d; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-        .order-time { color: #aaa; font-size: 11px; margin-left: 5px; }
-        .device-tag { font-size: 10px; color: #999; margin-left: 8px; font-style: italic; }
-        .btn-cancel-small { color: #ff4d4d; font-size: 12px; cursor: pointer; font-weight: bold; padding: 2px 5px; }
-        .food-item { color: #333; font-size: 15px; font-weight: 600; margin: 3px 0; display: flex; justify-content: space-between; }
-        .item-price-tag { color: #888; font-size: 12px; font-weight: normal; }
-        .remark-box { background: #fdf2e9; border-radius: 6px; padding: 4px 8px; margin-top: 5px; font-size: 12px; color: #ff5e1a; display: inline-block; }
-        .toggle-btn { text-align: center; color: #ff8c2d; font-size: 13px; font-weight: bold; padding: 8px 0; cursor: pointer; border-bottom: 1px solid #f9f9f9; margin-bottom: 10px; }
-        .settle-inputs { display: flex; gap: 8px; margin-bottom: 10px; }
-        .pay-row { display: flex; align-items: center; justify-content: space-between; border-top: 1px dashed #eee; padding-top: 10px; }
-        .pay-methods { display: flex; background: #f0f0f0; border-radius: 10px; padding: 2px; gap: 2px; }
-        .method-btn { padding: 6px 12px; cursor: pointer; border-radius: 8px; font-size: 18px; transition: 0.2s; filter: grayscale(1); opacity: 0.4; }
-        .method-btn.active { background: white; filter: grayscale(0); opacity: 1; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .total-price { font-size: 24px; font-weight: 900; color: #ff5e1a; }
-        .total-price::after { content: " Ks"; font-size: 13px; margin-left: 2px; }
-        .btn-pay { background: #32d74b; color: white; padding: 10px 22px; border-radius: 12px; font-size: 16px; font-weight: bold; border: none; cursor: pointer; }
-        #toast { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); color: white; padding: 16px 32px; border-radius: 50px; z-index: 1000; font-weight: bold; }
-        .debug-panel { background: #f0f0f0; padding: 8px; margin: 10px; border-radius: 8px; font-size: 11px; display: none; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* 明亮深色渐变 + 光晕氛围 */
+        body {
+            font-family: 'Segoe UI', 'Poppins', system-ui, -apple-system, 'Inter', sans-serif;
+            background: radial-gradient(circle at 30% 10%, #2a2218, #1a140e, #0f0b07);
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* 暖色光晕层 */
+        body::before {
+            content: "";
+            position: fixed;
+            top: -20%;
+            left: -15%;
+            width: 130%;
+            height: 130%;
+            background: radial-gradient(ellipse at 40% 50%, rgba(255, 160, 70, 0.25), rgba(255, 100, 30, 0) 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::after {
+            content: "";
+            position: fixed;
+            bottom: -15%;
+            right: -10%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 70% 85%, rgba(255, 140, 50, 0.22), transparent 65%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .admin-container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* 头部导航 - 玻璃质感 */
+        .admin-header {
+            background: rgba(30, 22, 14, 0.85);
+            backdrop-filter: blur(20px);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(255, 160, 70, 0.5);
+            padding-top: calc(12px + env(safe-area-inset-top));
+        }
+
+        .btn-back {
+            background: rgba(255, 200, 140, 0.25);
+            border: 1px solid rgba(255, 150, 60, 0.7);
+            color: #ffd7a5;
+            width: 40px;
+            height: 40px;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            font-size: 22px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .btn-back:active {
+            transform: scale(0.96);
+            background: rgba(255, 140, 50, 0.45);
+        }
+
+        .admin-header > div:last-child {
+            text-align: right;
+        }
+
+        .admin-header div div:first-child {
+            font-size: 14px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffcd94, #ffa044);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        #online-status {
+            font-size: 10px;
+            color: #4ade80;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        /* 订单列表网格 */
+        .order-list {
+            padding: 16px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 16px;
+        }
+
+        @media (max-width: 450px) {
+            .order-list {
+                padding: 12px;
+                gap: 12px;
+            }
+        }
+
+        /* 订单卡片 - 玻璃质感圆润 */
+        .order-card {
+            background: rgba(35, 26, 18, 0.75);
+            backdrop-filter: blur(16px);
+            border-radius: 32px;
+            padding: 18px;
+            border: 1px solid rgba(255, 170, 80, 0.5);
+            transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
+            margin-bottom: 0;
+        }
+
+        .order-card:hover {
+            transform: translateY(-4px);
+            background: rgba(45, 34, 24, 0.85);
+            border-color: rgba(255, 150, 70, 0.9);
+            box-shadow: 0 16px 28px -8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 桌号标签 */
+        .table-label {
+            background: linear-gradient(105deg, rgba(255, 120, 40, 0.9), rgba(220, 80, 20, 0.9));
+            color: white;
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-weight: 800;
+            font-size: 18px;
+            margin-bottom: 14px;
+            display: inline-block;
+            box-shadow: 0 2px 8px rgba(255, 100, 0, 0.2);
+        }
+
+        /* 订单包装器 */
+        .orders-wrapper {
+            position: relative;
+            max-height: 200px;
+            overflow: hidden;
+            transition: max-height 0.4s ease;
+        }
+
+        .orders-wrapper.expanded {
+            max-height: 5000px;
+        }
+
+        .fade-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: linear-gradient(to top, rgba(35, 26, 18, 0.9), rgba(35, 26, 18, 0));
+            pointer-events: none;
+            z-index: 2;
+            border-radius: 0 0 24px 24px;
+        }
+
+        .expanded .fade-overlay {
+            display: none;
+        }
+
+        /* 子订单区块 */
+        .sub-order {
+            border-left: 3px solid #ffaa55;
+            padding-left: 12px;
+            margin-bottom: 14px;
+            background: rgba(255, 245, 230, 0.08);
+            border-radius: 0 16px 16px 0;
+            padding: 10px 12px;
+        }
+
+        .order-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .order-tag {
+            font-size: 10px;
+            background: rgba(255, 140, 50, 0.35);
+            color: #ffcd94;
+            padding: 3px 10px;
+            border-radius: 40px;
+            font-weight: 700;
+        }
+
+        .order-time {
+            color: #d4aa77;
+            font-size: 11px;
+            margin-left: 8px;
+            font-weight: 500;
+        }
+
+        .device-tag {
+            font-size: 10px;
+            color: #b47c44;
+            margin-left: 8px;
+            font-style: italic;
+        }
+
+        .btn-cancel-small {
+            color: #ffaa88;
+            font-size: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            padding: 4px 10px;
+            background: rgba(200, 60, 30, 0.3);
+            border-radius: 40px;
+            transition: 0.15s;
+        }
+
+        .btn-cancel-small:active {
+            transform: scale(0.94);
+            background: rgba(220, 60, 30, 0.5);
+        }
+
+        .food-item {
+            color: #ffefcf;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 6px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .item-price-tag {
+            color: #d4aa77;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .remark-box {
+            background: rgba(255, 140, 50, 0.25);
+            border-radius: 20px;
+            padding: 5px 12px;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #ffcd94;
+            display: inline-block;
+            border: 1px solid rgba(255, 160, 70, 0.4);
+        }
+
+        .toggle-btn {
+            text-align: center;
+            color: #ffcd94;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 8px 0;
+            cursor: pointer;
+            border-top: 1px solid rgba(255, 180, 100, 0.3);
+            margin: 12px 0 8px;
+            transition: 0.15s;
+        }
+
+        .toggle-btn:active {
+            transform: scale(0.98);
+            color: #ffaa55;
+        }
+
+        /* 结算输入区 */
+        .settle-inputs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .mini-input {
+            border: 1px solid rgba(255, 150, 60, 0.6);
+            border-radius: 40px;
+            padding: 10px 14px;
+            font-size: 14px;
+            outline: none;
+            background: rgba(255, 250, 240, 0.9);
+            color: #4a2a10;
+            font-weight: 500;
+            -webkit-appearance: none;
+        }
+
+        .mini-input:focus {
+            border-color: #ff8c42;
+            box-shadow: 0 0 0 2px rgba(255, 120, 30, 0.2);
+        }
+
+        .disc-input {
+            width: 85px;
+            text-align: center;
+            color: #e05a1a;
+            font-weight: 700;
+        }
+
+        .disc-input::placeholder {
+            color: #b47c44;
+            font-weight: normal;
+        }
+
+        .note-input {
+            flex: 1;
+        }
+
+        /* 支付行 */
+        .pay-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-top: 1px solid rgba(255, 180, 100, 0.3);
+            padding-top: 14px;
+            margin-top: 4px;
+        }
+
+        .pay-methods {
+            display: flex;
+            background: rgba(45, 34, 24, 0.6);
+            border-radius: 60px;
+            padding: 4px;
+            gap: 4px;
+            border: 1px solid rgba(255, 150, 60, 0.3);
+        }
+
+        .method-btn {
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 40px;
+            font-size: 18px;
+            transition: all 0.2s;
+            background: transparent;
+            color: #d4aa77;
+        }
+
+        .method-btn.active {
+            background: linear-gradient(120deg, #f9732e, #e05a1a);
+            color: white;
+            box-shadow: 0 2px 8px rgba(255, 100, 0, 0.3);
+        }
+
+        .method-btn:active {
+            transform: scale(0.94);
+        }
+
+        .total-price {
+            font-size: 24px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #ffcd94, #ffa044);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .total-price::after {
+            content: " Ks";
+            font-size: 13px;
+            font-weight: 600;
+            background: none;
+            -webkit-background-clip: unset;
+            color: #d4aa77;
+        }
+
+        .btn-pay {
+            background: linear-gradient(120deg, #16a34a, #15803d);
+            color: white;
+            padding: 10px 24px;
+            border-radius: 48px;
+            font-size: 15px;
+            font-weight: 800;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);
+        }
+
+        .btn-pay:active {
+            transform: scale(0.96);
+        }
+
+        #toast {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(16px);
+            color: #ffddbb;
+            padding: 14px 32px;
+            border-radius: 60px;
+            z-index: 1000;
+            font-weight: 700;
+            border: 1px solid #ffaa55;
+            white-space: nowrap;
+        }
+
+        .debug-panel {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -50,18 +428,19 @@
 
 <div class="admin-container">
     <div class="admin-header">
-        <a href="index.html" class="btn-back">⬅ 返回</a>
-        <div style="text-align:right">
-            <div style="font-size:14px; font-weight:bold;">待结算订单</div>
-            <div id="online-status" style="font-size:10px; color:#32d74b;">● 实时同步中</div>
+        <a href="index.html" class="btn-back">←</a>
+        <div>
+            <div>待结算订单</div>
+            <div id="online-status">● 实时同步中</div>
         </div>
     </div>
     <div class="order-list" id="list-container">
-        <div style="text-align:center; padding-top:100px; color:#999; grid-column: 1/-1;">正在加载云端数据...</div>
+        <div style="text-align:center; padding-top:100px; color:#d4aa77; grid-column: 1/-1;">正在加载云端数据...</div>
     </div>
 </div>
 
 <script>
+    // ==================== 功能代码 100% 原样保留 ====================
     const firebaseConfig = { 
         apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
         authDomain: "yeyekao-3878d.firebaseapp.com", 
@@ -106,25 +485,21 @@
         return "其它设备";
     }
 
-    // ========= 静默扣减库存 + 写入历史记录（完全兼容出入库程序，无任何弹窗提示）=========
     async function deductStockFromInventory(orderItems, tableNum) {
         console.log("========== 开始扣减库存（静默模式）==========");
         console.log("订单商品列表:", JSON.stringify(orderItems, null, 2));
         
-        // 获取所有库存商品
         const inventorySnapshot = await db.collection("inventory").get();
         
         if (inventorySnapshot.empty) {
             console.log("❌ 库存集合为空！跳过扣减");
-            return []; // 直接返回空数组，不弹出任何提示
+            return [];
         }
         
-        // 构建 Map，key 是商品名称（统一转小写比较）
         const inventoryMap = new Map();
         
         inventorySnapshot.forEach(doc => {
             const data = doc.data();
-            // 兼容 name 或 productName 字段（出入库程序用的是 name）
             const productName = data.name || data.productName;
             if (productName) {
                 inventoryMap.set(productName.trim().toLowerCase(), { 
@@ -138,9 +513,8 @@
         
         console.log(`共找到 ${inventoryMap.size} 个库存商品`);
         
-        let successItems = []; // 记录成功扣减的商品，用于写入历史
+        let successItems = [];
         
-        // 遍历订单中的每个菜品
         for (let item of orderItems) {
             const itemName = item.name;
             const quantityToDeduct = Number(item.quantity) || 0;
@@ -151,11 +525,9 @@
             
             console.log(`\n🔍 处理: "${itemName}", 数量: ${quantityToDeduct}`);
             
-            // 标准化查找
-            const normalizedItemName = itemName.trim().toLowerCase();
+            let normalizedItemName = itemName.trim().toLowerCase();
             let inventoryItem = inventoryMap.get(normalizedItemName);
             
-            // 如果没找到，尝试去除末尾标点符号再匹配
             if (!inventoryItem) {
                 const cleanedName = normalizedItemName.replace(/[.,，。、!！?？]$/, '');
                 if (cleanedName !== normalizedItemName) {
@@ -171,7 +543,6 @@
                 continue;
             }
             
-            // 检查库存是否充足，如果不充足则跳过此商品（不扣减，也不报错）
             if (inventoryItem.stock < quantityToDeduct) {
                 console.log(`⚠️ 商品“${itemName}”库存不足（现有 ${inventoryItem.stock}，需要 ${quantityToDeduct}），跳过扣减`);
                 continue;
@@ -180,11 +551,9 @@
             const newStock = inventoryItem.stock - quantityToDeduct;
             
             try {
-                // 更新库存
                 await db.collection("inventory").doc(inventoryItem.id).update({ stock: newStock });
                 console.log(`✅ 扣减成功：${itemName} ${inventoryItem.stock} → ${newStock}`);
                 
-                // 记录成功扣减的商品，稍后写入历史
                 successItems.push({
                     productId: inventoryItem.id,
                     productName: inventoryItem.originalName,
@@ -198,32 +567,28 @@
                 
             } catch (err) {
                 console.error(`❌ 更新失败: ${itemName}`, err);
-                // 静默失败，不弹出提示
             }
         }
         
-        // ========= 写入库存历史记录（关键修复！）=========
         if (successItems.length > 0) {
             console.log(`\n📝 正在写入 ${successItems.length} 条库存历史记录...`);
             const historyBatch = db.batch();
-            const nowTimestamp = firebase.firestore.FieldValue.serverTimestamp();
             const nowStr = new Date().toLocaleString('zh-CN');
             
             for (let item of successItems) {
-                const historyRef = db.collection("inventory_history").doc(); // 自动生成ID
+                const historyRef = db.collection("inventory_history").doc();
                 const historyRecord = {
                     id: Date.now() + Math.floor(Math.random() * 10000),
                     timestamp: nowStr,
-                    timestampServer: nowTimestamp,
                     productName: item.productName,
                     productId: item.productId,
-                    type: 'out',  // 'out' 表示出库（售卖扣减）
+                    type: 'out',
                     quantity: item.quantity,
                     unit: item.unit,
                     oldStock: item.oldStock,
                     newStock: item.newStock,
-                    source: 'pos-settlement',  // 标记来源：来自点餐系统结算
-                    tableNum: item.tableNum    // 记录是哪一桌结算的
+                    source: 'pos-settlement',
+                    tableNum: item.tableNum
                 };
                 historyBatch.set(historyRef, historyRecord);
                 console.log(`   ✅ 历史记录: ${item.productName} 出库 ${item.quantity}${item.unit} (${item.oldStock} → ${item.newStock})`);
@@ -234,7 +599,6 @@
                 console.log("✅ 所有库存历史记录已成功写入 inventory_history 集合");
             } catch (histError) {
                 console.error("❌ 写入历史记录失败:", histError);
-                // 静默失败，不弹出提示
             }
         } else {
             console.log("⚠️ 没有商品成功扣减，跳过历史记录写入");
@@ -243,7 +607,7 @@
         console.log(`\n========== 扣减完成 ==========`);
         console.log(`成功扣减: ${successItems.length} 种商品`);
         
-        return []; // 始终返回空数组，避免任何弹窗提示
+        return [];
     }
 
     async function confirmPay(tableNum, originalTotal) {
@@ -256,7 +620,6 @@
         if(!confirm(`#${tableNum}号桌 确认结算？\n\n实收: ${final.toLocaleString()} Ks\n方式: ${method}`)) return;
 
         try {
-            // 获取该桌所有订单
             const snap = await db.collection("pending_orders").where("table", "==", tableNum).get();
             const allItems = [];
             const ids = [];
@@ -270,10 +633,8 @@
 
             console.log("该桌所有商品明细:", allItems);
 
-            // 静默扣减库存（会自动写入历史记录，无任何弹窗）
             await deductStockFromInventory(allItems, tableNum);
 
-            // 保存到历史订单
             await db.collection("orders").add({
                 table: tableNum,
                 total: final,
@@ -286,12 +647,10 @@
                 type: "快速结算"
             });
 
-            // 删除待结算订单
             const batch = db.batch();
             ids.forEach(id => batch.delete(db.collection("pending_orders").doc(id)));
             await batch.commit();
             
-            // 简洁的成功提示，不提及库存相关
             showToast(`✅ #${tableNum}号桌 结算成功！`);
         } catch (e) { 
             console.error("结算错误:", e);
@@ -314,7 +673,7 @@
             });
 
             if (Object.keys(groups).length === 0) {
-                container.innerHTML = '<div style="text-align:center; padding-top:100px; color:#999; grid-column: 1/-1;">目前没有待结算的桌位</div>';
+                container.innerHTML = '<div style="text-align:center; padding-top:100px; color:#d4aa77; grid-column: 1/-1;">目前没有待结算的桌位</div>';
                 return;
             }
 
