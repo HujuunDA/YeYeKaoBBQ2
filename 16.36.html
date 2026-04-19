@@ -13,7 +13,6 @@
             box-sizing: border-box;
         }
 
-        /* 更明亮温暖的深色渐变 + 光晕 */
         body {
             font-family: 'Segoe UI', 'Poppins', system-ui, -apple-system, 'Inter', sans-serif;
             background: radial-gradient(circle at 30% 10%, #2a2218, #1a140e, #0f0b07);
@@ -22,7 +21,6 @@
             position: relative;
         }
 
-        /* 暖色光晕层 - 更亮 */
         body::before {
             content: "";
             position: fixed;
@@ -47,7 +45,6 @@
             z-index: 0;
         }
 
-        /* 玻璃态卡片 - 更透亮，背景更明亮 */
         .glass-card {
             backdrop-filter: blur(16px);
             background: rgba(255, 245, 225, 0.2);
@@ -64,7 +61,6 @@
             box-shadow: 0 20px 32px -8px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 140, 60, 0.4);
         }
 
-        /* 头部导航 - 更明亮的玻璃质感 */
         .header-bar {
             position: sticky;
             top: 0;
@@ -113,7 +109,6 @@
             text-shadow: 0 1px 2px rgba(0,0,0,0.2);
         }
 
-        /* TAB 明亮毛玻璃 */
         .tabs {
             display: flex;
             gap: 14px;
@@ -169,7 +164,6 @@
             }
         }
 
-        /* 分类组 - 半透明白色玻璃质感 */
         .category-group {
             backdrop-filter: blur(18px);
             background: rgba(255, 245, 230, 0.2);
@@ -273,56 +267,55 @@
             cursor: pointer;
         }
 
-       /* 快速添加栏 - 更透亮，支持手机换行 */
-.quick-add-bar {
-    backdrop-filter: blur(24px);
-    background: rgba(255, 245, 225, 0.3);
-    border-radius: 48px;
-    margin-bottom: 20px;
-    display: flex;
-    flex-wrap: wrap;          /* 关键：允许换行 */
-    align-items: center;
-    gap: 10px;
-    padding: 14px 18px;
-    border: 1px solid rgba(255, 170, 80, 0.6);
-    transition: 0.2s;
-}
+        .quick-add-bar {
+            backdrop-filter: blur(24px);
+            background: rgba(255, 245, 225, 0.3);
+            border-radius: 48px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 18px;
+            border: 1px solid rgba(255, 170, 80, 0.6);
+            transition: 0.2s;
+        }
 
-.quick-input {
-    flex: 2;                  /* 品名输入框占用更多空间 */
-    min-width: 120px;         /* 最小宽度，防止过窄 */
-    background: rgba(255, 250, 235, 0.8);
-    border: 1px solid #ffac62;
-    padding: 10px 14px;
-    border-radius: 32px;
-    font-size: 14px;
-    color: #834e1a;
-}
+        .quick-input {
+            flex: 2;
+            min-width: 120px;
+            background: rgba(255, 250, 235, 0.8);
+            border: 1px solid #ffac62;
+            padding: 10px 14px;
+            border-radius: 32px;
+            font-size: 14px;
+            color: #834e1a;
+        }
 
-.quick-price {
-    flex: 1;
-    min-width: 90px;          /* 价格框最小宽度 */
-    background: rgba(255, 250, 235, 0.8);
-    border: 1px solid #ffac62;
-    padding: 10px 14px;
-    border-radius: 32px;
-    font-size: 14px;
-    color: #834e1a;
-}
+        .quick-price {
+            flex: 1;
+            min-width: 90px;
+            background: rgba(255, 250, 235, 0.8);
+            border: 1px solid #ffac62;
+            padding: 10px 14px;
+            border-radius: 32px;
+            font-size: 14px;
+            color: #834e1a;
+        }
 
-.add-btn {
-    flex-shrink: 0;           /* 按钮不缩小，保持完整宽度 */
-    background: linear-gradient(120deg, #f9732e, #e05a1a);
-    border: none;
-    padding: 10px 20px;
-    border-radius: 40px;
-    font-weight: bold;
-    color: white;
-    cursor: pointer;
-    transition: 0.2s;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.2);
-}
-        /* 模态框玻璃效果 */
+        .add-btn {
+            flex-shrink: 0;
+            background: linear-gradient(120deg, #f9732e, #e05a1a);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+        }
+
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -382,7 +375,6 @@
             transform: scale(0.97);
         }
 
-        /* 底部总价栏 明亮毛玻璃 */
         .total-bar {
             backdrop-filter: blur(28px);
             background: rgba(30, 22, 12, 0.85);
@@ -472,7 +464,6 @@
             font-weight: 500;
         }
 
-        /* ========== 采购单 (cartTab) 菜品卡片样式：圆润 + 悬浮 ========== */
         #cartList .item-row {
             background: rgba(255, 245, 230, 0.25);
             backdrop-filter: blur(12px);
@@ -495,25 +486,12 @@
             box-shadow: 0 18px 28px -8px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 140, 60, 0.5);
         }
 
-        /* 采购单中已勾选 (purchased) 的卡片背景色更深 —— 更深橙褐色调 */
-        #cartList .item-row[data-purchased="true"] {
-            background: rgba(100, 55, 25, 0.75) !important;
-            backdrop-filter: blur(12px);
-            border-color: rgba(220, 120, 40, 0.9);
-        }
-        /* 同时确保通过 style 内联设置背景也能被覆盖更深，并且内联 style 优先级高，使用 !important 加强 */
-        #cartList .item-row.purchased-deep {
-            background: rgba(90, 45, 18, 0.85) !important;
-        }
-        
-        /* 让价格输入框变得更短 (宽度从100px缩减为74px) */
         #cartList .price-wrapper {
-            width: 74px;           /* 原先是100px，缩短26px 更紧凑 */
+            width: 74px;
             margin-left: 8px;
             flex-shrink: 0;
         }
         
-        /* 保持原有价格输入框内部样式圆润，并适应更短宽度 */
         #cartList .price-input {
             width: 100%;
             padding: 8px 8px;
@@ -521,7 +499,6 @@
             text-align: right;
         }
 
-        /* 采购单内文字区域与复选框灵活排列，确保价格框缩短后依然美观 */
         #cartList .item-row div[style*="flex:1"] {
             display: flex;
             align-items: center;
@@ -587,10 +564,11 @@
 </div>
 
 <script>
-    // ==================== 核心修复: 彻底解决输入价格时因同步导致输入中断的问题 ====================
-    // 方案: 使用防抖同步 + 价格输入期间完全不触发重新渲染（仅更新内存数据和UI显示），
-    // 并且避免 priceBlurHandler 中重新设置 value 导致的光标/焦点丢失。核心是不在输入过程中重绘整个列表。
-    // 同时修复“最后一个0删不掉”的问题: 直接操作原始字符串，不提前添加千分位。
+    // ==================== 方案⑤：仅 blur 时同步 ====================
+    // 核心改动：
+    // 1. 输入过程中完全不触发任何同步（只更新内存和总价）
+    // 2. 只有输入框失去焦点（blur）时才同步到 Firebase
+    // 3. 增加页面关闭提醒 + 切换Tab时自动保存，防止数据丢失
     
     const firebaseConfig = { 
         apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
@@ -606,18 +584,37 @@
     const DOC_ID = "main_list";
 
     let globalData = { productTemplate: {}, cartData: [] };
-    let syncTimer = null;
-    let isUpdatingFromRemote = false;  // 防止远程快照触发时打断输入
+    let isUpdatingFromRemote = false;
 
     db.collection("shopping_list").doc(DOC_ID).onSnapshot((doc) => {
         if (isUpdatingFromRemote) return;
         if (doc.exists) {
             const newData = doc.data();
-            // 只在真正外部数据变化时更新，避免覆盖用户正在输入的值造成中断
             if (JSON.stringify(globalData) !== JSON.stringify(newData)) {
                 globalData = newData;
                 renderAll();
             }
+        }
+    });
+
+    // 页面关闭/刷新提醒
+    window.addEventListener('beforeunload', function(e) {
+        // 检查是否有未保存的输入框（有内容但尚未blur）
+        let hasUnsaved = false;
+        document.querySelectorAll('#cartList .price-input').forEach(input => {
+            const idx = input.getAttribute('data-index');
+            if (idx && globalData.cartData[idx]) {
+                const currentPrice = globalData.cartData[idx].price || '';
+                const displayValue = input.value.replace(/,/g, '');
+                if (currentPrice !== displayValue && displayValue !== '') {
+                    hasUnsaved = true;
+                }
+            }
+        });
+        if (hasUnsaved) {
+            e.preventDefault();
+            e.returnValue = '有未保存的价格，确定要离开吗？';
+            return e.returnValue;
         }
     });
 
@@ -635,6 +632,15 @@
         return String(value).replace(/,/g, "");
     }
 
+    async function syncToFirebase() {
+        isUpdatingFromRemote = true;
+        const indicator = document.getElementById('saveIndicator');
+        indicator.classList.add('show');
+        await db.collection("shopping_list").doc(DOC_ID).set(globalData);
+        setTimeout(() => indicator.classList.remove('show'), 800);
+        isUpdatingFromRemote = false;
+    }
+
     function addCustomItem() {
         const name = document.getElementById('customName').value.trim();
         const price = document.getElementById('customPrice').value.trim();
@@ -646,7 +652,6 @@
     }
 
     function renderAll() {
-        // 保留当前聚焦元素的信息，避免重新渲染后丢失焦点
         const activeElement = document.activeElement;
         let activeIndex = null;
         let wasFocused = false;
@@ -704,7 +709,6 @@
                     row.style.backdropFilter = "blur(12px)";
                     row.style.borderColor = "rgba(255, 170, 80, 0.6)";
                 }
-                // 显示时如果价格存在且非空则格式化为千分位，输入框内显示格式化后样式
                 let displayValue = "";
                 if (item.price !== undefined && item.price !== "" && item.price !== null) {
                     const rawNum = parseFloat(getRawNumberString(item.price));
@@ -716,13 +720,12 @@
                         <span style="margin-left:8px; ${item.purchased ? 'text-decoration:line-through;color:#f7ca9c;' : 'color:#ffefcf;'}">${item.name} (x${item.qty})</span>
                     </div>
                     <div class="price-wrapper">
-                        <input type="text" class="price-input" inputmode="decimal" placeholder="Ks" value="${displayValue.replace(/"/g, '&quot;')}" data-index="${idx}" data-raw="${getRawNumberString(item.price)}">
+                        <input type="text" class="price-input" inputmode="decimal" placeholder="Ks" value="${displayValue.replace(/"/g, '&quot;')}" data-index="${idx}">
                     </div>
                 `;
                 cartList.appendChild(row);
             });
             
-            // 重新绑定价格输入事件 (不触发重绘导致的焦点丢失)
             document.querySelectorAll('#cartList .price-input').forEach(input => {
                 input.removeEventListener('input', priceInputHandler);
                 input.addEventListener('input', priceInputHandler);
@@ -730,12 +733,10 @@
                 input.addEventListener('blur', priceBlurHandler);
             });
             
-            // 恢复焦点
             if (wasFocused && activeIndex !== null) {
                 const targetInput = document.querySelector(`#cartList .price-input[data-index="${activeIndex}"]`);
                 if (targetInput) {
                     targetInput.focus();
-                    // 保持光标在末尾
                     const len = targetInput.value.length;
                     targetInput.setSelectionRange(len, len);
                 }
@@ -745,14 +746,13 @@
         updateTotal();
     }
     
-    // 输入处理：彻底告别同步中断 & 删除不掉最后一个0
+    // 输入处理：只更新内存和总价，不同步！
     function priceInputHandler(e) {
         const input = e.target;
         const idx = parseInt(input.getAttribute('data-index'));
         if (isNaN(idx)) return;
         
         let rawValue = input.value;
-        // 只允许数字和小数点，并处理非法字符
         let cleanValue = rawValue.replace(/[^0-9.]/g, '');
         const dotIndex = cleanValue.indexOf('.');
         if (dotIndex !== -1) {
@@ -760,26 +760,25 @@
             let after = cleanValue.substring(dotIndex + 1).replace(/\./g, '');
             cleanValue = before + '.' + after;
         }
-        // 避免出现 "0..." 等特殊情况，但保证用户可以删除到只剩一个 "0" 甚至空
         if (cleanValue === '' || cleanValue === '.') cleanValue = '';
         
-        // 更新内存数据（原始字符串，没有千分位）
+        // 更新内存
         globalData.cartData[idx].price = cleanValue;
         globalData.cartData[idx].purchased = (cleanValue !== '' && cleanValue !== '0');
         
-        // 输入过程中保持显示原始值，绝对不加千分位，避免光标跳跃和最后一个0删除问题
+        // 显示原始值（不加千分位，保证删除流畅）
         input.value = cleanValue;
         
-        // 更新总价
         updateTotal();
-        // 使用防抖同步，防止频繁写入造成UI卡顿
-        debounceSyncToFirebase();
+        // 注意：这里不调用任何同步函数！
     }
     
+    // 失去焦点时同步 + 格式化显示
     function priceBlurHandler(e) {
         const input = e.target;
         const idx = parseInt(input.getAttribute('data-index'));
         if (isNaN(idx)) return;
+        
         let priceRaw = globalData.cartData[idx].price;
         if (priceRaw && priceRaw !== '') {
             let numericPrice = parseFloat(getRawNumberString(priceRaw));
@@ -797,7 +796,7 @@
             globalData.cartData[idx].price = '';
             globalData.cartData[idx].purchased = false;
         }
-        // 同步勾选框样式与背景
+        
         const hasPrice = globalData.cartData[idx].price && globalData.cartData[idx].price !== '';
         const targetRow = input.closest('.item-row');
         if (targetRow) {
@@ -815,24 +814,10 @@
                 if (nameSpan) nameSpan.style.textDecoration = "none";
             }
         }
+        
         updateTotal();
-        debounceSyncToFirebase();
-    }
-
-    async function syncToFirebase() {
-        isUpdatingFromRemote = true;
-        const indicator = document.getElementById('saveIndicator');
-        indicator.classList.add('show');
-        await db.collection("shopping_list").doc(DOC_ID).set(globalData);
-        setTimeout(() => indicator.classList.remove('show'), 800);
-        isUpdatingFromRemote = false;
-    }
-    
-    function debounceSyncToFirebase() {
-        if (syncTimer) clearTimeout(syncTimer);
-        syncTimer = setTimeout(() => {
-            syncToFirebase();
-        }, 1500);
+        // ★ 关键：失去焦点时才同步到 Firebase
+        syncToFirebase();
     }
     
     function updateTotal() { 
@@ -840,7 +825,14 @@
         document.getElementById('grandTotal').innerHTML = formatNumber(total) + " Ks"; 
     }
     
+    // 切换Tab时，先触发所有输入框的blur保存，再切换
     function switchTab(tab) {
+        // 让所有正在编辑的价格输入框失去焦点，触发保存
+        const activeInput = document.activeElement;
+        if (activeInput && activeInput.classList && activeInput.classList.contains('price-input')) {
+            activeInput.blur();
+        }
+        
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(tab + 'Tab').classList.add('active');
@@ -852,21 +844,32 @@
     function toggleCart(name, checked, qty) { 
         if (checked) globalData.cartData.push({ name, qty, purchased: false, price: '' }); 
         else globalData.cartData = globalData.cartData.filter(i => i.name !== name); 
-        debounceSyncToFirebase();
+        syncToFirebase();
     }
-    function changeQty(cat, idx, delta) { globalData.productTemplate[cat][idx].qty = Math.max(1, globalData.productTemplate[cat][idx].qty + delta); debounceSyncToFirebase(); }
+    
+    function changeQty(cat, idx, delta) { 
+        globalData.productTemplate[cat][idx].qty = Math.max(1, globalData.productTemplate[cat][idx].qty + delta); 
+        syncToFirebase(); 
+    }
+    
     function toggleDone(idx, checked) { 
         globalData.cartData[idx].purchased = checked; 
         if (!checked) globalData.cartData[idx].price = '';
-        debounceSyncToFirebase();
+        syncToFirebase();
     }
-    function clearPurchased() { if(confirm("清除已买？")) { globalData.cartData = globalData.cartData.filter(i => !i.purchased); debounceSyncToFirebase(); } }
+    
+    function clearPurchased() { 
+        if(confirm("清除已买？")) { 
+            globalData.cartData = globalData.cartData.filter(i => !i.purchased); 
+            syncToFirebase(); 
+        } 
+    }
     
     function deleteItem(cat, idx) {
         if(confirm("确定删除这个商品模板吗？")) {
             globalData.productTemplate[cat].splice(idx, 1);
             if(globalData.productTemplate[cat].length === 0) delete globalData.productTemplate[cat];
-            debounceSyncToFirebase();
+            syncToFirebase();
         }
     }
 
@@ -877,7 +880,9 @@
         document.getElementById('itemModal').classList.add('open');
         document.getElementById('catDropdown').style.display = 'none';
     }
+    
     function closeItemModal() { document.getElementById('itemModal').classList.remove('open'); }
+    
     function saveItem() {
         const name = document.getElementById('itemName').value.trim();
         const cat = document.getElementById('itemCat').value.trim() || "未分类";
@@ -889,8 +894,9 @@
         if (!globalData.productTemplate[cat]) globalData.productTemplate[cat] = [];
         globalData.productTemplate[cat].push({ name, qty: 1 });
         closeItemModal();
-        debounceSyncToFirebase();
+        syncToFirebase();
     }
+    
     function showDropdown() {
         const dropdown = document.getElementById('catDropdown');
         const cats = Object.keys(globalData.productTemplate || {}).sort();
@@ -898,6 +904,7 @@
         dropdown.innerHTML = cats.map(c => `<div class="cat-option" onclick="selectCat('${c}')">🍖 ${c}</div>`).join('');
         dropdown.style.display = 'block';
     }
+    
     function selectCat(val) { document.getElementById('itemCat').value = val; document.getElementById('catDropdown').style.display = 'none'; }
     
     document.addEventListener('click', function(e) {
