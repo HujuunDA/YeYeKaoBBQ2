@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>采购助手 - 离开即保存版 | 烧烤店明亮风</title>
+    <title>采购助手 - 即时同步版 | 烧烤店明亮风</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
@@ -565,8 +565,8 @@
 </div>
 
 <script>
-    // ==================== 方案三：离开输入框时保存（失焦保存） ====================
-    // 其他所有功能100%保持不变，仅修改了价格输入的保存时机
+    // ==================== 方案三 + 选品库勾选即时刷新采购单 ====================
+    // 修复：在选品库打勾/取消勾选时，立即刷新采购单的显示，无需切换页面
     
     const firebaseConfig = { 
         apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
@@ -598,7 +598,6 @@
         return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 
-    // 同步函数 - 立即保存到云端
     async function performSync() {
         if (isSyncing) return;
         isSyncing = true;
@@ -619,6 +618,41 @@
         performSync();
     }
 
+    // 刷新采购单显示（不重新渲染整个页面，只更新采购单区域）
+    function refreshCartDisplay() {
+        const cartList = document.getElementById('cartList');
+        if (!cartList) return;
+        cartList.innerHTML = '';
+        (globalData.cartData || []).forEach((item, idx) => {
+            const row = document.createElement('div');
+            row.className = 'item-row';
+            const isPurchased = !!item.purchased;
+            if (isPurchased) {
+                row.style.background = "rgba(80, 40, 15, 0.9)";
+                row.style.backdropFilter = "blur(10px)";
+                row.style.borderColor = "#cd7a32";
+            } else {
+                row.style.background = "rgba(255, 240, 210, 0.22)";
+                row.style.backdropFilter = "blur(12px)";
+                row.style.borderColor = "rgba(255, 170, 80, 0.6)";
+            }
+            row.innerHTML = `
+                <div style="flex:1;" onclick="toggleDone(${idx}, ${!item.purchased})">
+                    <input type="checkbox" ${item.purchased ? 'checked' : ''}>
+                    <span style="margin-left:8px; ${item.purchased ? 'text-decoration:line-through;color:#f7ca9c;' : 'color:#ffefcf;'}">${item.name} (x${item.qty})</span>
+                </div>
+                <div class="price-wrapper">
+                    <input type="text" class="price-input" inputmode="decimal" placeholder="Ks" value="${item.price ? formatNumber(item.price) : ''}" 
+                           oninput="handlePriceInput(${idx}, this)" 
+                           onblur="handlePriceBlur(${idx}, this)">
+                </div>
+            `;
+            cartList.appendChild(row);
+        });
+        document.getElementById('cartCount').innerText = (globalData.cartData || []).length;
+        updateTotal();
+    }
+
     function addCustomItem() {
         const name = document.getElementById('customName').value.trim();
         const price = document.getElementById('customPrice').value.trim();
@@ -626,6 +660,7 @@
         globalData.cartData.push({ name, qty: 1, purchased: price !== "", price: price || "" });
         document.getElementById('customName').value = "";
         document.getElementById('customPrice').value = "";
+        refreshCartDisplay();  // 刷新采购单显示
         sync();
     }
 
@@ -663,69 +698,32 @@
             pickList.appendChild(group);
         });
 
-        const cartList = document.getElementById('cartList');
-        if(!cartList) return;
-        cartList.innerHTML = '';
-        (globalData.cartData || []).forEach((item, idx) => {
-            const row = document.createElement('div');
-            row.className = 'item-row';
-            const isPurchased = !!item.purchased;
-            if (isPurchased) {
-                row.style.background = "rgba(80, 40, 15, 0.9)";
-                row.style.backdropFilter = "blur(10px)";
-                row.style.borderColor = "#cd7a32";
-            } else {
-                row.style.background = "rgba(255, 240, 210, 0.22)";
-                row.style.backdropFilter = "blur(12px)";
-                row.style.borderColor = "rgba(255, 170, 80, 0.6)";
-            }
-            row.innerHTML = `
-                <div style="flex:1;" onclick="toggleDone(${idx}, ${!item.purchased})">
-                    <input type="checkbox" ${item.purchased ? 'checked' : ''}>
-                    <span style="margin-left:8px; ${item.purchased ? 'text-decoration:line-through;color:#f7ca9c;' : 'color:#ffefcf;'}">${item.name} (x${item.qty})</span>
-                </div>
-                <div class="price-wrapper">
-                    <input type="text" class="price-input" inputmode="decimal" placeholder="Ks" value="${item.price ? formatNumber(item.price) : ''}" 
-                           oninput="handlePriceInput(${idx}, this)" 
-                           onblur="handlePriceBlur(${idx}, this)">
-                </div>
-            `;
-            cartList.appendChild(row);
-        });
-        document.getElementById('cartCount').innerText = (globalData.cartData || []).length;
-        updateTotal();
+        // 刷新采购单显示（重要：保证选品库勾选后采购单立刻更新）
+        refreshCartDisplay();
     }
 
-    // 输入时：只更新界面显示和内存，不保存（完全不卡顿）
     function handlePriceInput(idx, inputElement) {
         let rawVal = inputElement.value.replace(/,/g, "");
         if (rawVal === "") rawVal = "";
         if (isNaN(rawVal)) rawVal = "";
-        // 更新内存数据
         globalData.cartData[idx].price = rawVal;
         globalData.cartData[idx].purchased = rawVal && rawVal !== "";
-        // 格式化显示
         const formatted = rawVal === "" ? "" : formatNumber(rawVal);
         if (inputElement.value !== formatted) {
             inputElement.value = formatted;
         }
         updateTotal();
-        // 注意：这里不调用sync()，完全不保存，所以输入过程丝般顺滑！
     }
 
-    // 离开输入框时（点其他地方、按回车/完成）：才保存一次
     function handlePriceBlur(idx, inputElement) {
-        // 确保最终值正确存入
         let rawVal = inputElement.value.replace(/,/g, "");
         if (rawVal === "") rawVal = "";
         if (isNaN(rawVal)) rawVal = "";
         globalData.cartData[idx].price = rawVal;
         globalData.cartData[idx].purchased = rawVal && rawVal !== "";
-        // 更新显示
         const formatted = rawVal === "" ? "" : formatNumber(rawVal);
         inputElement.value = formatted;
         updateTotal();
-        // 离开输入框时才保存到云端
         sync();
     }
 
@@ -740,12 +738,21 @@
         document.getElementById(tab + 'Tab').classList.add('active');
         document.getElementById('btn-' + tab).classList.add('active');
         document.getElementById('totalBar').style.display = (tab === 'cart') ? 'flex' : 'none';
+        // 切换到采购单时，确保显示最新数据
+        if (tab === 'cart') {
+            refreshCartDisplay();
+        }
         window.scrollTo(0, 0);
     }
     
     function toggleCart(name, checked, qty) { 
-        if (checked) globalData.cartData.push({ name, qty, purchased: false, price: '' }); 
-        else globalData.cartData = globalData.cartData.filter(i => i.name !== name); 
+        if (checked) {
+            globalData.cartData.push({ name, qty, purchased: false, price: '' });
+        } else { 
+            globalData.cartData = globalData.cartData.filter(i => i.name !== name);
+        }
+        // 关键修复：勾选/取消勾选后，立即刷新采购单的显示
+        refreshCartDisplay();
         sync();
     }
     
@@ -756,12 +763,14 @@
     
     function toggleDone(idx, checked) { 
         globalData.cartData[idx].purchased = checked; 
+        refreshCartDisplay();  // 刷新显示勾选状态
         sync();
     }
     
     function clearPurchased() { 
         if(confirm("清除已买？")) { 
             globalData.cartData = globalData.cartData.filter(i => !i.purchased); 
+            refreshCartDisplay();
             sync();
         } 
     }
@@ -808,7 +817,6 @@
         if (e.target.id !== 'itemCat') document.getElementById('catDropdown').style.display = 'none';
     });
     
-    // 复制已勾选的菜品（功能100%不变）
     function copyText() {
         const incomeInput = prompt("请输入今日收入 (Ks):", "");
         if (incomeInput === null) return;
