@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>后台管理 - Firebase 云端版</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: sans-serif; background: #1a2a2a; color: #eee; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .card { background: #263636; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        h1, h2 { color: #ff8844; margin-bottom: 15px; }
+        .form-row { margin-bottom: 15px; }
+        label { display: block; color: #aaa; font-size: 12px; margin-bottom: 5px; }
+        input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #1a1a1a; color: #fff; }
+        button { background: #ff8844; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-edit { background: #4488ff; margin-right: 5px; }
+        .btn-del { background: #cc4444; }
+        .btn-save { background: #22cc77; }
+        .upload-box { border: 2px dashed #444; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; color: #888; }
+        .menu-item { display: flex; align-items: center; background: #334444; padding: 12px; border-radius: 12px; margin-bottom: 10px; gap: 15px; }
+        .menu-item img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; }
+        .item-detail { flex: 1; }
+        .edit-input { width: 90%; margin-bottom: 5px; padding: 5px; font-size: 14px; }
+
+        /* --- 新增：返回按钮样式 --- */
+        .btn-back-main {
+            display: inline-block;
+            text-decoration: none;
+            background: rgba(255, 136, 68, 0.1);
+            color: #ff8844;
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 136, 68, 0.4);
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+        .btn-back-main:active {
+            transform: scale(0.95);
+            background: rgba(255, 136, 68, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+<div id="main" class="container">
+    <a href="16.36.html" class="btn-back-main">⬅ 返回</a>
+
+    <h1>🔥 店铺管理后台</h1>
+    <div class="card">
+        <h2>🖼️ 首页轮播图管理</h2>
+        <div class="upload-box" onclick="upBanner()">+ 上传新广告图</div>
+        <div id="bList" style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;"></div>
+    </div>
+    <div class="card">
+        <h2>➕ 添加新菜品</h2>
+        <div class="form-row"><label>名称</label><input type="text" id="nName"></div>
+        <div class="form-row"><label>价格 (Ks)</label><input type="number" id="nPrice"></div>
+        <div class="form-row"><label>分类</label><input type="text" id="nCat" placeholder="如：烧烤、饮品"></div>
+        <div class="form-row">
+            <div class="upload-box" id="nImgBtn" onclick="upDish()">📸 上传菜品图</div>
+            <div id="nPre" style="display:none; margin-top:10px;">
+                <img id="tImg" src="" style="width:80px; border-radius:8px;">
+                <button onclick="clearN()">撤销</button>
+            </div>
+        </div>
+        <button onclick="add()" style="width:100%">确认发布</button>
+    </div>
+    <div class="card">
+        <h2>📋 菜单管理</h2>
+        <div id="mList">正在加载云端数据...</div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyD_OVg4lIPoqCICZxDttngMWhd0nwIfTQE",
+        authDomain: "yeyekaomenu.firebaseapp.com",
+        projectId: "yeyekaomenu",
+        storageBucket: "yeyekaomenu.firebasestorage.app",
+        messagingSenderId: "158971440613",
+        appId: "1:158971440613:web:377f5c3fd78120bc27130c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const IMGBB_KEY = "b34358ca362ee17fbb6ea231d002368e";
+
+    window.menu = [];
+    window.banners = [];
+    let tempUrl = null;
+
+    syncData();
+
+    function syncData() {
+        onSnapshot(doc(db, "restaurant", "data"), (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                window.menu = data.menu_data || [];
+                window.banners = data.banners || [];
+                renderB();
+                renderM();
+            }
+        });
+    }
+
+    async function saveToCloud() {
+        await setDoc(doc(db, "restaurant", "data"), {
+            menu_data: window.menu,
+            banners: window.banners
+        });
+    }
+
+    async function upImg(file) {
+        const fd = new FormData(); fd.append('image', file);
+        const r = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {method:'POST', body:fd});
+        const d = await r.json(); return d.data.url;
+    }
+
+    window.upBanner = async () => {
+        const i = document.createElement('input'); i.type='file';
+        i.onchange = async (e) => {
+            const url = await upImg(e.target.files[0]);
+            window.banners.push(url);
+            saveToCloud();
+        }; i.click();
+    };
+
+    window.delB = (i) => {
+        window.banners.splice(i,1);
+        saveToCloud();
+    };
+
+    window.upDish = async () => {
+        const i = document.createElement('input'); i.type='file';
+        i.onchange = async (e) => {
+            tempUrl = await upImg(e.target.files[0]);
+            document.getElementById('tImg').src=tempUrl;
+            document.getElementById('nPre').style.display='block';
+            document.getElementById('nImgBtn').style.display='none';
+        }; i.click();
+    };
+
+    window.clearN = () => { tempUrl=null; document.getElementById('nPre').style.display='none'; document.getElementById('nImgBtn').style.display='block'; };
+
+    window.add = async () => {
+        const n=document.getElementById('nName').value, p=document.getElementById('nPrice').value, c=document.getElementById('nCat').value;
+        if(!n||!p||!c) return alert("请填写完整");
+        window.menu.push({id: "item_" + Date.now(), name:n, price:Number(p), category:c, img:tempUrl||"https://via.placeholder.com/150"});
+        await saveToCloud();
+        document.getElementById('nName').value=''; document.getElementById('nPrice').value=''; 
+        window.clearN();
+    };
+
+    window.toggleE = (id) => {
+        document.getElementById(`view-${id}`).style.display='none';
+        document.getElementById(`edit-${id}`).style.display='block';
+        document.getElementById(`btn-e-${id}`).style.display='none';
+        document.getElementById(`btn-s-${id}`).style.display='inline-block';
+    };
+
+    window.saveE = async (id) => {
+        const idx = window.menu.findIndex(i => i.id === id);
+        window.menu[idx].name = document.getElementById(`en-${id}`).value;
+        window.menu[idx].price = Number(document.getElementById(`ep-${id}`).value);
+        window.menu[idx].category = document.getElementById(`ec-${id}`).value;
+        await saveToCloud();
+    };
+
+    window.delM = async (id) => {
+        if(confirm("确定删除吗？")){
+            window.menu = window.menu.filter(i=>i.id!==id);
+            await saveToCloud();
+        }
+    };
+
+    window.changeItemImg = async (id) => {
+        const i = document.createElement('input'); i.type='file';
+        i.onchange = async (e) => {
+            const url = await upImg(e.target.files[0]);
+            const idx = window.menu.findIndex(item => item.id === id);
+            window.menu[idx].img = url;
+            saveToCloud();
+        }; i.click();
+    };
+
+    function renderB() {
+        document.getElementById('bList').innerHTML = window.banners.map((u,i)=>`
+            <div style="position:relative"><img src="${u}" style="width:80px;height:50px;object-fit:cover;border-radius:5px;">
+            <button onclick="delB(${i})" style="position:absolute;top:-5px;right:-5px;background:red;border-radius:50%;width:20px;height:20px;padding:0;font-size:10px;color:white;border:none;">X</button></div>
+        `).join('');
+    }
+
+    function renderM() {
+        document.getElementById('mList').innerHTML = window.menu.map(item => `
+            <div class="menu-item">
+                <img src="${item.img}" onclick="changeItemImg('${item.id}')">
+                <div class="item-detail">
+                    <div id="view-${item.id}">
+                        <b>${item.name}</b><br>
+                        <span style="color:#ff8844">Ks ${item.price}</span> | <small>${item.category}</small>
+                    </div>
+                    <div id="edit-${item.id}" style="display:none">
+                        <input class="edit-input" id="en-${item.id}" value="${item.name}">
+                        <input class="edit-input" id="ep-${item.id}" type="number" value="${item.price}">
+                        <input class="edit-input" id="ec-${item.id}" value="${item.category}">
+                    </div>
+                </div>
+                <button id="btn-e-${item.id}" class="btn-edit" onclick="toggleE('${item.id}')">修改</button>
+                <button id="btn-s-${item.id}" class="btn-save" style="display:none" onclick="saveE('${item.id}')">保存</button>
+                <button class="btn-del" onclick="delM('${item.id}')">删除</button>
+            </div>
+        `).join('');
+    }
+</script>
+</body>
+</html>
