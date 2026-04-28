@@ -2,82 +2,160 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>后台管理 - Firebase 云端版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>后台管理 - 烧烤店高级版</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: sans-serif; background: #1a2a2a; color: #eee; padding: 20px; }
-        .container { max-width: 900px; margin: 0 auto; }
-        .card { background: #263636; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-        h1, h2 { color: #ff8844; margin-bottom: 15px; }
-        .form-row { margin-bottom: 15px; }
-        label { display: block; color: #aaa; font-size: 12px; margin-bottom: 5px; }
-        input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #1a1a1a; color: #fff; }
-        button { background: #ff8844; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn-edit { background: #4488ff; margin-right: 5px; }
-        .btn-del { background: #cc4444; }
-        .btn-save { background: #22cc77; }
-        .upload-box { border: 2px dashed #444; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; color: #888; }
-        .menu-item { display: flex; align-items: center; background: #334444; padding: 12px; border-radius: 12px; margin-bottom: 10px; gap: 15px; }
-        .menu-item img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; }
-        .item-detail { flex: 1; }
-        .edit-input { width: 90%; margin-bottom: 5px; padding: 5px; font-size: 14px; }
 
-        /* --- 新增：返回按钮样式 --- */
-        .btn-back-main {
-            display: inline-block;
-            text-decoration: none;
-            background: rgba(255, 136, 68, 0.1);
-            color: #ff8844;
-            padding: 8px 16px;
-            border-radius: 10px;
-            font-size: 14px;
-            margin-bottom: 20px;
-            border: 1px solid rgba(255, 136, 68, 0.4);
-            transition: all 0.2s;
-            font-weight: bold;
+        /* 继承明亮版视觉风格 */
+        body {
+            font-family: 'Segoe UI', 'Poppins', system-ui, -apple-system, sans-serif;
+            background: radial-gradient(circle at 30% 10%, #2a2218, #1a140e, #0f0b07);
+            min-height: 100vh;
+            padding-top: 80px;
+            padding-bottom: 30px;
+            color: #eee;
         }
-        .btn-back-main:active {
-            transform: scale(0.95);
-            background: rgba(255, 136, 68, 0.2);
+
+        body::before {
+            content: ""; position: fixed; top: -20%; left: -15%; width: 130%; height: 130%;
+            background: radial-gradient(ellipse at 40% 50%, rgba(255, 160, 70, 0.25), rgba(255, 100, 30, 0) 70%);
+            pointer-events: none; z-index: 0;
         }
+
+        /* 顶部导航 */
+        .header-bar {
+            position: fixed; top: 0; left: 0; width: 100%; z-index: 110;
+            backdrop-filter: blur(24px); background: rgba(25, 18, 12, 0.85);
+            border-bottom: 1px solid rgba(255, 160, 70, 0.7);
+            padding: 12px 18px; display: flex; align-items: center; justify-content: space-between;
+        }
+
+        .header-title {
+            flex: 1; font-size: 18px; font-weight: 800; text-align: center;
+            background: linear-gradient(135deg, #ffe0b5, #ffb462);
+            -webkit-background-clip: text; color: transparent;
+        }
+
+        .btn-top {
+            background: rgba(255, 200, 140, 0.2); border: 1px solid rgba(255, 150, 60, 0.8);
+            color: #ffd7a5; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; text-decoration: none;
+        }
+
+        /* 轮播图管理区 */
+        .banner-card {
+            background: rgba(35, 26, 18, 0.7); border-radius: 24px; margin: 0 18px 20px; padding: 15px;
+            border: 1px solid rgba(255, 170, 80, 0.4); backdrop-filter: blur(10px);
+        }
+
+        .b-list { display: flex; gap: 10px; overflow-x: auto; padding: 10px 0; }
+        .b-item { position: relative; flex-shrink: 0; }
+        .b-item img { width: 100px; height: 60px; border-radius: 10px; object-fit: cover; border: 1px solid #555; }
+        .b-del { position: absolute; top: -5px; right: -5px; background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; }
+
+        /* 列表样式 */
+        .menu-list { padding: 0 18px 90px; position: relative; z-index: 2; }
+        .category-block {
+            background: rgba(35, 26, 18, 0.7); border-radius: 24px; margin-bottom: 20px;
+            border: 1px solid rgba(255, 170, 80, 0.5); overflow: hidden;
+        }
+        .category-header {
+            background: rgba(220, 100, 30, 0.3); padding: 12px 18px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .menu-item-card {
+            background: rgba(45, 34, 24, 0.7); border-radius: 20px; margin: 10px;
+            padding: 12px; display: flex; align-items: center; gap: 12px;
+            border: 1px solid rgba(255, 170, 80, 0.3);
+        }
+        .item-img { width: 60px; height: 60px; border-radius: 12px; object-fit: cover; }
+        .item-info { flex: 1; }
+        .item-name { font-weight: 800; color: #fff3e6; font-size: 15px; }
+        .item-price { color: #ffdbb5; font-size: 13px; margin-top: 4px; }
+
+        /* 按钮样式 */
+        .actions { display: flex; gap: 6px; }
+        .btn-sm { padding: 6px 12px; border-radius: 15px; border: none; font-size: 12px; font-weight: bold; cursor: pointer; }
+        .edit-btn { background: rgba(255, 190, 80, 0.3); color: #ffefcf; border: 1px solid #ff9933; }
+        .del-btn { background: rgba(200, 60, 30, 0.3); color: #ffcfb0; border: 1px solid #cc3333; }
+
+        /* 悬浮按钮 */
+        .fab-add {
+            position: fixed; bottom: 30px; right: 25px; width: 60px; height: 60px;
+            background: linear-gradient(120deg, #f9732e, #e05a1a);
+            border-radius: 50%; border: none; color: white; font-size: 30px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5); z-index: 100;
+        }
+
+        /* 模态框 */
+        .modal {
+            display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background: rgba(35, 26, 18, 0.95); width: 85%; max-width: 350px; padding: 25px;
+            border-radius: 30px; border: 1px solid #ff8844;
+        }
+        input, select {
+            width: 100%; padding: 12px; margin: 8px 0 15px; border-radius: 20px;
+            border: 1px solid #ffa554; background: #fff9f0; color: #4a2a10;
+        }
+        .preview-box { text-align: center; margin-bottom: 15px; }
+        .preview-box img { width: 80px; height: 80px; border-radius: 10px; object-fit: cover; background: #333; }
+
+        #saveIndicator {
+            position: fixed; top: 80px; right: 18px; background: rgba(0,0,0,0.8);
+            color: #ffaa55; padding: 5px 15px; border-radius: 20px; font-size: 11px;
+            opacity: 0; transition: 0.3s; z-index: 130; border: 1px solid #ff8844;
+        }
+        #saveIndicator.show { opacity: 1; }
     </style>
 </head>
 <body>
 
-<div id="main" class="container">
-    <a href="index.html" class="btn-back-main">⬅ 返回</a>
+<div id="saveIndicator">☁️ 同步中</div>
 
-    <h1>🔥 店铺管理后台</h1>
-    <div class="card">
-        <h2>🖼️ 首页轮播图管理</h2>
-        <div class="upload-box" onclick="upBanner()">+ 上传新广告图</div>
-        <div id="bList" style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;"></div>
-    </div>
-    <div class="card">
-        <h2>➕ 添加新菜品</h2>
-        <div class="form-row"><label>名称</label><input type="text" id="nName"></div>
-        <div class="form-row"><label>价格 (Ks)</label><input type="number" id="nPrice"></div>
-        <div class="form-row"><label>分类</label><input type="text" id="nCat" placeholder="如：烧烤、饮品"></div>
-        <div class="form-row">
-            <div class="upload-box" id="nImgBtn" onclick="upDish()">📸 上传菜品图</div>
-            <div id="nPre" style="display:none; margin-top:10px;">
-                <img id="tImg" src="" style="width:80px; border-radius:8px;">
-                <button onclick="clearN()">撤销</button>
-            </div>
+<header class="header-bar">
+    <a href="index.html" class="btn-top">←</a>
+    <div class="header-title">夜夜烤 · 店铺管理</div>
+    <a href="https://kyawsooewinn.github.io/yeyekaomenu2/" target="_blank" class="btn-top" style="border-color:#4488ff; color:#4488ff;">🌐 预览</a>
+</header>
+
+<div class="banner-card">
+    <h4 style="color:#ff8844; font-size:14px; margin-bottom:10px;">🖼️ 首页轮播图</h4>
+    <div class="b-list" id="bList"></div>
+    <button onclick="upBanner()" style="width:100%; padding:8px; background:rgba(255,136,68,0.2); border:1px dashed #ff8844; color:#ff8844; border-radius:12px; font-size:12px; margin-top:10px;">+ 上传新广告图</button>
+</div>
+
+<div class="menu-list" id="menuList">正在连接云端...</div>
+
+<button class="fab-add" onclick="showAddModal()">＋</button>
+
+<div id="itemModal" class="modal">
+    <div class="modal-content">
+        <h3 id="modalTitle" style="color:#ff8844; margin-bottom:15px;">🍢 编辑菜品</h3>
+        <div class="preview-box">
+            <img id="tempImgPre" src="https://via.placeholder.com/150">
+            <button onclick="upDishImg()" style="display:block; margin: 8px auto; background:none; border:none; color:#4488ff; font-size:12px; cursor:pointer;">修改图片</button>
         </div>
-        <button onclick="add()" style="width:100%">确认发布</button>
-    </div>
-    <div class="card">
-        <h2>📋 菜单管理</h2>
-        <div id="mList">正在加载云端数据...</div>
+        <input type="hidden" id="itemId">
+        <label style="font-size:12px; color:#aaa;">名称</label>
+        <input type="text" id="itemName" placeholder="菜品名称">
+        <label style="font-size:12px; color:#aaa;">价格 (Ks)</label>
+        <input type="number" id="itemPrice" placeholder="价格">
+        <label style="font-size:12px; color:#aaa;">分类</label>
+        <select id="itemCategory"></select>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <button onclick="hideModal()" style="flex:1; padding:12px; border-radius:25px; border:1px solid #666; background:none; color:#eee;">取消</button>
+            <button onclick="saveItem()" style="flex:1; padding:12px; border-radius:25px; border:none; background:#f9732e; color:white; font-weight:bold;">保存</button>
+        </div>
     </div>
 </div>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
+<script>
+    // ==================== 核心逻辑 (Firebase + ImgBB) ====================
     const firebaseConfig = {
         apiKey: "AIzaSyD_OVg4lIPoqCICZxDttngMWhd0nwIfTQE",
         authDomain: "yeyekaomenu.firebaseapp.com",
@@ -86,137 +164,196 @@
         messagingSenderId: "158971440613",
         appId: "1:158971440613:web:377f5c3fd78120bc27130c"
     };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
     const IMGBB_KEY = "b34358ca362ee17fbb6ea231d002368e";
 
-    window.menu = [];
-    window.banners = [];
-    let tempUrl = null;
+    let globalData = { menu_data: [], banners: [] };
+    let currentTempImg = null;
 
-    syncData();
-
-    function syncData() {
-        onSnapshot(doc(db, "restaurant", "data"), (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                window.menu = data.menu_data || [];
-                window.banners = data.banners || [];
-                renderB();
-                renderM();
+    // 初始化加载
+    async function init() {
+        db.collection("restaurant").doc("data").onSnapshot(doc => {
+            if (doc.exists) {
+                globalData = doc.data();
+                renderBanners();
+                renderList();
             }
         });
     }
 
-    async function saveToCloud() {
-        await setDoc(doc(db, "restaurant", "data"), {
-            menu_data: window.menu,
-            banners: window.banners
-        });
+    // 同步云端
+    async function sync() {
+        const ind = document.getElementById('saveIndicator');
+        ind.classList.add('show');
+        await db.collection("restaurant").doc("data").set(globalData);
+        setTimeout(() => ind.classList.remove('show'), 1500);
     }
 
-    async function upImg(file) {
-        const fd = new FormData(); fd.append('image', file);
+    // 图片上传逻辑
+    async function uploadToImgBB(file) {
+        const fd = new FormData();
+        fd.append('image', file);
         const r = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {method:'POST', body:fd});
-        const d = await r.json(); return d.data.url;
+        const d = await r.json();
+        return d.data.url;
+    }
+
+    // 渲染轮播图
+    function renderBanners() {
+        const list = document.getElementById('bList');
+        const banners = globalData.banners || [];
+        list.innerHTML = banners.map((url, i) => `
+            <div class="b-item">
+                <img src="${url}">
+                <button class="b-del" onclick="delBanner(${i})">×</button>
+            </div>
+        `).join('');
     }
 
     window.upBanner = async () => {
         const i = document.createElement('input'); i.type='file';
         i.onchange = async (e) => {
-            const url = await upImg(e.target.files[0]);
-            window.banners.push(url);
-            saveToCloud();
+            const url = await uploadToImgBB(e.target.files[0]);
+            if(!globalData.banners) globalData.banners = [];
+            globalData.banners.push(url);
+            sync();
         }; i.click();
     };
 
-    window.delB = (i) => {
-        window.banners.splice(i,1);
-        saveToCloud();
+    window.delBanner = (i) => {
+        globalData.banners.splice(i, 1);
+        sync();
     };
 
-    window.upDish = async () => {
+    // 渲染菜单列表
+    function renderList() {
+        const container = document.getElementById('menuList');
+        container.innerHTML = '';
+        const items = globalData.menu_data || [];
+        
+        const groups = items.reduce((acc, item) => {
+            (acc[item.category] = acc[item.category] || []).push(item);
+            return acc;
+        }, {});
+
+        for (const [cat, catItems] of Object.entries(groups)) {
+            const block = document.createElement('div');
+            block.className = 'category-block';
+            block.innerHTML = `
+                <div class="category-header">
+                    <span style="font-weight:800; color:#ffd7a5">🔥 ${cat}</span>
+                    <button class="btn-sm" style="background:none; color:#aaa; border:1px solid #444;" onclick="renameCat('${cat}')">改名</button>
+                </div>
+            `;
+            catItems.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'menu-item-card';
+                card.innerHTML = `
+                    <img class="item-img" src="${item.img || 'https://via.placeholder.com/150'}">
+                    <div class="item-info">
+                        <div class="item-name">${item.name}</div>
+                        <div class="item-price">${item.price.toLocaleString()} Ks</div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn-sm edit-btn" onclick="editItem('${item.id}')">编辑</button>
+                        <button class="btn-sm del-btn" onclick="deleteItem('${item.id}')">删除</button>
+                    </div>
+                `;
+                block.appendChild(card);
+            });
+            container.appendChild(block);
+        }
+        updateCatOptions();
+    }
+
+    // 分类下拉更新
+    function updateCatOptions() {
+        const select = document.getElementById('itemCategory');
+        const cats = [...new Set(globalData.menu_data.map(i => i.category))];
+        select.innerHTML = '<option value="">选择分类</option>';
+        cats.forEach(c => select.innerHTML += `<option value="${c}">${c}</option>`);
+        select.innerHTML += '<option value="NEW">+ 新增分类</option>';
+        select.onchange = function() {
+            if(this.value === 'NEW') {
+                const n = prompt("输入新分类名称:");
+                if(n) {
+                    const opt = document.createElement('option');
+                    opt.value = n; opt.text = n; opt.selected = true;
+                    select.insertBefore(opt, select.lastChild);
+                }
+            }
+        };
+    }
+
+    // 编辑保存功能
+    window.showAddModal = () => {
+        document.getElementById('modalTitle').innerText = "🍢 添加菜品";
+        document.getElementById('itemId').value = "";
+        document.getElementById('itemName').value = "";
+        document.getElementById('itemPrice').value = "";
+        document.getElementById('tempImgPre').src = "https://via.placeholder.com/150";
+        currentTempImg = null;
+        document.getElementById('itemModal').style.display = 'flex';
+    };
+
+    window.editItem = (id) => {
+        const item = globalData.menu_data.find(i => i.id === id);
+        document.getElementById('modalTitle').innerText = "📝 编辑菜品";
+        document.getElementById('itemId').value = item.id;
+        document.getElementById('itemName').value = item.name;
+        document.getElementById('itemPrice').value = item.price;
+        document.getElementById('itemCategory').value = item.category;
+        document.getElementById('tempImgPre').src = item.img || "https://via.placeholder.com/150";
+        currentTempImg = item.img;
+        document.getElementById('itemModal').style.display = 'flex';
+    };
+
+    window.upDishImg = () => {
         const i = document.createElement('input'); i.type='file';
         i.onchange = async (e) => {
-            tempUrl = await upImg(e.target.files[0]);
-            document.getElementById('tImg').src=tempUrl;
-            document.getElementById('nPre').style.display='block';
-            document.getElementById('nImgBtn').style.display='none';
+            document.getElementById('tempImgPre').src = "https://i.gifer.com/ZKZg.gif"; // 上传中动画
+            currentTempImg = await uploadToImgBB(e.target.files[0]);
+            document.getElementById('tempImgPre').src = currentTempImg;
         }; i.click();
     };
 
-    window.clearN = () => { tempUrl=null; document.getElementById('nPre').style.display='none'; document.getElementById('nImgBtn').style.display='block'; };
+    window.saveItem = async () => {
+        const id = document.getElementById('itemId').value;
+        const name = document.getElementById('itemName').value;
+        const price = Number(document.getElementById('itemPrice').value);
+        const cat = document.getElementById('itemCategory').value;
 
-    window.add = async () => {
-        const n=document.getElementById('nName').value, p=document.getElementById('nPrice').value, c=document.getElementById('nCat').value;
-        if(!n||!p||!c) return alert("请填写完整");
-        window.menu.push({id: "item_" + Date.now(), name:n, price:Number(p), category:c, img:tempUrl||"https://via.placeholder.com/150"});
-        await saveToCloud();
-        document.getElementById('nName').value=''; document.getElementById('nPrice').value=''; 
-        window.clearN();
+        if(!name || !price || !cat) return alert("请填写完整");
+
+        if(id) {
+            const idx = globalData.menu_data.findIndex(i => i.id === id);
+            globalData.menu_data[idx] = { id, name, price, category: cat, img: currentTempImg };
+        } else {
+            globalData.menu_data.push({ id: 'item_'+Date.now(), name, price, category: cat, img: currentTempImg });
+        }
+        hideModal();
+        sync();
     };
 
-    window.toggleE = (id) => {
-        document.getElementById(`view-${id}`).style.display='none';
-        document.getElementById(`edit-${id}`).style.display='block';
-        document.getElementById(`btn-e-${id}`).style.display='none';
-        document.getElementById(`btn-s-${id}`).style.display='inline-block';
-    };
-
-    window.saveE = async (id) => {
-        const idx = window.menu.findIndex(i => i.id === id);
-        window.menu[idx].name = document.getElementById(`en-${id}`).value;
-        window.menu[idx].price = Number(document.getElementById(`ep-${id}`).value);
-        window.menu[idx].category = document.getElementById(`ec-${id}`).value;
-        await saveToCloud();
-    };
-
-    window.delM = async (id) => {
-        if(confirm("确定删除吗？")){
-            window.menu = window.menu.filter(i=>i.id!==id);
-            await saveToCloud();
+    window.deleteItem = (id) => {
+        if(confirm("确定删除吗？")) {
+            globalData.menu_data = globalData.menu_data.filter(i => i.id !== id);
+            sync();
         }
     };
 
-    window.changeItemImg = async (id) => {
-        const i = document.createElement('input'); i.type='file';
-        i.onchange = async (e) => {
-            const url = await upImg(e.target.files[0]);
-            const idx = window.menu.findIndex(item => item.id === id);
-            window.menu[idx].img = url;
-            saveToCloud();
-        }; i.click();
+    window.renameCat = (old) => {
+        const n = prompt(`将 "${old}" 重命名为:`, old);
+        if(n && n !== old) {
+            globalData.menu_data.forEach(i => { if(i.category === old) i.category = n; });
+            sync();
+        }
     };
 
-    function renderB() {
-        document.getElementById('bList').innerHTML = window.banners.map((u,i)=>`
-            <div style="position:relative"><img src="${u}" style="width:80px;height:50px;object-fit:cover;border-radius:5px;">
-            <button onclick="delB(${i})" style="position:absolute;top:-5px;right:-5px;background:red;border-radius:50%;width:20px;height:20px;padding:0;font-size:10px;color:white;border:none;">X</button></div>
-        `).join('');
-    }
+    window.hideModal = () => document.getElementById('itemModal').style.display = 'none';
 
-    function renderM() {
-        document.getElementById('mList').innerHTML = window.menu.map(item => `
-            <div class="menu-item">
-                <img src="${item.img}" onclick="changeItemImg('${item.id}')">
-                <div class="item-detail">
-                    <div id="view-${item.id}">
-                        <b>${item.name}</b><br>
-                        <span style="color:#ff8844">Ks ${item.price}</span> | <small>${item.category}</small>
-                    </div>
-                    <div id="edit-${item.id}" style="display:none">
-                        <input class="edit-input" id="en-${item.id}" value="${item.name}">
-                        <input class="edit-input" id="ep-${item.id}" type="number" value="${item.price}">
-                        <input class="edit-input" id="ec-${item.id}" value="${item.category}">
-                    </div>
-                </div>
-                <button id="btn-e-${item.id}" class="btn-edit" onclick="toggleE('${item.id}')">修改</button>
-                <button id="btn-s-${item.id}" class="btn-save" style="display:none" onclick="saveE('${item.id}')">保存</button>
-                <button class="btn-del" onclick="delM('${item.id}')">删除</button>
-            </div>
-        `).join('');
-    }
+    init();
 </script>
 </body>
 </html>
