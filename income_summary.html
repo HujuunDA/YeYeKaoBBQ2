@@ -1,4 +1,4 @@
-、<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -192,6 +192,29 @@
 
         .filter-btn:active {
             transform: scale(0.96);
+        }
+
+        /* 月份选择下拉框，与filter-btn风格统一 */
+        .month-selector {
+            padding: 10px 12px;
+            border-radius: 60px;
+            font-size: 14px;
+            font-weight: 700;
+            background: rgba(45, 34, 24, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 150, 60, 0.5);
+            color: #ffdfb3;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s;
+            outline: none;
+            font-family: inherit;
+            text-align: center;
+        }
+
+        .month-selector:hover, .month-selector:focus {
+            background: rgba(65, 50, 38, 0.9);
+            border-color: rgba(255, 170, 80, 0.9);
         }
 
         /* 排行卡片 - 玻璃质感 */
@@ -441,12 +464,17 @@
         <div class="rev-val" id="today-total">0 Ks</div>
     </div>
 
+    <!-- 筛选栏：在“21号-月底”和“全部历史”中间新增月份下拉选择器，完全符合需求位置 -->
     <div class="filter-row">
         <button class="filter-btn active" id="f-today" onclick="setFilter('today')">今日</button>
         <button class="filter-btn" id="f-yesterday" onclick="setFilter('yesterday')">昨天</button>
         <button class="filter-btn" id="f-p1" onclick="setFilter('p1')">1-10号</button>
         <button class="filter-btn" id="f-p2" onclick="setFilter('p2')">11-20号</button>
         <button class="filter-btn" id="f-p3" onclick="setFilter('p3')">21-月底</button>
+        <!-- 按月分功能：动态月份下拉 (位于21-月底与全部历史之间) -->
+        <select id="monthSelect" class="month-selector">
+            <option value="">📅 按月份</option>
+        </select>
         <button class="filter-btn" id="f-all" onclick="setFilter('all')">全部历史</button>
     </div>
 
@@ -459,7 +487,7 @@
     <div id="order-history"></div>
 
     <script>
-        // ==================== 功能代码 100% 原样保留，仅 UI 层样式变化 ====================
+        // ==================== Firebase 配置与原有核心逻辑 (增强按月过滤) ====================
         const firebaseConfig = { 
             apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
             authDomain: "yeyekao-3878d.firebaseapp.com", 
@@ -472,41 +500,78 @@
         const db = firebase.firestore();
 
         let allOrders = [];
-        let currentFilter = 'today';
+        let currentFilter = 'today';      // 'today', 'yesterday', 'p1', 'p2', 'p3', 'all', 'monthly'
+        let currentMonthYear = null;      // 存储 { year, month } (month 0-index)
         let isRankExpanded = false;
 
-        function loadData() {
-            db.collection("orders").orderBy("timestamp", "desc").onSnapshot(snap => {
-                allOrders = [];
-                snap.forEach(doc => {
-                    const d = doc.data();
-                    allOrders.push({ ...d, id: doc.id, date: d.timestamp?.toDate() || new Date() });
-                });
-                render();
-            });
+        // DOM 元素
+        const monthSelect = document.getElementById('monthSelect');
 
-            db.collection("pending_orders").onSnapshot(snap => {
-                let pendingTotal = 0;
-                snap.forEach(doc => {
-                    const d = doc.data();
-                    if (d.items) d.items.forEach(item => { pendingTotal += (Number(item.price) * Number(item.quantity)); });
-                });
-                const btn = document.getElementById('pending-btn');
-                if (btn) btn.innerText = `💰 待结算 (${pendingTotal.toLocaleString()} Ks)`;
+        // ========== 辅助函数: 从订单中提取所有存在的月份 (去重排序) ==========
+        function getAllAvailableMonths() {
+            const monthsSet = new Set();
+            allOrders.forEach(order => {
+                if (order.date && !isNaN(order.date.getTime())) {
+                    const year = order.date.getFullYear();
+                    const month = order.date.getMonth(); // 0-11
+                    const key = `${year}-${month}`;
+                    monthsSet.add(key);
+                }
             });
+            // 转换为数组并按年份月份排序
+            const monthsArray = Array.from(monthsSet).map(key => {
+                const [year, month] = key.split('-').map(Number);
+                return { year, month };
+            }).sort((a, b) => {
+                if (a.year !== b.year) return a.year - b.year;
+                return a.month - b.month;
+            });
+            return monthsArray;
         }
 
-        function toggleRank() {
-            isRankExpanded = !isRankExpanded;
-            document.getElementById('toggle-rank-btn').innerText = isRankExpanded ? '收起排行 ↑' : '查看全部排行 ↓';
-            render();
+        // 更新月份下拉框的选项 (基于现有订单数据)
+        function updateMonthDropdown() {
+            const months = getAllAvailableMonths();
+            // 保留原有的“按月份”占位选项
+            let optionsHtml = '<option value="">📅 按月份</option>';
+            months.forEach(({ year, month }) => {
+                const monthName = (month + 1).toString().padStart(2, '0');
+                const value = `${year}-${month}`;
+                const displayText = `${year}年${month+1}月`;
+                optionsHtml += `<option value="${value}">${displayText}</option>`;
+            });
+            monthSelect.innerHTML = optionsHtml;
+            
+            // 如果当前是月度筛选模式，尝试恢复下拉框选中状态
+            if (currentFilter === 'monthly' && currentMonthYear) {
+                const targetVal = `${currentMonthYear.year}-${currentMonthYear.month}`;
+                if (monthSelect.querySelector(`option[value="${targetVal}"]`)) {
+                    monthSelect.value = targetVal;
+                } else {
+                    // 如果已不存在该月份（比如数据被清空），重置筛选为今日
+                    if (allOrders.length > 0) {
+                        // 重置为默认今日
+                        setFilter('today');
+                    } else {
+                        monthSelect.value = "";
+                        currentFilter = 'today';
+                        currentMonthYear = null;
+                        render();
+                    }
+                }
+            } else {
+                // 非月度模式，确保下拉框无选中（显示占位符）
+                if (monthSelect) monthSelect.value = "";
+            }
         }
 
+        // 核心渲染函数 (增强月度过滤)
         function render() {
             const now = new Date();
             let displayOrders = [];
             let title = "";
 
+            // 根据 currentFilter 类型筛选订单
             if (currentFilter === 'today') {
                 displayOrders = allOrders.filter(o => o.date.toDateString() === now.toDateString());
                 title = "今日总营收";
@@ -517,26 +582,54 @@
             } else if (currentFilter === 'all') {
                 displayOrders = allOrders;
                 title = "全部历史营收";
-            } else {
+            } else if (currentFilter === 'monthly' && currentMonthYear) {
+                // 按月过滤：匹配年份和月份
+                const { year, month } = currentMonthYear;
                 displayOrders = allOrders.filter(o => {
-                    const d = o.date.getDate(); const m = o.date.getMonth();
-                    return m === now.getMonth() && (currentFilter==='p1'? (d>=1&&d<=10): currentFilter==='p2'? (d>=11&&d<=20): (d>=21));
+                    if (!o.date) return false;
+                    return o.date.getFullYear() === year && o.date.getMonth() === month;
                 });
-                title = currentFilter==='p1'?"上旬营收":currentFilter==='p2'?"中旬营收":"下旬营收";
+                const monthShow = month + 1;
+                title = `${year}年${monthShow}月总营收`;
+            } else if (['p1', 'p2', 'p3'].includes(currentFilter)) {
+                // 原有上中下旬逻辑
+                displayOrders = allOrders.filter(o => {
+                    const d = o.date.getDate(); 
+                    const m = o.date.getMonth();
+                    if (m !== now.getMonth()) return false;
+                    if (currentFilter === 'p1') return (d >= 1 && d <= 10);
+                    if (currentFilter === 'p2') return (d >= 11 && d <= 20);
+                    if (currentFilter === 'p3') return (d >= 21);
+                    return false;
+                });
+                title = currentFilter === 'p1' ? "上旬营收" : (currentFilter === 'p2' ? "中旬营收" : "下旬营收");
+            } else {
+                // fallback (理论上不会进来)
+                displayOrders = [];
+                title = "营收数据";
             }
 
+            // 更新总营收卡片
+            const totalRevenue = displayOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
             document.getElementById('revenue-title').innerText = title;
-            document.getElementById('today-total').innerHTML = displayOrders.reduce((s, o)=>s+(Number(o.total)||0), 0).toLocaleString() + ' Ks';
+            document.getElementById('today-total').innerHTML = totalRevenue.toLocaleString() + ' Ks';
 
-            // 排行逻辑
+            // ----- 菜品销量排行 (基于当前过滤后的订单) -----
             const salesMap = {};
-            displayOrders.forEach(o => (o.items || []).forEach(i => salesMap[i.name] = (salesMap[i.name] || 0) + (Number(i.quantity) || 0)));
+            displayOrders.forEach(o => {
+                (o.items || []).forEach(i => {
+                    const name = i.name;
+                    const qty = Number(i.quantity) || 0;
+                    salesMap[name] = (salesMap[name] || 0) + qty;
+                });
+            });
             const sortedSales = Object.entries(salesMap).sort((a, b) => b[1] - a[1]);
             const rankSection = document.getElementById('rank-section');
             if (sortedSales.length > 0) {
                 rankSection.style.display = 'block';
                 const showCount = isRankExpanded ? sortedSales.length : 5;
-                document.getElementById('toggle-rank-btn').style.display = sortedSales.length > 5 ? 'block' : 'none';
+                const toggleBtn = document.getElementById('toggle-rank-btn');
+                if (toggleBtn) toggleBtn.style.display = sortedSales.length > 5 ? 'block' : 'none';
                 document.getElementById('rank-content').innerHTML = sortedSales.slice(0, showCount).map(([name, qty], idx) => `
                     <div class="rank-item">
                         <div class="rank-left">
@@ -546,9 +639,15 @@
                         <div class="rank-qty">${qty} 份</div>
                     </div>
                 `).join('');
-            } else { rankSection.style.display = 'none'; }
+            } else {
+                rankSection.style.display = 'none';
+            }
 
-            // 订单列表逻辑
+            // ----- 渲染订单卡片列表 -----
+            if (displayOrders.length === 0) {
+                document.getElementById('order-history').innerHTML = '';
+                return;
+            }
             document.getElementById('order-history').innerHTML = displayOrders.map(o => {
                 const discountValue = Number(o.discount || 0);
                 const timeStr = `${o.date.getHours().toString().padStart(2,'0')}:${o.date.getMinutes().toString().padStart(2,'0')}`;
@@ -581,32 +680,79 @@
             }).join('');
         }
 
-        // 简单防XSS
-        function escapeHtml(str) {
-            if (!str) return '';
-            return String(str).replace(/[&<>]/g, function(m) {
-                if (m === '&') return '&amp;';
-                if (m === '<') return '&lt;';
-                if (m === '>') return '&gt;';
-                return m;
-            });
-        }
-
-        function setFilter(f) {
-            currentFilter = f;
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            const targetBtn = document.getElementById('f-' + f);
+        // 设置过滤器(今日/昨天/旬/全部历史)
+        function setFilter(filterType) {
+            // 重置月份选中状态
+            if (monthSelect) monthSelect.value = "";
+            // 清空月度变量
+            currentMonthYear = null;
+            currentFilter = filterType;
+            
+            // 更新按钮活跃样式
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            const targetId = `f-${filterType}`;
+            const targetBtn = document.getElementById(targetId);
             if (targetBtn) targetBtn.classList.add('active');
+            
+            // 确保不是月度模式，重新渲染
             render();
         }
-
+        
+        // 按月过滤的核心方法 (由下拉框调用)
+        function applyMonthFilter(year, month) {
+            if (year === undefined || month === undefined) {
+                // 如果清空，则回退到今日视图
+                setFilter('today');
+                return;
+            }
+            // 更新全局筛选状态为 monthly
+            currentFilter = 'monthly';
+            currentMonthYear = { year, month };
+            
+            // 清除所有filter-btn的active样式 (因为没有对应按钮)
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            
+            // 确保渲染
+            render();
+        }
+        
+        // 监听月份下拉框的变化
+        function bindMonthSelector() {
+            if (!monthSelect) return;
+            monthSelect.addEventListener('change', (e) => {
+                const selectedVal = e.target.value;
+                if (!selectedVal) {
+                    // 用户清空选择 -> 返回今日模式
+                    setFilter('today');
+                    return;
+                }
+                const parts = selectedVal.split('-');
+                if (parts.length === 2) {
+                    const year = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10);
+                    if (!isNaN(year) && !isNaN(month)) {
+                        applyMonthFilter(year, month);
+                    } else {
+                        setFilter('today');
+                    }
+                } else {
+                    setFilter('today');
+                }
+            });
+        }
+        
+        // 删除订单 (原有逻辑保留)
         async function deleteOrder(id) {
             if(confirm("确定要删除这条订单吗？删除后营收数据会同步扣除。")) {
-                try { await db.collection("orders").doc(id).delete(); } 
-                catch (e) { alert("删除失败: " + e.message); }
+                try { 
+                    await db.collection("orders").doc(id).delete(); 
+                } catch (e) { 
+                    alert("删除失败: " + e.message); 
+                }
             }
         }
-
+        
+        // 导出CSV (原有逻辑不变)
         function exportDetailedCSV() {
             if (allOrders.length === 0) return alert("暂无订单数据可导出");
             let csv = "\uFEFF日期,时间,桌号,支付方式,备注,菜品,数量,单价,总额\n";
@@ -624,8 +770,62 @@
             link.click();
             URL.revokeObjectURL(link.href);
         }
-
-        loadData();
+        
+        // 菜品排行展开/收起
+        function toggleRank() {
+            isRankExpanded = !isRankExpanded;
+            const btn = document.getElementById('toggle-rank-btn');
+            if (btn) btn.innerText = isRankExpanded ? '收起排行 ↑' : '查看全部排行 ↓';
+            render();
+        }
+        
+        // 防XSS
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+        
+        // 监听Firestore数据 (实时刷新)
+        function loadData() {
+            db.collection("orders").orderBy("timestamp", "desc").onSnapshot(snap => {
+                allOrders = [];
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    allOrders.push({ ...d, id: doc.id, date: d.timestamp?.toDate() || new Date() });
+                });
+                // 更新月份下拉选项 (基于现有订单)
+                updateMonthDropdown();
+                // 重新渲染当前视图
+                render();
+            });
+            
+            db.collection("pending_orders").onSnapshot(snap => {
+                let pendingTotal = 0;
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    if (d.items) d.items.forEach(item => { pendingTotal += (Number(item.price) * Number(item.quantity)); });
+                });
+                const btn = document.getElementById('pending-btn');
+                if (btn) btn.innerText = `💰 待结算 (${pendingTotal.toLocaleString()} Ks)`;
+            });
+        }
+        
+        // 初始化绑定下拉事件与加载数据
+        window.addEventListener('DOMContentLoaded', () => {
+            bindMonthSelector();
+            loadData();
+        });
+        
+        // 全局函数暴露 (供HTML onclick调用)
+        window.setFilter = setFilter;
+        window.deleteOrder = deleteOrder;
+        window.exportDetailedCSV = exportDetailedCSV;
+        window.toggleRank = toggleRank;
     </script>
 </body>
 </html>
