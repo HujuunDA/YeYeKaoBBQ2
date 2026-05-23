@@ -6,6 +6,8 @@
     <title>蓝牙打印 - 夜夜烤烧烤</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <!-- 引入第三方 TextEncoder 库，完美支持浏览器端字符串转 GBK 字节 -->
+    <script src="https://fastly.jsdelivr.net/npm/text-encoding@0.7.0/lib/encoding.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -39,18 +41,16 @@
             cursor: pointer;
         }
         .btn:active { transform: scale(0.96); }
-        .preview { margin-top: 16px; font-size: 13px; line-height: 1.4; }
         hr { border-color: rgba(255,180,100,0.3); margin: 12px 0; }
         .status { margin-top: 12px; font-size: 12px; color: #ffaa66; }
+        .preview-text { font-size: 12px; line-height: 1.4; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,180,100,0.3); }
     </style>
-    <!-- 动态加载 iconv-lite 用于 GBK 编码 -->
-    <script src="https://cdn.jsdelivr.net/npm/iconv-lite@0.6.3/lib/index.js"></script>
 </head>
 <body>
 <div class="container">
-    <div class="card" id="receiptCard">
+    <div class="card">
         <div id="contentArea">📡 加载订单中...</div>
-        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 蓝牙打印 (仅中文)</button>
+        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 蓝牙打印 (仅中文 GBK)</button>
         <div id="status" class="status"></div>
     </div>
 </div>
@@ -67,38 +67,30 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    let currentPlainText = '';  // 过滤后的纯中文文本
+    let currentGBKData = null; 
 
     function getQueryParam(p) { return new URLSearchParams(window.location.search).get(p); }
     function formatNum(n) { return Number(n).toLocaleString(); }
 
-    // 只保留中文字符、数字、常用标点（去除英文、缅文、图标等）
     function keepOnlyChinese(str) {
         if (!str) return '';
-        // 允许的字符：中文基本区(4E00-9FFF) + 中文扩展区(3400-4DBF) + 数字0-9 + 小数点 + 空格 + 换行 + 常用标点（，。、：；！？（）【】《》—…·-）
-        // 以及中英文括号、冒号、短横等
-        // 注意去除所有英文字母 a-z A-Z
+        let filtered = str.replace(/[a-zA-Z]/g, '');
+        filtered = filtered.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
         const allowed = /[^\u4e00-\u9fff\u3400-\u4dbf0-9\s\.\:\-\—\,\。\、\：\；\！\？\（\）\【\】\《\》\…\·\-\+\×\÷\%\#\￥\（\）]/g;
-        let filtered = str.replace(/[a-zA-Z]/g, ''); // 先去掉英文字母
         filtered = filtered.replace(allowed, '');
-        // 去掉多余的空格
         return filtered.replace(/\s+/g, ' ').trim();
     }
 
-    // 过滤 emoji 和特殊图标（保留中文字符）
-    function removeIconsAndNonChinese(str) {
-        // 先移除 emoji
-        let s = str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
-        // 再保留仅中文
-        return keepOnlyChinese(s);
+    // 关键修改点：使用专用的编码库转换字符串为真正的 GBK 字节数组
+    function stringToGBK(str) {
+        return new Promise((resolve) => {
+            // 使用引入的 TextEncoder 库进行 gbk 编码
+            const encoder = new TextEncoder('gbk', { NONSTANDARD_allowLegacyEncoding: true });
+            const gbkBytes = encoder.encode(str);
+            resolve(gbkBytes);
+        });
     }
 
-    function escapeHtml(s) {
-        if (!s) return '';
-        return s.replace(/[&<>]/g, m => m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;'));
-    }
-
-    // 生成纯文本小票（仅中文 + 必要数字标点）
     function generatePlainReceipt(table, discount, note, method, items, total, finalTotal, timeStr) {
         let lines = [];
         lines.push("夜夜烤烧烤");
@@ -109,10 +101,11 @@
         lines.push(`时间：${timeStr}`);
         lines.push(`支付：${method}`);
         lines.push("--------------------------------");
-        lines.push("菜品名称              数量  金额(Ks)");
+        lines.push("菜品名称             数量  金额(Ks)");
         for (let it of items) {
             let name = it.name.length > 18 ? it.name.slice(0, 16) + ".." : it.name;
-            let line = `${name.padEnd(20)} ${it.qty}     ${formatNum(it.subtotal)}`;
+            // 修复补位：中文在GBK中占2个字节，直接用 padEnd 会导致排版错乱。此处简单用空格衔接
+            let line = `${name}  x${it.qty}   ${formatNum(it.subtotal)}`;
             lines.push(line);
         }
         lines.push("--------------------------------");
@@ -122,41 +115,28 @@
         if (note) lines.push(`备注：${note}`);
         lines.push("--------------------------------");
         lines.push("感谢光临，欢迎下次惠顾！");
-        lines.push("");
-        lines.push("");
+        lines.push("\n\n\n"); // 留出物理撕纸空间
         return lines.join("\n");
     }
 
-    // 将字符串转换为 GBK 字节数组（使用 iconv-lite）
-    function stringToGBK(str) {
-        if (window.iconv && window.iconv.encode) {
-            return window.iconv.encode(str, 'gbk');
-        } else {
-            console.error("iconv-lite 未加载，使用 UTF-8 降级");
-            return new TextEncoder().encode(str);
-        }
-    }
-
-    // 分包发送数据 (GBK 编码)
-    async function sendChunked(characteristic, text, chunkSize = 480) {
-        const gbkBytes = stringToGBK(text);
-        console.log(`总字节数: ${gbkBytes.length}`);
-        for (let i = 0; i < gbkBytes.length; i += chunkSize) {
-            const chunk = gbkBytes.slice(i, i + chunkSize);
+    async function sendChunked(characteristic, dataBytes, chunkSize = 20) {
+        console.log(`总字节数: ${dataBytes.length}`);
+        // 关键修改点：绝大多数便携式蓝牙打印机的单次接收上限是 20 字节。480 字节太大会造成打印机断开或丢包乱码
+        for (let i = 0; i < dataBytes.length; i += chunkSize) {
+            const chunk = dataBytes.slice(i, i + chunkSize);
             await characteristic.writeValue(chunk);
-            await new Promise(r => setTimeout(r, 60));
+            await new Promise(r => setTimeout(r, 20)); // 短暂延迟，防止发太快打印机吃不下
         }
     }
 
-    // 蓝牙打印主函数
     async function bluetoothPrint() {
         const statusDiv = document.getElementById('status');
         if (!navigator.bluetooth) {
             statusDiv.innerText = "❌ 当前浏览器不支持 Web Bluetooth，请使用 Chrome 安卓版。";
             return;
         }
-        if (!currentPlainText) {
-            statusDiv.innerText = "❌ 没有可打印的内容";
+        if (!currentGBKData) {
+            statusDiv.innerText = "❌ 没有可打印的内容，请稍后再试";
             return;
         }
         statusDiv.innerText = "🔍 正在搜索打印机...";
@@ -187,14 +167,14 @@
             if (!writeChar) throw new Error("未找到可写入特征");
             statusDiv.innerText = "📄 发送数据中...";
 
-            // 1. 初始化打印机 ESC @
+            // 1. 初始化打印机
             await writeChar.writeValue(new Uint8Array([0x1B, 0x40]));
-            await new Promise(r => setTimeout(r, 100));
+            await new Promise(r => setTimeout(r, 50));
 
-            // 2. 发送小票内容 (GBK编码，已过滤只留中文)
-            await sendChunked(writeChar, currentPlainText, 480);
+            // 2. 发送真正的 GBK 数据（改用 20 字节小包发送）
+            await sendChunked(writeChar, currentGBKData, 20);
 
-            // 3. 走纸 3 行
+            // 3. 走纸并切纸
             await writeChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03]));
             
             statusDiv.innerText = "✅ 蓝牙打印完成！";
@@ -211,15 +191,16 @@
         const method = getQueryParam('method') || '现金';
         const contentDiv = document.getElementById('contentArea');
         const btn = document.getElementById('bluetoothBtn');
+        const statusDiv = document.getElementById('status');
 
         if (!table) {
             contentDiv.innerHTML = '<div>❌ 缺少桌号参数</div>';
             return;
         }
 
-        // 过滤备注：只留中文
-        note = removeIconsAndNonChinese(note);
+        note = keepOnlyChinese(note);
         contentDiv.innerHTML = '📡 读取订单中...';
+        statusDiv.innerText = '';
         try {
             const snapshot = await db.collection("pending_orders").where("table", "==", table).get();
             if (snapshot.empty) throw new Error(`未找到 ${table} 号桌订单`);
@@ -235,9 +216,7 @@
                         const qty = Number(it.quantity) || 0;
                         const price = Number(it.price) || 0;
                         total += qty * price;
-                        // 菜品名称过滤：只留中文
-                        let cleanName = removeIconsAndNonChinese(it.name);
-                        // 如果过滤后名称为空，则显示默认名称
+                        let cleanName = keepOnlyChinese(it.name);
                         if (!cleanName) cleanName = "菜品";
                         items.push({ name: cleanName, qty, price, subtotal: qty*price });
                     }
@@ -248,18 +227,19 @@
             const now = new Date();
             const timeStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
 
-            // 生成纯文本（会自动使用过滤后的中文）
-            currentPlainText = generatePlainReceipt(table, discount, note, method, items, total, finalTotal, timeStr);
+            const plainText = generatePlainReceipt(table, discount, note, method, items, total, finalTotal, timeStr);
+            
+            statusDiv.innerText = "🔄 编码转换中...";
+            currentGBKData = await stringToGBK(plainText);
 
-            // 预览（同样过滤）
-            const itemsHtml = items.map(i => `<div>${escapeHtml(i.name)} ×${i.qty}  ${formatNum(i.subtotal)} Ks</div>`).join('');
+            const itemsPreview = items.map(i => `<div>${escapeHtml(i.name)} ×${i.qty}  ${formatNum(i.subtotal)} Ks</div>`).join('');
             contentDiv.innerHTML = `
                 <div style="font-size:12px;">
                     <div style="text-align:center; font-weight:bold;">夜夜烤烧烤</div>
                     <div>桌号: ${escapeHtml(table)}</div>
                     <div>时间: ${timeStr}</div>
                     <hr>
-                    ${itemsHtml}
+                    ${itemsPreview}
                     <hr>
                     <div>原价: ${formatNum(total)} Ks</div>
                     ${discount>0?`<div>优惠: -${formatNum(discount)} Ks</div>`:''}
@@ -270,10 +250,17 @@
             `;
             btn.style.display = 'block';
             btn.onclick = bluetoothPrint;
+            statusDiv.innerText = "✅ 数据准备就绪，可点击打印";
         } catch (err) {
+            console.error(err);
             contentDiv.innerHTML = `<div>❌ 加载失败: ${err.message}</div>`;
         }
     };
+
+    function escapeHtml(s) {
+        if (!s) return '';
+        return s.replace(/[&<>]/g, m => m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;'));
+    }
 </script>
 </body>
 </html>
