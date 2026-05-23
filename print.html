@@ -80,7 +80,7 @@
 <body>
 <div class="container">
     <div class="card">
-        <div class="version-tag">v3.2 高清大字版</div>
+        <div class="version-tag">v3.4 完美高清大字版</div>
 
         <div id="contentArea">📡 加载订单中...</div>
         <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 闪电高清打印 (大字版)</button>
@@ -90,10 +90,10 @@
     </div>
 </div>
 
-<canvas id="printCanvas" width="576"></canvas>
+<canvas id="printCanvas" width="384"></canvas>
 
 <script>
-    // ======================= 已替换为纯文本 Logo =======================
+    // 纯文字新Logo
     const LOGO_TEXT = "YeYeKao";
     
     let db;
@@ -186,14 +186,14 @@
         }
     }
     
-    // 生成高清高对比度的小票图片
+    // 渲染高清大字画板
     function drawReceipt() {
         const canvas = document.getElementById('printCanvas');
         const ctx = canvas.getContext('2d');
         const d = currentOrderData;
         if(!d) return;
 
-        // 动态计算页面高度（大字版高度适量增加）
+        // 动态计算小票高度
         let h = 80 + 60 + 50 + 40; 
         h += d.items.length * 45; 
         h += 50 + 50 + 50 + 80;
@@ -201,116 +201,122 @@
 
         canvas.height = h;
 
-        // 背景刷为纯白
+        // 背景刷白
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 统一黑色高对比度画笔
+        // 设置画笔颜色
         ctx.fillStyle = '#000000';
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2;
 
         let y = 60;
 
-        // 1. 绘制纯文字大Logo
-        ctx.font = "bold 48px 'Segoe UI', system-ui, sans-serif";
+        // 1. 绘制纯文字大Logo "YeYeKao"
+        ctx.font = "bold 44px 'Segoe UI', system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText(LOGO_TEXT, canvas.width / 2, y);
         y += 60;
 
-        // 2. 订单基础信息
+        // 2. 基础信息大字化
         ctx.textAlign = "left";
-        ctx.font = "bold 32px 'Segoe UI', system-ui, sans-serif";
-        ctx.fillText(`桌号: ${d.table}`, 24, y);
+        ctx.font = "bold 28px 'Segoe UI', system-ui, sans-serif";
+        ctx.fillText(`桌号: ${d.table}`, 15, y);
         y += 45;
 
-        ctx.font = "26px 'Segoe UI', system-ui, sans-serif";
-        ctx.fillText(`时间: ${d.timeStr}`, 24, y);
+        ctx.font = "22px 'Segoe UI', system-ui, sans-serif";
+        ctx.fillText(`时间: ${d.timeStr}`, 15, y);
         y += 40;
-        ctx.fillText(`方式: ${d.method}`, 24, y);
+        ctx.fillText(`方式: ${d.method}`, 15, y);
         y += 40;
 
         if(d.note){
-            ctx.fillText(`备注: ${d.note}`, 24, y);
+            ctx.fillText(`备注: ${d.note}`, 15, y);
             y += 45;
         }
 
-        // 分割线
+        // 虚线分割线
         ctx.beginPath();
         ctx.setLineDash([6, 4]);
-        ctx.moveTo(24, y);
-        ctx.lineTo(canvas.width - 24, y);
+        ctx.moveTo(15, y);
+        ctx.lineTo(canvas.width - 15, y);
         ctx.stroke();
         y += 35;
 
-        // 3. 商品列表表头
-        ctx.font = "bold 28px 'Segoe UI', system-ui, sans-serif";
-        ctx.fillText("品名", 24, y);
+        // 3. 菜品表头大字化
+        ctx.font = "bold 24px 'Segoe UI', system-ui, sans-serif";
+        ctx.fillText("品名", 15, y);
         ctx.textAlign = "right";
-        ctx.fillText("单价×数量", canvas.width - 160, y);
-        ctx.fillText("小计", canvas.width - 24, y);
+        ctx.fillText("单价×数量", canvas.width - 110, y);
+        ctx.fillText("小计", canvas.width - 15, y);
         y += 45;
 
-        // 商品逐行打印
-        ctx.font = "28px 'Segoe UI', system-ui, sans-serif";
+        // 菜品列表大字化
+        ctx.font = "24px 'Segoe UI', system-ui, sans-serif";
         d.items.forEach(item => {
             ctx.textAlign = "left";
-            // 限制菜品过长时遮挡单价
             let name = item.name;
-            if(name.length > 8) name = name.substring(0,7) + "..";
-            ctx.fillText(name, 24, y);
+            if(name.length > 6) name = name.substring(0,5) + ".."; // 防止大字溢出叠字
+            ctx.fillText(name, 15, y);
 
             ctx.textAlign = "right";
-            ctx.fillText(`${item.price}×${item.count}`, canvas.width - 160, y);
-            ctx.fillText(`${(item.price * item.count).toFixed(2)}`, canvas.width - 24, y);
+            ctx.fillText(`${item.price}×${item.count}`, canvas.width - 110, y);
+            ctx.fillText(`${(item.price * item.count).toFixed(2)}`, canvas.width - 15, y);
             y += 45;
         });
 
-        // 分割线
         y -= 10;
         ctx.beginPath();
-        ctx.moveTo(24, y);
-        ctx.lineTo(canvas.width - 24, y);
+        ctx.moveTo(15, y);
+        ctx.lineTo(canvas.width - 15, y);
         ctx.stroke();
         y += 40;
 
-        // 4. 结算信息
+        // 4. 结算大字化
         ctx.textAlign = "right";
         if(d.discount < 100){
-            ctx.font = "24px 'Segoe UI', system-ui, sans-serif";
-            ctx.fillText(`原价: ￥${d.total.toFixed(2)} (${d.discount}%折)`, canvas.width - 24, y);
+            ctx.font = "20px 'Segoe UI', system-ui, sans-serif";
+            ctx.fillText(`原价: ￥${d.total.toFixed(2)} (${d.discount}%折)`, canvas.width - 15, y);
             y += 40;
         }
 
-        ctx.font = "bold 36px 'Segoe UI', system-ui, sans-serif";
-        ctx.fillText(`实付金额: ￥${d.finalTotal}`, canvas.width - 24, y);
+        ctx.font = "bold 30px 'Segoe UI', system-ui, sans-serif";
+        ctx.fillText(`实付金额: ￥${d.finalTotal}`, canvas.width - 15, y);
         y += 60;
 
-        ctx.font = "24px 'Segoe UI', system-ui, sans-serif";
+        ctx.font = "20px 'Segoe UI', system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText("谢谢惠顾，欢迎下次光临！", canvas.width / 2, y);
+    }
+
+    // 完美复原原版的流程管道函数
+    function loadEmbeddedLogo() {
+        refreshPrint();
+    }
+
+    function refreshPrint() {
+        if(currentOrderData) {
+            drawReceipt();
+        }
     }
 
     function showStatus(msg) {
         document.getElementById('status').innerText = msg;
     }
 
-    // 蓝牙高清晰度位图数据转换
     function getPrintData() {
         const canvas = document.getElementById('printCanvas');
         const ctx = canvas.getContext('2d');
-        const width = canvas.width; // 576像素宽度
+        const width = canvas.width;
         const height = canvas.height;
         const imgData = ctx.getImageData(0, 0, width, height).data;
 
         const rowBytes = width / 8;
         const cmd = [];
 
-        // 预热/初始化打印机
         cmd.push(0x1B, 0x40);
 
         for (let y = 0; y < height; y++) {
-            // ESC * 指令或 GS v 0 图像指令格式
             cmd.push(0x1D, 0x76, 0x30, 0, rowBytes & 0xFF, (rowBytes >> 8) & 0xFF);
             for (let x = 0; x < rowBytes; x++) {
                 let byteVal = 0;
@@ -321,14 +327,13 @@
                     const g = imgData[rIdx + 1];
                     const b = imgData[rIdx + 2];
                     const grey = r * 0.299 + g * 0.587 + b * 0.114;
-                    if (grey < 160) { // 提高二值化对比度
+                    if (grey < 160) { // 提高160二值化对比度，字迹更黑更清晰
                         byteVal |= (1 << (7 - bit));
                     }
                 }
                 cmd.push(byteVal);
             }
         }
-        // 切纸与走纸
         cmd.push(0x1D, 0x56, 0x42, 0x40); 
         return new Uint8Array(cmd);
     }
@@ -355,7 +360,7 @@
             const data = getPrintData();
             
             showStatus("数据传送中，请稍候...");
-            const chunkSize = 512; // 纯文本替代Logo后无大数据堆积，发送极为顺畅
+            const chunkSize = 512;
             for (let i = 0; i < data.length; i += chunkSize) {
                 const chunk = data.slice(i, i + chunkSize);
                 await characteristic.writeValue(chunk);
@@ -369,9 +374,11 @@
         }
     }
 
+    // 严密对齐原版的启动生命周期
     async function init() {
         const ok = await loadOrder();
         if(!ok) return;
+        loadEmbeddedLogo();
         document.getElementById('bluetoothBtn').addEventListener('click', bluetoothPrint);
     }
     
