@@ -27,7 +27,18 @@
             color: #ffefcf;
             position: relative;
         }
-        /* 版本号样式已移除 */
+        .version-tag {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 170, 80, 0.2);
+            border: 1px solid #ffaa50;
+            color: #ffefcf;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
         .btn {
             background: linear-gradient(120deg, #0284c7, #0369a1);
             color: white;
@@ -44,17 +55,12 @@
         .btn:active { transform: scale(0.96); }
         .btn-back {
             background: linear-gradient(120deg, #4b5563, #374151);
-            margin-bottom: 16px;     /* 与下方内容区拉开距离，保持美观 */
-            margin-top: 0;
+            margin-top: 10px;
         }
         hr { border-color: rgba(255,180,100,0.3); margin: 12px 0; }
         .status { margin-top: 12px; font-size: 12px; color: #ffaa66; word-break: break-word; }
         #printCanvas { display: none; }
-        .flex-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-        }
+        .flex-row { display: flex; justify-content: space-between; align-items: flex-start; }
         .col-name { flex: 1; padding-right: 8px; word-break: break-all; }
         .col-price { width: 100px; text-align: right; }
         .col-total { width: 95px; text-align: right; }
@@ -63,12 +69,10 @@
 <body>
 <div class="container">
     <div class="card">
-        <!-- ✅ 返回按钮已移动至最上方 (卡片顶部，内容区之上) -->
-        <button class="btn btn-back" id="backBtn" style="display:none;" onclick="history.back()">⬅️ 返回</button>
-
-        <div id="contentArea">📡 加载订单中...</div>
-        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 打印小票</button>
-        
+        <div class="version-tag">v3.4 Fast Print</div>
+        <div id="contentArea">📡 Loading...</div>
+        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ Print Receipt</button>
+        <button class="btn btn-back" id="backBtn" style="display:none;" onclick="history.back()">⬅️ Back</button>
         <div id="status" class="status"></div>
     </div>
 </div>
@@ -77,7 +81,6 @@
 
 <script>
     const LOGO_URL = "打印logo.png"; 
-
     const firebaseConfig = { 
         apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
         authDomain: "yeyekao-3878d.firebaseapp.com", 
@@ -90,18 +93,12 @@
     const db = firebase.firestore();
 
     let printDataBytes = null;
-    let currentOrderData = {
-        table: '', discount: 0, note: '', method: 'Cash', items: [], total: 0, tax: 0, finalTotal: 0, timeStr: ''
-    };
+    let currentOrderData = { table: '', discount: 0, note: '', items: [], total: 0, tax: 0, finalTotal: 0, timeStr: '' };
     let customLogoImage = null;
-    let autoPrintTriggered = false;     // 确保只自动触发一次蓝牙配对
 
     function getQueryParam(p) { return new URLSearchParams(window.location.search).get(p); }
     function formatNum(n) { return Math.round(n).toLocaleString(); } 
-    function cleanText(str) {
-        if (!str) return '';
-        return str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
-    }
+    function cleanText(str) { return !str ? '' : str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim(); }
 
     function drawTextWithWrapping(ctx, text, x, y, maxWidth, lineHeight) {
         let words = text.split('');
@@ -109,20 +106,16 @@
         let currentY = y;
         for (let n = 0; n < words.length; n++) {
             let testLine = line + words[n];
-            let metrics = ctx.measureText(testLine);
-            if (metrics.width > maxWidth && n > 0) {
+            if (ctx.measureText(testLine).width > maxWidth && n > 0) {
                 ctx.fillText(line, x, currentY);
                 line = words[n];
                 currentY += lineHeight;
-            } else {
-                line = testLine;
-            }
+            } else { line = testLine; }
         }
         ctx.fillText(line, x, currentY);
         return currentY;
     }
 
-    // ✅ 打印图片生成：已移除支付方式(Pay)相关的行，彻底取消现金/支付方式的显示
     function generateReceiptImageBytes(order, logoImg) {
         const canvas = document.getElementById('printCanvas');
         const ctx = canvas.getContext('2d');
@@ -134,56 +127,39 @@
             let itemLines = 1;
             let line = '';
             for (let char of it.name.split('')) {
-                if (ctx.measureText(line + char).width > 165) {
-                    itemLines++;
-                    line = char;
-                } else {
-                    line += char;
-                }
+                if (ctx.measureText(line + char).width > 165) { itemLines++; line = char; } else { line += char; }
             }
             calculatedItemsHeight += Math.max(26, itemLines * 22) + 6;
         }
 
         let padding = 12;
         let titleHeight = (logoImg && logoImg.complete && logoImg.naturalWidth > 0) ? ((Math.min(logoImg.naturalWidth, 280) / logoImg.naturalWidth) * logoImg.naturalHeight + 12) : 40;
-        
-        // 修改高度：移除了 Pay 那一行，减少24px
-        let infoHeight = 26 * 3 + 16;       // 原本4行(电话、Table、Time、Pay) → 3行(电话、Table、Time)
+        let infoHeight = 26 * 3 + 16; // 减少了一行高度
         let headerHeight = 28;
         let summaryHeight = 24 + 24 + 26 + 36 + (discount > 0 ? 24 : 0) + (note ? 32 : 0) + 24 + 24;
         
         canvas.height = padding + titleHeight + infoHeight + headerHeight + calculatedItemsHeight + summaryHeight + 30;
-        
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#000000';
-        ctx.textBaseline = 'top';
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#000000'; ctx.textBaseline = 'top';
         let y = padding;
         
         if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
-            const maxLogoWidth = 280;
-            let drawWidth = Math.min(logoImg.naturalWidth, maxLogoWidth);
-            let drawHeight = (drawWidth / logoImg.naturalWidth) * logoImg.naturalHeight;
+            const drawWidth = Math.min(logoImg.naturalWidth, 280);
+            const drawHeight = (drawWidth / logoImg.naturalWidth) * logoImg.naturalHeight;
             ctx.drawImage(logoImg, (canvas.width - drawWidth) / 2, y, drawWidth, drawHeight);
             y += drawHeight + 12;
         } else {
             ctx.font = 'bold 28px "Segoe UI", sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText("夜夜烤烧烤", canvas.width/2, y);
-            y += 38;
+            ctx.textAlign = 'center'; ctx.fillText("夜夜烤烧烤", canvas.width/2, y); y += 38;
         }
         
         ctx.font = 'bold 17px "Segoe UI", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText("📞 09795858987", canvas.width/2, y); y += 26;
-        
+        ctx.textAlign = 'center'; ctx.fillText("📞 09795858987", canvas.width/2, y); y += 26;
         ctx.textAlign = 'left';
         ctx.font = 'bold 22px "Segoe UI", sans-serif'; 
         ctx.fillText(`Table: ${table}`, 6, y); y += 32;
-        
         ctx.font = 'bold 16px "Segoe UI", sans-serif';
         ctx.fillText(`Time: ${timeStr}`, 6, y); y += 24;
-        // ❌ 已移除支付方式(Pay)行，现金不再显示
         
         ctx.font = 'bold 16px monospace';
         ctx.fillText("--------------------------------------", 4, y); y += 18;
@@ -191,66 +167,43 @@
         ctx.font = 'bold 17px "Segoe UI", sans-serif';
         ctx.textAlign = 'left'; ctx.fillText("Item", 6, y);
         ctx.textAlign = 'right'; ctx.fillText("Price × Qty", 280, y); 
-        ctx.textAlign = 'right'; ctx.fillText("Amt", 378, y);
-        y += 26;
+        ctx.textAlign = 'right'; ctx.fillText("Amt", 378, y); y += 26;
         
-        ctx.font = 'bold 17px "Segoe UI", sans-serif';
         for (let it of items) {
             let startY = y;
             ctx.textAlign = 'left';
             let lastY = drawTextWithWrapping(ctx, it.name, 6, y, 165, 22);
-            
             ctx.textAlign = 'right';
             ctx.fillText(`${it.price}×${it.qty}`, 280, startY);
             ctx.fillText(formatNum(it.subtotal), 378, startY);
-            
             y = Math.max(lastY + 22, startY + 26) + 6;
         }
         
         ctx.font = 'bold 16px monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText("--------------------------------------", 4, y); y += 18;
-        
+        ctx.textAlign = 'left'; ctx.fillText("--------------------------------------", 4, y); y += 18;
         ctx.font = 'bold 18px sans-serif';
         ctx.fillText(`Subtotal: ${formatNum(total)} Ks`, 6, y); y += 26;
-        if (discount > 0) {
-            ctx.fillText(`Discount: - ${formatNum(discount)} Ks`, 6, y); 
-            y += 26;
-        }
-        
+        if (discount > 0) { ctx.fillText(`Discount: - ${formatNum(discount)} Ks`, 6, y); y += 26; }
         ctx.fillText(`Tax (5%): + ${formatNum(tax)} Ks`, 6, y); y += 26;
-        
         ctx.font = 'bold 23px sans-serif'; 
         ctx.fillText(`Final: ${formatNum(finalTotal)} Ks`, 6, y); y += 34;
-        
         ctx.font = 'bold 17px sans-serif';
-        if (note) {
-            ctx.fillText(`Note: ${note}`, 6, y); 
-            y += 26;
-        }
-        
+        if (note) { ctx.fillText(`Note: ${note}`, 6, y); y += 26; }
         ctx.font = 'bold 16px monospace';
         ctx.fillText("--------------------------------------", 4, y); y += 18;
-        
-        ctx.textAlign = 'center';
-        ctx.font = 'bold 18px sans-serif'; 
+        ctx.textAlign = 'center'; ctx.font = 'bold 18px sans-serif'; 
         ctx.fillText("Thank you!", canvas.width/2, y);
         
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const widthBytes = canvas.width / 8;
-        const escPosBytes = [0x1D, 0x76, 0x30, 0x00];
-        escPosBytes.push(widthBytes & 0xFF, (widthBytes >> 8) & 0xFF);
-        escPosBytes.push(canvas.height & 0xFF, (canvas.height >> 8) & 0xFF);
+        const escPosBytes = [0x1D, 0x76, 0x30, 0x00, widthBytes & 0xFF, (widthBytes >> 8) & 0xFF, canvas.height & 0xFF, (canvas.height >> 8) & 0xFF];
         let pixelIndex = 0;
         for (let h = 0; h < canvas.height; h++) {
             for (let w = 0; w < widthBytes; w++) {
                 let byteVal = 0;
                 for (let b = 0; b < 8; b++) {
-                    let r = imgData.data[pixelIndex];
-                    let g = imgData.data[pixelIndex+1];
-                    let bl = imgData.data[pixelIndex+2];
-                    let brightness = (r+g+bl)/3;
-                    if (brightness < 128) byteVal |= (1 << (7-b));
+                    let r = imgData.data[pixelIndex], g = imgData.data[pixelIndex+1], bl = imgData.data[pixelIndex+2];
+                    if ((r+g+bl)/3 < 128) byteVal |= (1 << (7-b));
                     pixelIndex += 4;
                 }
                 escPosBytes.push(byteVal);
@@ -259,70 +212,37 @@
         return new Uint8Array(escPosBytes);
     }
     
-    // 发送分块数据（保持高速240字节/块，与之前一致）
     async function sendChunked(characteristic, dataBytes, chunkSize=240) {
-        for (let i=0; i<dataBytes.length; i+=chunkSize) {
-            await characteristic.writeValue(dataBytes.slice(i, i+chunkSize));
-        }
+        for (let i=0; i<dataBytes.length; i+=chunkSize) await characteristic.writeValue(dataBytes.slice(i, i+chunkSize));
     }
     
-    // 蓝牙打印主逻辑
     async function bluetoothPrint() {
         const statusDiv = document.getElementById('status');
-        if (!navigator.bluetooth) { statusDiv.innerText = "❌ 当前浏览器不支持蓝牙打印"; return; }
-        if (!printDataBytes) { statusDiv.innerText = "❌ 小票数据未生成，请刷新重试"; return; }
-        statusDiv.innerText = "🔍 正在搜索打印机，请选择设备...";
         try {
             const device = await navigator.bluetooth.requestDevice({
                 filters: [{ services: ['49535343-fe7d-4ae5-8fa9-9fafd205e455'] }, { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }],
                 optionalServices: ['49535343-fe7d-4ae5-8fa9-9fafd205e455', '000018f0-0000-1000-8000-00805f9b34fb']
             });
-            statusDiv.innerText = "✅ 连接中...";
             const server = await device.gatt.connect();
             let service;
             try { service = await server.getPrimaryService('49535343-fe7d-4ae5-8fa9-9fafd205e455'); } catch(e) { service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb'); }
-            const chars = await service.getCharacteristics();
-            let writeChar = chars.find(c => c.properties.write || c.properties.writeWithoutResponse);
-            if (!writeChar) throw new Error("未找到可写入特征");
-            statusDiv.innerText = "⚡ 打印中，请稍候...";
+            const writeChar = (await service.getCharacteristics()).find(c => c.properties.write || c.properties.writeWithoutResponse);
             await writeChar.writeValue(new Uint8Array([0x1B, 0x40])); 
-            await new Promise(r=>setTimeout(r,5));
             await sendChunked(writeChar, printDataBytes, 240);
             await writeChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03])); 
-            statusDiv.innerText = "✅ 打印完成！";
-        } catch(err) {
-            statusDiv.innerText = "❌ 打印失败: " + err.message;
-        }
+            statusDiv.innerText = "✅ Done!";
+        } catch(err) { statusDiv.innerText = "❌ Error: "+err.message; }
     }
     
-    // 生成打印数据 & 刷新界面预览（移除了支付方式显示）
     async function refreshPrint() {
-        const statusDiv = document.getElementById('status');
         if (!currentOrderData.items.length) return;
-        statusDiv.innerText = "🖌️ 正在生成小票...";
         if (customLogoImage && !customLogoImage.complete) await new Promise(r=>{ customLogoImage.onload=r; });
         printDataBytes = generateReceiptImageBytes(currentOrderData, customLogoImage);
-        updatePreview();    // 更新HTML预览（已无现金支付方式）
-        statusDiv.innerText = "✅ 小票已就绪";
+        updatePreview();
         document.getElementById('bluetoothBtn').style.display = 'block';
         document.getElementById('backBtn').style.display = 'block';
-        
-        // ✅ 自动触发打印机配对（仅首次加载后自动弹出，无需手动点击打印按钮）
-        if (!autoPrintTriggered && printDataBytes) {
-            autoPrintTriggered = true;
-            statusDiv.innerText = "🔄 自动启动打印机配对，请选择蓝牙打印机...";
-            // 稍微延迟确保界面友好，立刻触发蓝牙连接窗口
-            setTimeout(() => {
-                bluetoothPrint().catch(e => {
-                    console.warn("自动打印触发失败: ", e);
-                    const statusDiv2 = document.getElementById('status');
-                    if (statusDiv2) statusDiv2.innerText = "⚠️ 自动配对未成功，可点击上方「打印小票」按钮手动重试";
-                });
-            }, 100);
-        }
     }
     
-    // ✅ 页面预览区：完全移除支付方式（现金/刷卡等），仅保留时间、菜品等信息
     function updatePreview() {
         const { table, discount, note, items, total, tax, finalTotal, timeStr } = currentOrderData;
         let itemsHtml = items.map(i => `
@@ -332,36 +252,29 @@
                 <span class="col-total">${formatNum(i.subtotal)}Ks</span>
             </div>
         `).join('');
-        
         document.getElementById('contentArea').innerHTML = `
             <div style="font-size:12px;">
-                <div style="text-align:center; font-weight:bold; margin-bottom: 10px;">🧾 订单预览</div>
-                <div>🏷️ 桌号: ${escapeHtml(table)}</div>
-                <div>📞 09795858987</div>
-                <div>⏰ 时间: ${timeStr}</div>
-                <!-- 💳 支付方式已完全移除 -->
-                <hr>
-                ${itemsHtml}
-                <hr>
-                <div>💰 小计: ${formatNum(total)} Ks</div>
-                ${discount>0?`<div>🎁 折扣: -${formatNum(discount)} Ks</div>`:''}
-                <div style="color: #ffaa66;">📊 税费(5%): +${formatNum(tax)} Ks</div>
-                <div style="font-weight:bold; font-size:14px; margin-top:4px;">💵 总计: ${formatNum(finalTotal)} Ks</div>
-                ${note?`<div>📝 备注: ${escapeHtml(note)}</div>`:''}
+                <div style="text-align:center; font-weight:bold; margin-bottom: 10px;">🧾 Order Preview</div>
+                <div>🏷️ Table: ${escapeHtml(table)}</div>
+                <div>⏰ ${timeStr}</div>
+                <hr>${itemsHtml}<hr>
+                <div>💰 Subtotal: ${formatNum(total)} Ks</div>
+                ${discount>0?`<div>🎁 Discount: -${formatNum(discount)} Ks</div>`:''}
+                <div style="color: #ffaa66;">📊 Tax (5%): +${formatNum(tax)} Ks</div>
+                <div style="font-weight:bold; font-size:14px; margin-top:4px;">💵 Final: ${formatNum(finalTotal)} Ks</div>
+                ${note?`<div>📝 Note: ${escapeHtml(note)}</div>`:''}
             </div>
         `;
     }
     
-    // 加载Firestore订单数据 (逻辑完全保持不变，只移除method显示)
     async function loadOrder() {
         const table = getQueryParam('table');
         const discount = Number(getQueryParam('discount')||'0');
         let note = cleanText(getQueryParam('note')||'');
-        const method = getQueryParam('method')||'Cash';   // 保留参数但不用于显示
-        if (!table) { document.getElementById('contentArea').innerHTML='<div>❌ 缺少桌号参数</div>'; return false; }
+        if (!table) { document.getElementById('contentArea').innerHTML='<div>❌ Missing Table</div>'; return false; }
         try {
             const snapshot = await db.collection("pending_orders").where("table","==",table).get();
-            if(snapshot.empty) throw new Error(`桌号 ${table} 未找到订单`);
+            if(snapshot.empty) throw new Error(`Table ${table} not found`);
             let items=[], total=0;
             for(const doc of snapshot.docs){
                 const order=doc.data();
@@ -369,65 +282,36 @@
                     for(const it of order.items){
                         let qty=Number(it.quantity)||0, price=Number(it.price)||0;
                         if(qty===0) continue;
-                        let name=cleanText(it.name)||"菜品";
                         let subtotal=qty*price;
                         total+=subtotal;
-                        items.push({name, qty, price, subtotal});
+                        items.push({name: cleanText(it.name), qty, price, subtotal});
                     }
                 }
             }
-            if(items.length===0) throw new Error("未找到任何菜品");
-            
             const baseAmount = Math.max(0, total - discount); 
             const tax = baseAmount * 0.05;                   
             const finalTotal = baseAmount + tax;              
-
             const now=new Date();
-            const timeStr=`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
-            // method 保留在对象中但不再用于任何显示/打印，彻底隐形
-            currentOrderData={table, discount, note, method, items, total, tax, finalTotal, timeStr};
+            const timeStr=`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+            currentOrderData={table, discount, note, items, total, tax, finalTotal, timeStr};
             return true;
         } catch(e){
-            document.getElementById('contentArea').innerHTML=`<div>❌ 加载失败: ${e.message}</div>`;
-            document.getElementById('backBtn').style.display='block';
+            document.getElementById('contentArea').innerHTML=`<div>❌ ${e.message}</div>`;
             return false;
         }
     }
     
-    // 加载Logo图片（异步不影响自动打印触发时机）
-    function loadEmbeddedLogo() {
-        if (LOGO_URL) {
-            const img = new Image();
-            img.crossOrigin = 'Anonymous';
-            img.onload = () => {
-                customLogoImage = img;
-                refreshPrint();
-            };
-            img.onerror = () => { 
-                console.log("未找到logo图片，使用文字标题");
-                customLogoImage = null; 
-                refreshPrint(); 
-            };
-            img.src = LOGO_URL + "?t=" + new Date().getTime(); 
-        } else {
-            customLogoImage = null;
-            refreshPrint();
+    async function init() {
+        if(await loadOrder()){
+            if (LOGO_URL) {
+                const img = new Image(); img.crossOrigin = 'Anonymous';
+                img.onload = () => { customLogoImage = img; refreshPrint(); };
+                img.onerror = () => { customLogoImage = null; refreshPrint(); };
+                img.src = LOGO_URL + "?t=" + new Date().getTime(); 
+            } else { refreshPrint(); }
+            document.getElementById('bluetoothBtn').addEventListener('click', bluetoothPrint);
         }
     }
-    
-    // ✅ 初始化入口：加载订单 -> 准备logo -> 自动生成数据 -> 自动触发蓝牙配对
-    async function init() {
-        const ok = await loadOrder();
-        if(!ok) return;
-        // 加载logo，内部会调用refreshPrint，refreshPrint完成之后会触发自动配对（autoPrintTriggered控制）
-        loadEmbeddedLogo();
-        // 手动确保无论logo是否加载成功，打印按钮的事件绑定不变
-        document.getElementById('bluetoothBtn').addEventListener('click', (e) => {
-            e.preventDefault();
-            bluetoothPrint();
-        });
-    }
-    
     function escapeHtml(s){ if(!s)return ''; return s.replace(/[&<>]/g, m=> m==='&'?'&amp;':(m==='<'?'&lt;':'&gt;')); }
     window.onload = init;
 </script>
