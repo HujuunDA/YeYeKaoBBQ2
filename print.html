@@ -80,10 +80,10 @@
 <body>
 <div class="container">
     <div class="card">
-        <div class="version-tag">v3.4 完美高清大字版</div>
+        <div class="version-tag">v3.5 对齐原版底线版</div>
 
         <div id="contentArea">📡 加载订单中...</div>
-        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 闪电高清打印 (大字版)</button>
+        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 闪电图像打印 (大字清晰版)</button>
         <button class="btn btn-back" id="backBtn" style="display:none;" onclick="history.back()">⬅️ 返回上一页</button>
         
         <div id="status" class="status"></div>
@@ -93,7 +93,7 @@
 <canvas id="printCanvas" width="384"></canvas>
 
 <script>
-    // 纯文字新Logo
+    // 删除了几万行的 Base64 垃圾，直接定义纯文字新 Logo
     const LOGO_TEXT = "YeYeKao";
     
     let db;
@@ -115,6 +115,7 @@
     let currentOrderData = null;
     let isPrinting = false;
 
+    // 100% 保留原版的参数读取函数
     function getQueryParam(name) {
         const reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)', 'i');
         const r = window.location.search.substr(1).match(reg);
@@ -122,6 +123,7 @@
         return null;
     }
 
+    // 100% 保留原版的订单加载逻辑
     async function loadOrder() {
         const orderId = getQueryParam('id');
         if(!orderId){
@@ -186,14 +188,13 @@
         }
     }
     
-    // 渲染高清大字画板
+    // 只在画布渲染里对文字做放大和加清晰处理，画布本身结构不破坏
     function drawReceipt() {
         const canvas = document.getElementById('printCanvas');
         const ctx = canvas.getContext('2d');
         const d = currentOrderData;
         if(!d) return;
 
-        // 动态计算小票高度
         let h = 80 + 60 + 50 + 40; 
         h += d.items.length * 45; 
         h += 50 + 50 + 50 + 80;
@@ -201,24 +202,22 @@
 
         canvas.height = h;
 
-        // 背景刷白
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 设置画笔颜色
         ctx.fillStyle = '#000000';
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2;
 
         let y = 60;
 
-        // 1. 绘制纯文字大Logo "YeYeKao"
+        // 绘制大字纯文本 Logo
         ctx.font = "bold 44px 'Segoe UI', system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText(LOGO_TEXT, canvas.width / 2, y);
         y += 60;
 
-        // 2. 基础信息大字化
+        // 放大字号，提升清晰度
         ctx.textAlign = "left";
         ctx.font = "bold 28px 'Segoe UI', system-ui, sans-serif";
         ctx.fillText(`桌号: ${d.table}`, 15, y);
@@ -235,7 +234,6 @@
             y += 45;
         }
 
-        // 虚线分割线
         ctx.beginPath();
         ctx.setLineDash([6, 4]);
         ctx.moveTo(15, y);
@@ -243,7 +241,6 @@
         ctx.stroke();
         y += 35;
 
-        // 3. 菜品表头大字化
         ctx.font = "bold 24px 'Segoe UI', system-ui, sans-serif";
         ctx.fillText("品名", 15, y);
         ctx.textAlign = "right";
@@ -251,12 +248,11 @@
         ctx.fillText("小计", canvas.width - 15, y);
         y += 45;
 
-        // 菜品列表大字化
         ctx.font = "24px 'Segoe UI', system-ui, sans-serif";
         d.items.forEach(item => {
             ctx.textAlign = "left";
             let name = item.name;
-            if(name.length > 6) name = name.substring(0,5) + ".."; // 防止大字溢出叠字
+            if(name.length > 6) name = name.substring(0,5) + ".."; 
             ctx.fillText(name, 15, y);
 
             ctx.textAlign = "right";
@@ -272,7 +268,6 @@
         ctx.stroke();
         y += 40;
 
-        // 4. 结算大字化
         ctx.textAlign = "right";
         if(d.discount < 100){
             ctx.font = "20px 'Segoe UI', system-ui, sans-serif";
@@ -289,7 +284,7 @@
         ctx.fillText("谢谢惠顾，欢迎下次光临！", canvas.width / 2, y);
     }
 
-    // 完美复原原版的流程管道函数
+    // 100% 保留并复原原版的核心对齐管道函数（绝不动它）
     function loadEmbeddedLogo() {
         refreshPrint();
     }
@@ -327,7 +322,7 @@
                     const g = imgData[rIdx + 1];
                     const b = imgData[rIdx + 2];
                     const grey = r * 0.299 + g * 0.587 + b * 0.114;
-                    if (grey < 160) { // 提高160二值化对比度，字迹更黑更清晰
+                    if (grey < 160) { // 提高对比度到160，让字更黑更清楚
                         byteVal |= (1 << (7 - bit));
                     }
                 }
@@ -374,7 +369,7 @@
         }
     }
 
-    // 严密对齐原版的启动生命周期
+    // 100% 保留原版的启动生命周期核心
     async function init() {
         const ok = await loadOrder();
         if(!ok) return;
@@ -382,6 +377,7 @@
         document.getElementById('bluetoothBtn').addEventListener('click', bluetoothPrint);
     }
     
+    // 100% 照搬原版最后的浏览器加载开关
     window.onload = init;
 </script>
 </body>
