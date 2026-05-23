@@ -80,10 +80,10 @@
 <body>
 <div class="container">
     <div class="card">
-        <div class="version-tag">v3.5 对齐原版底线版</div>
+        <div class="version-tag">v3.1 高速排版版</div>
 
         <div id="contentArea">📡 加载订单中...</div>
-        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 闪电图像打印 (大字清晰版)</button>
+        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 闪电图像打印 (含Logo+单价)</button>
         <button class="btn btn-back" id="backBtn" style="display:none;" onclick="history.back()">⬅️ 返回上一页</button>
         
         <div id="status" class="status"></div>
@@ -93,91 +93,95 @@
 <canvas id="printCanvas" width="384"></canvas>
 
 <script>
-    // 删除了几万行的 Base64 垃圾，直接定义纯文字新 Logo
-    const LOGO_TEXT = "YeYeKao";
+    // ======================= 🔥 已将冗长的图片代码替换为文字标志 =======================
+    const EMBEDDED_LOGO_BASE64 = "";
     
-    let db;
-    try {
-        const firebaseConfig = {
-            apiKey: "AIzaSyAs6m" + "O6W-S7b" + "n3wW_9F" + "Hj6H2E" + "I6V-9M58",
-            authDomain: "bbq-yeyekao.firebaseapp.com",
-            projectId: "bbq-yeyekao",
-            storageBucket: "bbq-yeyekao.appspot.com",
-            messagingSenderId: "338833118227",
-            appId: "1:338833118227:web:86de984e8a47466ebbd2b7"
-        };
+    // Firebase 配置
+    const firebaseConfig = {
+        apiKey: "AIzaSyDE_N8V-0S_kZp_RE7L3Wz9XW7b8p_lY8A",
+        authDomain: "yyk-order.firebaseapp.com",
+        projectId: "yyk-order",
+        storageBucket: "yyk-order.appspot.com",
+        messagingSenderId: "1057476537703",
+        appId: "1:1057476537703:web:b1d8481ff2ba37b120c159"
+    };
+    
+    if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore();
-    } catch(e) {
-        document.getElementById('contentArea').innerHTML = `<div>❌ 配置错误: ${e.message}</div>`;
     }
-
+    const db = firebase.firestore();
+    
     let currentOrderData = null;
-    let isPrinting = false;
-
-    // 100% 保留原版的参数读取函数
+    let customLogoImage = null;
+    
     function getQueryParam(name) {
-        const reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)', 'i');
-        const r = window.location.search.substr(1).match(reg);
-        if (r != null) return decodeURIComponent(r[2]);
-        return null;
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
     }
-
-    // 100% 保留原版的订单加载逻辑
+    
     async function loadOrder() {
-        const orderId = getQueryParam('id');
-        if(!orderId){
-            document.getElementById('contentArea').innerHTML = '<div>❌ 缺少订单ID参数</div>';
+        const id = getQueryParam('id');
+        if(!id) {
+            document.getElementById('contentArea').innerHTML = '<div>❌ 错误：URL中缺少订单ID (?id=xxx)</div>';
+            document.getElementById('backBtn').style.display = 'block';
             return false;
         }
         try {
-            const doc = await db.collection('orders').doc(orderId).get();
+            const doc = await db.collection('orders').doc(id).get();
             if(!doc.exists){
                 document.getElementById('contentArea').innerHTML = '<div>❌ 订单不存在</div>';
+                document.getElementById('backBtn').style.display = 'block';
                 return false;
             }
             const data = doc.data();
-            const table = data.table || '无';
-            const discount = data.discount || 100;
+            const table = data.table || '未指定';
+            const discount = data.discount || 0;
             const note = data.note || '';
             const method = data.method || '未指定';
             const items = data.items || [];
             
             let total = 0;
-            items.forEach(item => { total += (item.price * item.count); });
-            const finalTotal = (total * discount / 100).toFixed(2);
-
-            let html = `
-                <div style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#ffaa50;">桌号: ${table}</div>
-                <div style="margin-bottom:6px;">就餐方式: ${method}</div>
-                <div>备注: <span style="color:#ffaa66;">${note || '无'}</span></div>
-                <hr>
-                <div style="margin-bottom:8px;font-weight:bold;color:#ffaa50;" class="flex-row">
-                    <span class="col-name">品名</span>
-                    <span class="col-price">单价×数量</span>
-                    <span class="col-total">小计</span>
-                </div>
-                <div class="order-preview">
-            `;
+            items.forEach(item => { total += item.price * item.count; });
+            const finalTotal = total - discount;
+            
+            let itemsHtml = '';
             items.forEach(item => {
-                html += `
-                    <div class="flex-row" style="margin-bottom:6px;">
-                        <span class="col-name">${item.name}</span>
-                        <span class="col-price">${item.price} × ${item.count}</span>
-                        <span class="col-total">${(item.price * item.count).toFixed(2)}</span>
+                itemsHtml += `
+                    <div class="flex-row" style="margin-top:6px;">
+                        <span class="col-name">${escapeHtml(item.name)} x${item.count}</span>
+                        <span class="col-price">${item.price}</span>
+                        <span class="col-total">${item.price * item.count}</span>
                     </div>
                 `;
             });
-            html += `</div><hr>`;
-            if(discount < 100){
-                html += `<div style="text-align:right;font-size:14px;color:#a3a3a3;">原价: ￥${total.toFixed(2)} (${discount}%折)</div>`;
-            }
-            html += `<div style="text-align:right;font-size:20px;font-weight:bold;color:#ffaa50;margin-top:4px;">实付: ￥${finalTotal}</div>`;
             
-            document.getElementById('contentArea').innerHTML = html;
+            let previewHtml = `
+                <div style="font-size:18px; font-weight:bold; color:#ffaa50; text-align:center; margin-bottom:10px;">订单加载成功</div>
+                <div><b>桌号：</b>${escapeHtml(table)}</div>
+                <div><b>支付方式：</b>${escapeHtml(method)}</div>
+                ${note ? `<div><b>备注：</b>${escapeHtml(note)}</div>` : ''}
+                <hr>
+                <div style="font-weight:bold; opacity:0.8; font-size:12px;" class="flex-row">
+                    <span class="col-name">品名/数量</span>
+                    <span class="col-price">单价</span>
+                    <span class="col-total">小计</span>
+                </div>
+                <div style="max-height:220px; overflow-y:auto; margin-bottom:4px;">
+                    ${itemsHtml}
+                </div>
+                <hr>
+                <div class="flex-row"><span>总计：</span><span>${total}</span></div>
+                ${discount > 0 ? `<div class="flex-row" style="color:#f87171;"><span>优惠：</span><span>-${discount}</span></div>` : ''}
+                <div class="flex-row" style="font-size:16px; font-weight:bold; color:#4ade80; margin-top:4px;">
+                    <span>应收：</span><span>${finalTotal} MMK</span>
+                </div>
+            `;
+            
+            document.getElementById('contentArea').innerHTML = previewHtml;
             document.getElementById('bluetoothBtn').style.display = 'block';
-
-            const now = data.createdAt ? data.createdAt.toDate() : new Date();
+            document.getElementById('backBtn').style.display = 'block';
+            
+            const now = data.timestamp ? data.timestamp.toDate() : new Date();
             const timeStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
             currentOrderData = {table, discount, note, method, items, total, finalTotal, timeStr};
             return true;
@@ -188,188 +192,22 @@
         }
     }
     
-    // 只在画布渲染里对文字做放大和加清晰处理，画布本身结构不破坏
-    function drawReceipt() {
-        const canvas = document.getElementById('printCanvas');
-        const ctx = canvas.getContext('2d');
-        const d = currentOrderData;
-        if(!d) return;
-
-        let h = 80 + 60 + 50 + 40; 
-        h += d.items.length * 45; 
-        h += 50 + 50 + 50 + 80;
-        if(d.note) h += 45;
-
-        canvas.height = h;
-
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.fillStyle = '#000000';
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2;
-
-        let y = 60;
-
-        // 绘制大字纯文本 Logo
-        ctx.font = "bold 44px 'Segoe UI', system-ui, sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(LOGO_TEXT, canvas.width / 2, y);
-        y += 60;
-
-        // 放大字号，提升清晰度
-        ctx.textAlign = "left";
-        ctx.font = "bold 28px 'Segoe UI', system-ui, sans-serif";
-        ctx.fillText(`桌号: ${d.table}`, 15, y);
-        y += 45;
-
-        ctx.font = "22px 'Segoe UI', system-ui, sans-serif";
-        ctx.fillText(`时间: ${d.timeStr}`, 15, y);
-        y += 40;
-        ctx.fillText(`方式: ${d.method}`, 15, y);
-        y += 40;
-
-        if(d.note){
-            ctx.fillText(`备注: ${d.note}`, 15, y);
-            y += 45;
-        }
-
-        ctx.beginPath();
-        ctx.setLineDash([6, 4]);
-        ctx.moveTo(15, y);
-        ctx.lineTo(canvas.width - 15, y);
-        ctx.stroke();
-        y += 35;
-
-        ctx.font = "bold 24px 'Segoe UI', system-ui, sans-serif";
-        ctx.fillText("品名", 15, y);
-        ctx.textAlign = "right";
-        ctx.fillText("单价×数量", canvas.width - 110, y);
-        ctx.fillText("小计", canvas.width - 15, y);
-        y += 45;
-
-        ctx.font = "24px 'Segoe UI', system-ui, sans-serif";
-        d.items.forEach(item => {
-            ctx.textAlign = "left";
-            let name = item.name;
-            if(name.length > 6) name = name.substring(0,5) + ".."; 
-            ctx.fillText(name, 15, y);
-
-            ctx.textAlign = "right";
-            ctx.fillText(`${item.price}×${item.count}`, canvas.width - 110, y);
-            ctx.fillText(`${(item.price * item.count).toFixed(2)}`, canvas.width - 15, y);
-            y += 45;
-        });
-
-        y -= 10;
-        ctx.beginPath();
-        ctx.moveTo(15, y);
-        ctx.lineTo(canvas.width - 15, y);
-        ctx.stroke();
-        y += 40;
-
-        ctx.textAlign = "right";
-        if(d.discount < 100){
-            ctx.font = "20px 'Segoe UI', system-ui, sans-serif";
-            ctx.fillText(`原价: ￥${d.total.toFixed(2)} (${d.discount}%折)`, canvas.width - 15, y);
-            y += 40;
-        }
-
-        ctx.font = "bold 30px 'Segoe UI', system-ui, sans-serif";
-        ctx.fillText(`实付金额: ￥${d.finalTotal}`, canvas.width - 15, y);
-        y += 60;
-
-        ctx.font = "20px 'Segoe UI', system-ui, sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText("谢谢惠顾，欢迎下次光临！", canvas.width / 2, y);
-    }
-
-    // 100% 保留并复原原版的核心对齐管道函数（绝不动它）
     function loadEmbeddedLogo() {
-        refreshPrint();
-    }
-
-    function refreshPrint() {
-        if(currentOrderData) {
-            drawReceipt();
+        if(EMBEDDED_LOGO_BASE64 && EMBEDDED_LOGO_BASE64.startsWith('data:image')){
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.onload = () => {
+                customLogoImage = img;
+                refreshPrint();
+            };
+            img.onerror = () => { customLogoImage = null; refreshPrint(); };
+            img.src = EMBEDDED_LOGO_BASE64;
+        } else {
+            customLogoImage = null;
+            refreshPrint();
         }
     }
-
-    function showStatus(msg) {
-        document.getElementById('status').innerText = msg;
-    }
-
-    function getPrintData() {
-        const canvas = document.getElementById('printCanvas');
-        const ctx = canvas.getContext('2d');
-        const width = canvas.width;
-        const height = canvas.height;
-        const imgData = ctx.getImageData(0, 0, width, height).data;
-
-        const rowBytes = width / 8;
-        const cmd = [];
-
-        cmd.push(0x1B, 0x40);
-
-        for (let y = 0; y < height; y++) {
-            cmd.push(0x1D, 0x76, 0x30, 0, rowBytes & 0xFF, (rowBytes >> 8) & 0xFF);
-            for (let x = 0; x < rowBytes; x++) {
-                let byteVal = 0;
-                for (let bit = 0; bit < 8; bit++) {
-                    const pixelX = x * 8 + bit;
-                    const rIdx = (y * width + pixelX) * 4;
-                    const r = imgData[rIdx];
-                    const g = imgData[rIdx + 1];
-                    const b = imgData[rIdx + 2];
-                    const grey = r * 0.299 + g * 0.587 + b * 0.114;
-                    if (grey < 160) { // 提高对比度到160，让字更黑更清楚
-                        byteVal |= (1 << (7 - bit));
-                    }
-                }
-                cmd.push(byteVal);
-            }
-        }
-        cmd.push(0x1D, 0x56, 0x42, 0x40); 
-        return new Uint8Array(cmd);
-    }
-
-    async function bluetoothPrint() {
-        if(isPrinting) return;
-        isPrinting = true;
-        showStatus("正在渲染高清小票...");
-        
-        drawReceipt();
-
-        try {
-            showStatus("正在请求蓝牙连接...");
-            const device = await navigator.bluetooth.requestDevice({
-                filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }]
-            });
-            
-            showStatus("连接成功，正在打开服务通道...");
-            const server = await device.gatt.connect();
-            const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-            const characteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
-
-            showStatus("正在打包高清图像数据...");
-            const data = getPrintData();
-            
-            showStatus("数据传送中，请稍候...");
-            const chunkSize = 512;
-            for (let i = 0; i < data.length; i += chunkSize) {
-                const chunk = data.slice(i, i + chunkSize);
-                await characteristic.writeValue(chunk);
-                showStatus(`已发送: ${Math.round((i / data.length) * 100)}%`);
-            }
-            showStatus("✨ 打印完成！");
-        } catch(e) {
-            showStatus(`❌ 错误: ${e.message}`);
-        } finally {
-            isPrinting = false;
-        }
-    }
-
-    // 100% 保留原版的启动生命周期核心
+    
     async function init() {
         const ok = await loadOrder();
         if(!ok) return;
@@ -377,7 +215,175 @@
         document.getElementById('bluetoothBtn').addEventListener('click', bluetoothPrint);
     }
     
-    // 100% 照搬原版最后的浏览器加载开关
+    function escapeHtml(s){ if(!s)return ''; return s.replace(/[&<>]/g, m => m==='&'?'&amp;':(m==='<'?'&lt;':'&gt;')); }
+    
+    function refreshPrint() {
+        if(!currentOrderData) return;
+        const canvas = document.getElementById('printCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = '#000000';
+        ctx.textBaseline = 'top';
+        
+        let y = 10;
+        
+        // 绘制纯文本 YeYeKao 标志代替原本的 Base64 图像
+        ctx.font = 'bold 32px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('YeYeKao', canvas.width / 2, y);
+        y += 45;
+        
+        // 恢复默认排版对齐样式
+        ctx.textAlign = 'left';
+        ctx.font = '22px "Courier New", monospace';
+        
+        ctx.fillText(`桌号: ${currentOrderData.table}`, 14, y);
+        y += 30;
+        ctx.fillText(`时间: ${currentOrderData.timeStr}`, 14, y);
+        y += 35;
+        
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(12, y); ctx.lineTo(372, y); ctx.stroke();
+        y += 15;
+        
+        ctx.font = '21px "Courier New", monospace';
+        currentOrderData.items.forEach(item => {
+            ctx.font = 'bold 21px "Courier New", monospace';
+            ctx.fillText(item.name, 14, y);
+            y += 26;
+            
+            ctx.font = '20px "Courier New", monospace';
+            ctx.fillText(`   x${item.count}`, 14, y);
+            
+            const priceStr = String(item.price);
+            ctx.fillText(priceStr, 220 - ctx.measureText(priceStr).width, y);
+            
+            const subtotalStr = String(item.price * item.count);
+            ctx.fillText(subtotalStr, 370 - ctx.measureText(subtotalStr).width, y);
+            y += 30;
+        });
+        
+        y += 5;
+        ctx.beginPath(); ctx.moveTo(12, y); ctx.lineTo(372, y); ctx.stroke();
+        y += 15;
+        
+        ctx.font = '22px "Courier New", monospace';
+        ctx.fillText(`总计:`, 14, y);
+        const totalStr = `${currentOrderData.total}`;
+        ctx.fillText(totalStr, 370 - ctx.measureText(totalStr).width, y);
+        y += 30;
+        
+        if(currentOrderData.discount > 0) {
+            ctx.fillText(`优惠:`, 14, y);
+            const discStr = `-${currentOrderData.discount}`;
+            ctx.fillText(discStr, 370 - ctx.measureText(discStr).width, y);
+            y += 30;
+        }
+        
+        ctx.font = 'bold 26px "Courier New", monospace';
+        ctx.fillText(`应收:`, 14, y);
+        const finalStr = `${currentOrderData.finalTotal} MMK`;
+        ctx.fillText(finalStr, 370 - ctx.measureText(finalStr).width, y);
+        y += 38;
+        
+        ctx.font = '20px "Courier New", monospace';
+        ctx.fillText(`支付方式: ${currentOrderData.method}`, 14, y);
+        y += 28;
+        
+        if(currentOrderData.note) {
+            ctx.fillText(`备注: ${currentOrderData.note}`, 14, y);
+            y += 30;
+        }
+        
+        y += 10;
+        ctx.font = 'italic 20px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('谢谢惠顾，欢迎下次光临！', canvas.width / 2, y);
+        y += 40;
+        
+        const oldHeight = canvas.height;
+        if(oldHeight !== y) {
+            canvas.height = y;
+            refreshPrint();
+        }
+    }
+    
+    // 蓝牙打印逻辑保持完全一致
+    let printDevice = null;
+    let printCharacteristic = null;
+    
+    async function bluetoothPrint() {
+        const statusDiv = document.getElementById('status');
+        try {
+            if (!printCharacteristic) {
+                statusDiv.innerText = "🔍 正在搜索并连接蓝牙打印机...";
+                printDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }]
+                });
+                const server = await printDevice.gatt.connect();
+                const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+                printCharacteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
+                statusDiv.innerText = "✅ 打印机连接成功！正在进行闪电图像排版...";
+            } else {
+                statusDiv.innerText = "⚡ 正在使用已有连接进行闪电打印...";
+            }
+            
+            const canvas = document.getElementById('printCanvas');
+            const ctx = canvas.getContext('2d');
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            const initCmds = new Uint8Array([0x1B, 0x40, 0x1B, 0x33, 0x00]);
+            await sendBufferInChunks(initCmds);
+            
+            const widthBytes = canvas.width / 8;
+            const height = canvas.height;
+            
+            for (let y = 0; y < height; y++) {
+                const rowBytes = new Uint8Array(8 + widthBytes);
+                rowBytes[0] = 0x1D; rowBytes[1] = 0x76; rowBytes[2] = 0x30; rowBytes[3] = 0x00;
+                rowBytes[4] = widthBytes & 0xFF; rowBytes[5] = (widthBytes >> 8) & 0xFF;
+                rowBytes[6] = 1 & 0xFF; rowBytes[7] = (1 >> 8) & 0xFF;
+                
+                for (let x = 0; x < widthBytes; x++) {
+                    let byteVal = 0;
+                    for (let bit = 0; bit < 8; bit++) {
+                        const pixelX = x * 8 + bit;
+                        const pixelIdx = (y * canvas.width + pixelX) * 4;
+                        const r = imgData.data[pixelIdx];
+                        const g = imgData.data[pixelIdx + 1];
+                        const b = imgData.data[pixelIdx + 2];
+                        const grey = r * 0.299 + g * 0.587 + b * 0.114;
+                        if (grey < 128) {
+                            byteVal |= (1 << (7 - bit));
+                        }
+                    }
+                    rowBytes[8 + x] = byteVal;
+                }
+                await sendBufferInChunks(rowBytes);
+            }
+            
+            const feedCmds = new Uint8Array([0x1B, 0x64, 0x05, 0x1D, 0x56, 0x42, 0x00]);
+            await sendBufferInChunks(feedCmds);
+            statusDiv.innerText = "🎉 闪电图像打印完成！";
+            
+        } catch (error) {
+            statusDiv.innerText = "❌ 打印失败: " + error.message;
+            printCharacteristic = null;
+        }
+    }
+    
+    async function sendBufferInChunks(buffer) {
+        const chunkSize = 20;
+        for (let i = 0; i < buffer.length; i += chunkSize) {
+            const chunk = buffer.slice(i, i + chunkSize);
+            await printCharacteristic.writeValue(chunk);
+        }
+    }
+    
     window.onload = init;
 </script>
 </body>
