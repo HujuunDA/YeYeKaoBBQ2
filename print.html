@@ -19,6 +19,29 @@
             color: #ffefcf;
         }
         
+        /* 悬浮返回按钮 */
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 45px;
+            height: 45px;
+            background: rgba(45, 35, 28, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 170, 80, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #ffefcf;
+            font-size: 22px;
+            z-index: 1000;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: 0.2s;
+        }
+        .back-btn:active { transform: scale(0.9); background: rgba(255, 170, 80, 0.3); }
+
         .container { max-width: 540px; width: 100%; }
         
         .card {
@@ -28,33 +51,11 @@
             padding: 24px;
             border: 1px solid rgba(255, 170, 80, 0.2);
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
         }
-
-        /* 顶部标题栏 */
-        .header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 24px;
-            gap: 16px;
-        }
-        .back-btn {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 170, 80, 0.3);
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            color: #ffefcf;
-            font-size: 20px;
-            transition: 0.2s;
-        }
-        .back-btn:active { background: rgba(255, 170, 80, 0.2); }
 
         .btn {
-            background: #d97706; /* 暖橙色，与主题更搭 */
+            background: #d97706;
             color: #fff;
             padding: 16px;
             border-radius: 16px;
@@ -77,13 +78,11 @@
 </head>
 <body>
 
+<div class="back-btn" onclick="history.back()">←</div>
+
 <div class="container">
     <div class="card">
-        <div class="header">
-            <div class="back-btn" onclick="history.back()">←</div>
-            <h2 style="font-weight: 600;">订单详情</h2>
-        </div>
-
+        <h2 style="margin-bottom: 20px;">订单详情</h2>
         <div id="contentArea">📡 加载中...</div>
         <button class="btn" id="bluetoothBtn" style="display:none;">确认并打印</button>
         <div id="status" class="status"></div>
