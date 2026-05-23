@@ -52,13 +52,10 @@
             cursor: pointer;
         }
         .btn:active { transform: scale(0.96); }
-        
-        /* 新增：返回按钮的样式 */
         .btn-back {
             background: linear-gradient(120deg, #4b5563, #374151);
             margin-top: 10px;
         }
-        
         hr { border-color: rgba(255,180,100,0.3); margin: 12px 0; }
         .status { margin-top: 12px; font-size: 12px; color: #ffaa66; }
         #printCanvas { display: none; }
@@ -67,12 +64,10 @@
 <body>
 <div class="container">
     <div class="card">
-        <div class="version-tag">版本: v1.2.1 修复版</div>
+        <div class="version-tag">版本: v1.2.2 底部完整版</div>
         
         <div id="contentArea">📡 加载订单中...</div>
         <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 闪电图像打印 (高速防乱码)</button>
-        
-        <!-- 修改：新增返回按钮，默认隐藏，加载完数据后显示 -->
         <button class="btn btn-back" id="backBtn" style="display:none;" onclick="history.back()">⬅️ 返回上一页</button>
         
         <div id="status" class="status"></div>
@@ -107,9 +102,10 @@
         const canvas = document.getElementById('printCanvas');
         const ctx = canvas.getContext('2d');
         
+        // 核心修改：调大基础留白高度到 280，让底部的原价、实收、备注有地方画
         let rowHeight = 24;
         let padding = 10; 
-        let calculatedHeight = padding * 2 + 160 + (items.length * rowHeight);
+        let calculatedHeight = padding * 2 + 280 + (items.length * rowHeight);
         if (note) calculatedHeight += 30;
         canvas.height = calculatedHeight;
 
@@ -178,7 +174,6 @@
         escPosBytes.push(widthBytes & 0xFF, (widthBytes >> 8) & 0xFF);
         escPosBytes.push(canvas.height & 0xFF, (canvas.height >> 8) & 0xFF);
 
-        // 修改：重写点阵转换逻辑，精确按像素处理，彻底修复打印不全/残缺问题
         let pixelIndex = 0;
         for (let h = 0; h < canvas.height; h++) {
             for (let w = 0; w < widthBytes; w++) {
@@ -192,7 +187,7 @@
                     if (brightness < 128) { 
                         byteVal |= (1 << (7 - b)); 
                     }
-                    pixelIndex += 4; // 移动到下一个像素（跳过RGBA四个通道）
+                    pixelIndex += 4;
                 }
                 escPosBytes.push(byteVal);
             }
@@ -201,7 +196,6 @@
     }
 
     async function sendChunked(characteristic, dataBytes, chunkSize = 120) {
-        console.log(`高速模式发射中，总字节数: ${dataBytes.length}`);
         for (let i = 0; i < dataBytes.length; i += chunkSize) {
             const chunk = dataBytes.slice(i, i + chunkSize);
             await characteristic.writeValue(chunk);
@@ -268,7 +262,7 @@
         const method = getQueryParam('method') || '现金';
         const contentDiv = document.getElementById('contentArea');
         const btn = document.getElementById('bluetoothBtn');
-        const backBtn = document.getElementById('backBtn'); // 新增
+        const backBtn = document.getElementById('backBtn');
         const statusDiv = document.getElementById('status');
 
         if (!table) {
@@ -325,13 +319,13 @@
                 </div>
             `;
             btn.style.display = 'block';
-            backBtn.style.display = 'block'; // 修改：显示返回按钮
+            backBtn.style.display = 'block';
             btn.onclick = bluetoothPrint;
             statusDiv.innerText = "✅ 图像编译成功！可以开始高速打印";
         } catch (err) {
             console.error(err);
             contentDiv.innerHTML = `<div>❌ 加载失败: ${err.message}</div>`;
-            backBtn.style.display = 'block'; // 即使失败也让用户能返回
+            backBtn.style.display = 'block';
         }
     };
 
