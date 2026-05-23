@@ -8,27 +8,65 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: radial-gradient(circle at 30% 10%, #2a2218, #1a140e, #0f0b07); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; font-family: 'Segoe UI', sans-serif; }
-        .card { max-width: 540px; width: 100%; background: rgba(35, 26, 18, 0.85); backdrop-filter: blur(20px); border-radius: 32px; padding: 25px; border: 1px solid rgba(255, 170, 80, 0.5); color: #ffefcf; }
-        .btn { background: linear-gradient(135deg, #d97706, #b45309); color: white; padding: 16px; border-radius: 48px; border: none; width: 100%; margin-top: 20px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .btn:active { transform: scale(0.96); }
+        body {
+            font-family: 'Segoe UI', system-ui;
+            background: radial-gradient(circle at 30% 10%, #2a2218, #1a140e, #0f0b07);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container { max-width: 540px; width: 100%; position: relative; }
+        .card {
+            background: rgba(35, 26, 18, 0.85);
+            backdrop-filter: blur(20px);
+            border-radius: 32px;
+            padding: 25px;
+            border: 1px solid rgba(255, 170, 80, 0.3);
+            color: #ffefcf;
+        }
+        .btn {
+            background: #ffaa50;
+            color: #1a140e;
+            padding: 14px 24px;
+            border-radius: 16px;
+            font-weight: bold;
+            border: none;
+            width: 100%;
+            margin-top: 20px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.1s linear;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-back {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffefcf;
+            margin-top: 10px;
+        }
+        hr { border: 0; border-top: 1px dashed rgba(255,180,100,0.3); margin: 15px 0; }
         .status { margin-top: 15px; font-size: 12px; color: #ffaa66; text-align: center; }
         #printCanvas { display: none; }
-        .flex-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+        .flex-row { display: flex; justify-content: space-between; align-items: flex-start; }
+        .col-name { flex: 1; padding-right: 8px; word-break: break-all; }
+        .col-price { width: 100px; text-align: right; }
+        .col-total { width: 95px; text-align: right; }
     </style>
 </head>
 <body>
-
-<div class="card">
-    <div id="contentArea">📡 加载中...</div>
-    <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ Print Receipt</button>
-    <div id="status" class="status"></div>
+<div class="container">
+    <div class="card">
+        <div id="contentArea">📡 Loading...</div>
+        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 确认并打印小票</button>
+        <button class="btn btn-back" id="backBtn" style="display:none;" onclick="history.back()">⬅️ 返回</button>
+        <div id="status" class="status"></div>
+    </div>
 </div>
 
 <canvas id="printCanvas" width="384"></canvas>
 
 <script>
-    // 下面所有逻辑代码保持完全一致
     const LOGO_URL = "打印logo.png"; 
     const firebaseConfig = { 
         apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
@@ -40,17 +78,27 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    let printDataBytes = null, currentOrderData = { table: '', discount: 0, note: '', items: [], total: 0, tax: 0, finalTotal: 0, timeStr: '' }, customLogoImage = null;
+
+    let printDataBytes = null;
+    let currentOrderData = { table: '', discount: 0, note: '', items: [], total: 0, tax: 0, finalTotal: 0, timeStr: '' };
+    let customLogoImage = null;
 
     function getQueryParam(p) { return new URLSearchParams(window.location.search).get(p); }
     function formatNum(n) { return Math.round(n).toLocaleString(); } 
-    function cleanText(str) { return !str ? '' : str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim(); }
+    function cleanText(str) { return str ? str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim() : ''; }
 
     function drawTextWithWrapping(ctx, text, x, y, maxWidth, lineHeight) {
-        let words = text.split(''), line = '', currentY = y;
+        let words = text.split('');
+        let line = '';
+        let currentY = y;
         for (let n = 0; n < words.length; n++) {
             let testLine = line + words[n];
-            if (ctx.measureText(testLine).width > maxWidth && n > 0) { ctx.fillText(line, x, currentY); line = words[n]; currentY += lineHeight; } else { line = testLine; }
+            let metrics = ctx.measureText(testLine);
+            if (metrics.width > maxWidth && n > 0) {
+                ctx.fillText(line, x, currentY);
+                line = words[n];
+                currentY += lineHeight;
+            } else { line = testLine; }
         }
         ctx.fillText(line, x, currentY);
         return currentY;
@@ -61,38 +109,46 @@
         const ctx = canvas.getContext('2d');
         const { table, discount, note, items, total, tax, finalTotal, timeStr } = order;
         
-        // 核心绘图逻辑保持不变
-        ctx.font = 'bold 17px "Segoe UI", sans-serif';
+        ctx.font = 'bold 17px sans-serif';
         let calculatedItemsHeight = 0;
         for (let it of items) {
-            let itemLines = 1, line = '';
-            for (let char of it.name.split('')) { if (ctx.measureText(line + char).width > 165) { itemLines++; line = char; } else { line += char; } }
+            let itemLines = 1;
+            let line = '';
+            for (let char of it.name.split('')) {
+                if (ctx.measureText(line + char).width > 165) { itemLines++; line = char; } else { line += char; }
+            }
             calculatedItemsHeight += Math.max(26, itemLines * 22) + 6;
         }
 
-        let padding = 12, titleHeight = (logoImg && logoImg.complete && logoImg.naturalWidth > 0) ? ((Math.min(logoImg.naturalWidth, 280) / logoImg.naturalWidth) * logoImg.naturalHeight + 12) : 40;
-        let infoHeight = 26 * 3 + 16, summaryHeight = 24 + 24 + 26 + 36 + (discount > 0 ? 24 : 0) + (note ? 32 : 0) + 24 + 24;
+        let padding = 12;
+        let titleHeight = (logoImg && logoImg.complete && logoImg.naturalWidth > 0) ? ((Math.min(logoImg.naturalWidth, 280) / logoImg.naturalWidth) * logoImg.naturalHeight + 12) : 40;
+        let infoHeight = 26 * 3 + 16;
+        let headerHeight = 28;
+        let summaryHeight = 24 + 24 + 26 + 36 + (discount > 0 ? 24 : 0) + (note ? 32 : 0) + 24 + 24;
         
-        canvas.height = padding + titleHeight + infoHeight + 28 + calculatedItemsHeight + summaryHeight + 30;
+        canvas.height = padding + titleHeight + infoHeight + headerHeight + calculatedItemsHeight + summaryHeight + 30;
         ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#000000'; ctx.textBaseline = 'top';
         let y = padding;
         
         if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
-            const drawWidth = Math.min(logoImg.naturalWidth, 280);
-            const drawHeight = (drawWidth / logoImg.naturalWidth) * logoImg.naturalHeight;
+            let drawWidth = Math.min(logoImg.naturalWidth, 280);
+            let drawHeight = (drawWidth / logoImg.naturalWidth) * logoImg.naturalHeight;
             ctx.drawImage(logoImg, (canvas.width - drawWidth) / 2, y, drawWidth, drawHeight);
             y += drawHeight + 12;
-        } else { ctx.font = 'bold 28px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.fillText("夜夜烤烧烤", canvas.width/2, y); y += 38; }
+        } else { ctx.font = 'bold 28px sans-serif'; ctx.textAlign = 'center'; ctx.fillText("夜夜烤烧烤", canvas.width/2, y); y += 38; }
         
-        ctx.font = 'bold 17px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.fillText("📞 09795858987", canvas.width/2, y); y += 26;
-        ctx.textAlign = 'left'; ctx.font = 'bold 22px "Segoe UI", sans-serif'; ctx.fillText(`Table: ${table}`, 6, y); y += 32;
-        ctx.font = 'bold 16px "Segoe UI", sans-serif'; ctx.fillText(`Time: ${timeStr}`, 6, y); y += 24;
+        ctx.font = 'bold 17px sans-serif'; ctx.textAlign = 'center'; ctx.fillText("📞 09795858987", canvas.width/2, y); y += 26;
+        ctx.textAlign = 'left'; ctx.font = 'bold 22px sans-serif'; ctx.fillText(`Table: ${table}`, 6, y); y += 32;
+        ctx.font = 'bold 16px sans-serif'; ctx.fillText(`Time: ${timeStr}`, 6, y); y += 24;
         ctx.font = 'bold 16px monospace'; ctx.fillText("--------------------------------------", 4, y); y += 18;
         
-        ctx.font = 'bold 17px "Segoe UI", sans-serif'; ctx.textAlign = 'left'; ctx.fillText("Item", 6, y); ctx.textAlign = 'right'; ctx.fillText("Price×Qty", 280, y); ctx.fillText("Amt", 378, y); y += 26;
+        ctx.font = 'bold 17px sans-serif';
+        ctx.textAlign = 'left'; ctx.fillText("Item", 6, y); ctx.textAlign = 'right'; ctx.fillText("Price × Qty", 280, y); ctx.textAlign = 'right'; ctx.fillText("Amt", 378, y); y += 26;
+        
         for (let it of items) {
-            let startY = y; ctx.textAlign = 'left';
+            let startY = y;
+            ctx.textAlign = 'left';
             let lastY = drawTextWithWrapping(ctx, it.name, 6, y, 165, 22);
             ctx.textAlign = 'right'; ctx.fillText(`${it.price}×${it.qty}`, 280, startY); ctx.fillText(formatNum(it.subtotal), 378, startY);
             y = Math.max(lastY + 22, startY + 26) + 6;
@@ -103,7 +159,8 @@
         if (discount > 0) { ctx.fillText(`Discount: - ${formatNum(discount)} Ks`, 6, y); y += 26; }
         ctx.fillText(`Tax (5%): + ${formatNum(tax)} Ks`, 6, y); y += 26;
         ctx.font = 'bold 23px sans-serif'; ctx.fillText(`Final: ${formatNum(finalTotal)} Ks`, 6, y); y += 34;
-        ctx.font = 'bold 17px sans-serif'; if (note) { ctx.fillText(`Note: ${note}`, 6, y); y += 26; }
+        if (note) { ctx.font = 'bold 17px sans-serif'; ctx.fillText(`Note: ${note}`, 6, y); y += 26; }
+        
         ctx.font = 'bold 16px monospace'; ctx.fillText("--------------------------------------", 4, y); y += 18;
         ctx.textAlign = 'center'; ctx.font = 'bold 18px sans-serif'; ctx.fillText("Thank you!", canvas.width/2, y);
         
@@ -115,8 +172,8 @@
             for (let w = 0; w < widthBytes; w++) {
                 let byteVal = 0;
                 for (let b = 0; b < 8; b++) {
-                    let r = imgData.data[pixelIndex], g = imgData.data[pixelIndex+1], bl = imgData.data[pixelIndex+2];
-                    if ((r+g+bl)/3 < 128) byteVal |= (1 << (7-b));
+                    let brightness = (imgData.data[pixelIndex]+imgData.data[pixelIndex+1]+imgData.data[pixelIndex+2])/3;
+                    if (brightness < 128) byteVal |= (1 << (7-b));
                     pixelIndex += 4;
                 }
                 escPosBytes.push(byteVal);
@@ -125,52 +182,77 @@
         return new Uint8Array(escPosBytes);
     }
     
-    async function sendChunked(characteristic, dataBytes, chunkSize=240) { for (let i=0; i<dataBytes.length; i+=chunkSize) await characteristic.writeValue(dataBytes.slice(i, i+chunkSize)); }
+    async function sendChunked(characteristic, dataBytes, chunkSize=240) {
+        for (let i=0; i<dataBytes.length; i+=chunkSize) await characteristic.writeValue(dataBytes.slice(i, i+chunkSize));
+    }
+    
     async function bluetoothPrint() {
         const statusDiv = document.getElementById('status');
         try {
-            const device = await navigator.bluetooth.requestDevice({ filters: [{ services: ['49535343-fe7d-4ae5-8fa9-9fafd205e455'] }, { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }], optionalServices: ['49535343-fe7d-4ae5-8fa9-9fafd205e455', '000018f0-0000-1000-8000-00805f9b34fb'] });
+            statusDiv.innerText = "🔍 寻找打印机...";
+            const device = await navigator.bluetooth.requestDevice({
+                filters: [{ services: ['49535343-fe7d-4ae5-8fa9-9fafd205e455'] }, { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }],
+                optionalServices: ['49535343-fe7d-4ae5-8fa9-9fafd205e455', '000018f0-0000-1000-8000-00805f9b34fb']
+            });
+            statusDiv.innerText = "✅ 连接中...";
             const server = await device.gatt.connect();
-            let service; try { service = await server.getPrimaryService('49535343-fe7d-4ae5-8fa9-9fafd205e455'); } catch(e) { service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb'); }
-            const writeChar = (await service.getCharacteristics()).find(c => c.properties.write || c.properties.writeWithoutResponse);
-            await writeChar.writeValue(new Uint8Array([0x1B, 0x40])); await sendChunked(writeChar, printDataBytes, 240); await writeChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03])); 
-            statusDiv.innerText = "✅ Done!";
-        } catch(err) { statusDiv.innerText = "❌ Error: "+err.message; }
-    }
-    
-    async function refreshPrint() {
-        if (!currentOrderData.items.length) return;
-        if (customLogoImage && !customLogoImage.complete) await new Promise(r=>{ customLogoImage.onload=r; });
-        printDataBytes = generateReceiptImageBytes(currentOrderData, customLogoImage);
-        updatePreview(); document.getElementById('bluetoothBtn').style.display = 'block';
+            let service = await server.getPrimaryService('49535343-fe7d-4ae5-8fa9-9fafd205e455').catch(()=>server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb'));
+            const chars = await service.getCharacteristics();
+            let writeChar = chars.find(c => c.properties.write || c.properties.writeWithoutResponse);
+            statusDiv.innerText = "⚡ 打印中...";
+            await writeChar.writeValue(new Uint8Array([0x1B, 0x40])); 
+            await sendChunked(writeChar, printDataBytes, 240);
+            await writeChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03])); 
+            statusDiv.innerText = "✅ 打印完成！";
+        } catch(err) { statusDiv.innerText = "❌ 错误: "+err.message; }
     }
     
     function updatePreview() {
         const { table, discount, note, items, total, tax, finalTotal, timeStr } = currentOrderData;
-        let itemsHtml = items.map(i => `<div class="flex-row"><span>${escapeHtml(i.name)}</span><span>${i.price}×${i.qty}</span><span>${formatNum(i.subtotal)}Ks</span></div>`).join('');
-        document.getElementById('contentArea').innerHTML = `<div style="font-size:12px;"><div style="text-align:center; font-weight:bold; margin-bottom: 10px;">🧾 Order Preview</div><div>🏷️ Table: ${escapeHtml(table)}</div><div>⏰ ${timeStr}</div><hr>${itemsHtml}<hr><div>💰 Subtotal: ${formatNum(total)} Ks</div>${discount>0?`<div>🎁 Discount: -${formatNum(discount)} Ks</div>`:''}<div style="color: #ffaa66;">📊 Tax (5%): +${formatNum(tax)} Ks</div><div style="font-weight:bold; font-size:14px; margin-top:4px;">💵 Final: ${formatNum(finalTotal)} Ks</div>${note?`<div>📝 Note: ${escapeHtml(note)}</div>`:''}</div>`;
+        let itemsHtml = items.map(i => `<div class="flex-row" style="margin-bottom:8px; font-size:13px;"><span class="col-name">${escapeHtml(i.name)}</span><span class="col-price">${i.price}×${i.qty}</span><span class="col-total">${formatNum(i.subtotal)}Ks</span></div>`).join('');
+        document.getElementById('contentArea').innerHTML = `
+            <div style="font-size:12px;">
+                <div style="text-align:center; font-weight:bold; margin-bottom: 10px; font-size:16px;">🧾 订单预览</div>
+                <div>🏷️ Table: ${escapeHtml(table)}</div>
+                <div>⏰ ${timeStr}</div><hr>
+                ${itemsHtml}<hr>
+                <div>💰 小计: ${formatNum(total)} Ks</div>
+                ${discount>0?`<div>🎁 折扣: -${formatNum(discount)} Ks</div>`:''}
+                <div style="color: #ffaa66;">📊 税费 (5%): +${formatNum(tax)} Ks</div>
+                <div style="font-weight:bold; font-size:16px; margin-top:8px;">💵 总计: ${formatNum(finalTotal)} Ks</div>
+                ${note?`<div>📝 备注: ${escapeHtml(note)}</div>`:''}
+            </div>
+        `;
     }
     
     async function loadOrder() {
-        const table = getQueryParam('table'), discount = Number(getQueryParam('discount')||'0'), note = cleanText(getQueryParam('note')||'');
-        if (!table) { document.getElementById('contentArea').innerHTML='<div>❌ Missing Table</div>'; return false; }
+        const table = getQueryParam('table');
+        if (!table) return false;
         try {
             const snapshot = await db.collection("pending_orders").where("table","==",table).get();
-            if(snapshot.empty) throw new Error(`Table ${table} not found`);
             let items=[], total=0;
-            for(const doc of snapshot.docs){ const order=doc.data(); if(order.items){ for(const it of order.items){ let qty=Number(it.quantity)||0, price=Number(it.price)||0; if(qty===0) continue; let subtotal=qty*price; total+=subtotal; items.push({name: cleanText(it.name), qty, price, subtotal}); } } }
-            const baseAmount = Math.max(0, total - discount), tax = baseAmount * 0.05, finalTotal = baseAmount + tax, now=new Date(), timeStr=`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
-            currentOrderData={table, discount, note, items, total, tax, finalTotal, timeStr}; return true;
-        } catch(e){ document.getElementById('contentArea').innerHTML=`<div>❌ ${e.message}</div>`; return false; }
+            snapshot.docs.forEach(doc => {
+                (doc.data().items||[]).forEach(it => {
+                    let qty=Number(it.quantity)||0, price=Number(it.price)||0;
+                    if(qty>0) { total += qty*price; items.push({name: cleanText(it.name), qty, price, subtotal: qty*price}); }
+                });
+            });
+            const baseAmount = Math.max(0, total - Number(getQueryParam('discount')||'0'));
+            currentOrderData={table, discount: Number(getQueryParam('discount')||'0'), note: cleanText(getQueryParam('note')||''), items, total, tax: baseAmount*0.05, finalTotal: baseAmount*1.05, timeStr: new Date().toLocaleString()};
+            return true;
+        } catch(e){ return false; }
     }
     
     async function init() {
-        if(await loadOrder()){
-            if (LOGO_URL) { const img = new Image(); img.crossOrigin = 'Anonymous'; img.onload = () => { customLogoImage = img; refreshPrint(); }; img.onerror = () => { customLogoImage = null; refreshPrint(); }; img.src = LOGO_URL + "?t=" + new Date().getTime(); } else { refreshPrint(); }
+        if(await loadOrder()) {
+            const img = new Image(); img.crossOrigin = 'Anonymous';
+            img.onload = () => { customLogoImage = img; printDataBytes = generateReceiptImageBytes(currentOrderData, img); updatePreview(); document.getElementById('bluetoothBtn').style.display='block'; document.getElementById('backBtn').style.display='block'; };
+            img.onerror = () => { printDataBytes = generateReceiptImageBytes(currentOrderData, null); updatePreview(); document.getElementById('bluetoothBtn').style.display='block'; document.getElementById('backBtn').style.display='block'; };
+            img.src = LOGO_URL + "?t=" + new Date().getTime();
             document.getElementById('bluetoothBtn').addEventListener('click', bluetoothPrint);
         }
     }
-    function escapeHtml(s){ if(!s)return ''; return s.replace(/[&<>]/g, m=> m==='&'?'&amp;':(m==='<'?'&lt;':'&gt;')); }
+    function escapeHtml(s){ return (s||'').replace(/[&<>]/g, m=> m==='&'?'&amp;':(m==='<'?'&lt;':'&gt;')); }
     window.onload = init;
 </script>
 </body>
