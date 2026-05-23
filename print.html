@@ -1,355 +1,119 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>蓝牙打印 - 夜夜烤烧烤</title>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', system-ui;
-            background: radial-gradient(circle at 30% 10%, #2a2218, #1a140e, #0f0b07);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        .container { max-width: 500px; width: 100%; position: relative; }
-        .card {
-            background: rgba(35, 26, 18, 0.85);
-            backdrop-filter: blur(20px);
-            border-radius: 32px;
-            padding: 20px;
-            border: 1px solid rgba(255, 170, 80, 0.5);
-            color: #ffefcf;
-            position: relative;
-        }
-        .version-tag {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 170, 80, 0.2);
-            border: 1px solid #ffaa50;
-            color: #ffefcf;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-        .btn {
-            background: linear-gradient(120deg, #0284c7, #0369a1);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 48px;
-            font-weight: bold;
-            border: none;
-            width: 100%;
-            margin-top: 16px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        .btn:active { transform: scale(0.96); }
-        .btn-back {
-            background: linear-gradient(120deg, #4b5563, #374151);
-            margin-top: 10px;
-        }
-        hr { border-color: rgba(255,180,100,0.3); margin: 12px 0; }
-        .status { margin-top: 12px; font-size: 12px; color: #ffaa66; }
-        #printCanvas { display: none; }
-    </style>
-</head>
-<body>
-<div class="container">
-    <div class="card">
-        <div class="version-tag">版本: v1.3 大字满幅版</div>
+function generateReceiptImageBytes(table, discount, note, method, items, total, finalTotal, timeStr) {
+    const canvas = document.getElementById('printCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // 动态计算画布高度（行高调大到 32 像素以适应大字，新增单价行）
+    let rowHeight = 32;
+    let padding = 10; 
+    let calculatedHeight = padding * 2 + 420 + (items.length * rowHeight);
+    if (note) calculatedHeight += 40;
+    canvas.height = calculatedHeight;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#000000';
+    ctx.textBaseline = 'top';
+
+    let y = padding;
+
+    // --- 1. 绘制 LOGO 图片 (预留位置) ---
+    // 注意：如果需要打印图片 Logo，需要先用 JavaScript 的 Image 对象预加载你的 Firebase 图片链接
+    // 这里先使用优雅的大字加粗排版替代名称。如果要换成纯图片，请参考下方的图片上传教程。
+    ctx.font = 'bold 36px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText("我的店铺Logo", 192, y); // 替换为你想要的文字或预留给图片
+    y += 50;
+
+    // --- 2. 更改电话与地址 ---
+    ctx.font = '20px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText("电话: 09795858987", 192, y); y += 28;
+    ctx.fillText("星光美食街8号", 192, y); y += 32;
+
+    ctx.textAlign = 'left';
+    ctx.font = '18px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText("-------------------------------------------", 4, y); y += 22;
+
+    // --- 3. 优化桌号与基本信息排版 ---
+    ctx.font = 'bold 24px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(`桌号：${table} 号桌`, 6, y); y += 32;
+    ctx.font = '18px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(`时间：${timeStr}`, 6, y); y += 26;
+    ctx.fillText(`支付：${method}`, 6, y); y += 26;
+    ctx.fillText("-------------------------------------------", 4, y); y += 26;
+
+    // --- 4. 重新排版表头（加入单价展示） ---
+    ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText("菜品(单价)", 6, y);
+    ctx.fillText("数量", 210, y);
+    ctx.textAlign = 'right';
+    ctx.fillText("金额(Ks)", 378, y);
+    y += 32;
+
+    // --- 5. 菜品列表大字化 + 显示单价 ---
+    ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
+    for (let it of items) {
+        // 在菜名后面加上 (单价)
+        let nameWithPrice = `${it.name}(${formatNum(it.price)})`;
+        // 如果太长则截断，防止重叠
+        let displayName = nameWithPrice.length > 12 ? nameWithPrice.slice(0, 11) + ".." : nameWithPrice;
         
-        <div id="contentArea">📡 加载订单中...</div>
-        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 闪电图像打印 (高速防乱码)</button>
-        <button class="btn btn-back" id="backBtn" style="display:none;" onclick="history.back()">⬅️ 返回上一页</button>
-        
-        <div id="status" class="status"></div>
-    </div>
-</div>
-
-<canvas id="printCanvas" width="384"></canvas>
-
-<script>
-    const firebaseConfig = { 
-        apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
-        authDomain: "yeyekao-3878d.firebaseapp.com", 
-        projectId: "yeyekao-3878d", 
-        storageBucket: "yeyekao-3878d.firebasestorage.app", 
-        messagingSenderId: "560765118345", 
-        appId: "1:560765118345:web:5f24d021e7a6db90b76358" 
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
-    let printDataBytes = null; 
-
-    function getQueryParam(p) { return new URLSearchParams(window.location.search).get(p); }
-    function formatNum(n) { return Number(n).toLocaleString(); }
-
-    function cleanText(str) {
-        if (!str) return '';
-        return str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
-    }
-
-    function generateReceiptImageBytes(table, discount, note, method, items, total, finalTotal, timeStr) {
-        const canvas = document.getElementById('printCanvas');
-        const ctx = canvas.getContext('2d');
-        
-        // 字号变大后，相应调高每行高度，防止文字上下重叠
-        let rowHeight = 28;
-        let padding = 10; 
-        let calculatedHeight = padding * 2 + 340 + (items.length * rowHeight);
-        if (note) calculatedHeight += 35;
-        canvas.height = calculatedHeight;
-
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#000000';
-        ctx.textBaseline = 'top';
-
-        let y = padding;
-
-        // 放大店铺招牌
-        ctx.font = 'bold 32px "Segoe UI", system-ui, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText("夜夜烤烧烤", 192, y);
-        y += 40;
-
-        // 放大电话和地址
-        ctx.font = '18px "Segoe UI", system-ui, sans-serif';
-        ctx.fillText("电话: 123-4567-8901", 192, y); y += 24;
-        ctx.fillText("星光美食街8号", 192, y); y += 28;
-
         ctx.textAlign = 'left';
-        ctx.fillText("-------------------------------------------", 4, y); y += 20;
-
-        // 大字展示桌号与基本信息
-        ctx.font = 'bold 22px "Segoe UI", system-ui, sans-serif';
-        ctx.fillText(`桌号：${table}号桌`, 6, y); y += 28;
-        ctx.font = '18px "Segoe UI", system-ui, sans-serif';
-        ctx.fillText(`时间：${timeStr}`, 6, y); y += 24;
-        ctx.fillText(`支付：${method}`, 6, y); y += 24;
-        ctx.fillText("-------------------------------------------", 4, y); y += 24;
-
-        // 表头字号放大，并向两边靠拢（左边距缩到6，右边距撑到378）
-        ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText("菜品名称", 6, y);
-        ctx.fillText("数量", 195, y);
+        ctx.fillText(displayName, 6, y);
+        ctx.fillText(it.qty.toString(), 220, y);
         ctx.textAlign = 'right';
-        ctx.fillText("金额(Ks)", 378, y);
-        y += 28;
+        ctx.fillText(formatNum(it.subtotal), 378, y);
+        y += rowHeight;
+    }
 
-        // 菜品列表大字化
-        ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
-        for (let it of items) {
-            let name = it.name.length > 9 ? it.name.slice(0, 8) + ".." : it.name;
-            ctx.textAlign = 'left';
-            ctx.fillText(name, 6, y);
-            ctx.fillText(it.qty.toString(), 205, y);
-            ctx.textAlign = 'right';
-            ctx.fillText(formatNum(it.subtotal), 378, y);
-            y += rowHeight;
-        }
+    ctx.textAlign = 'left';
+    ctx.fillText("-------------------------------------------", 4, y); y += 22;
+    
+    // --- 6. 账单汇总大字化 ---
+    ctx.font = '20px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(`原价合计：${formatNum(total)} Ks`, 6, y); y += 28;
+    if (discount > 0) {
+        ctx.fillText(`优惠金额：- ${formatNum(discount)} Ks`, 6, y); y += 28;
+    }
+    
+    // 显著放大实收金额
+    ctx.font = 'bold 26px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(`实收金额：${formatNum(finalTotal)} Ks`, 6, y); y += 36;
+    
+    ctx.font = '20px "Segoe UI", system-ui, sans-serif';
+    if (note) {
+        ctx.fillText(`备注：${note}`, 6, y); y += 30;
+    }
+    ctx.fillText("-------------------------------------------", 4, y); y += 24;
+    
+    // 底部感谢语
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 20px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText("感谢光临，欢迎下次惠顾！", 192, y);
 
-        ctx.textAlign = 'left';
-        ctx.fillText("-------------------------------------------", 4, y); y += 20;
-        
-        ctx.font = '18px "Segoe UI", system-ui, sans-serif';
-        ctx.fillText(`原价合计：${formatNum(total)} Ks`, 6, y); y += 24;
-        if (discount > 0) {
-            ctx.fillText(`优惠金额：- ${formatNum(discount)} Ks`, 6, y); y += 24;
-        }
-        
-        // 放大实收金额
-        ctx.font = 'bold 24px "Segoe UI", system-ui, sans-serif';
-        ctx.fillText(`实收金额：${formatNum(finalTotal)} Ks`, 6, y); y += 32;
-        
-        ctx.font = '18px "Segoe UI", system-ui, sans-serif';
-        if (note) {
-            ctx.fillText(`备注：${note}`, 6, y); y += 26;
-        }
-        ctx.fillText("-------------------------------------------", 4, y); y += 20;
-        
-        // 放大底部感谢语
-        ctx.textAlign = 'center';
-        ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
-        ctx.fillText("感谢光临，欢迎下次惠顾！", 192, y);
-
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const widthBytes = canvas.width / 8;
-        const escPosBytes = [];
-
-        escPosBytes.push(0x1D, 0x76, 0x30, 0x00);
-        escPosBytes.push(widthBytes & 0xFF, (widthBytes >> 8) & 0xFF);
-        escPosBytes.push(canvas.height & 0xFF, (canvas.height >> 8) & 0xFF);
-
-        let pixelIndex = 0;
-        for (let h = 0; h < canvas.height; h++) {
-            for (let w = 0; w < widthBytes; w++) {
-                let byteVal = 0;
-                for (let b = 0; b < 8; b++) {
-                    let r = imgData.data[pixelIndex];
-                    let g = imgData.data[pixelIndex + 1];
-                    let bl = imgData.data[pixelIndex + 2];
-                    
-                    let brightness = (r + g + bl) / 3;
-                    if (brightness < 128) { 
-                        byteVal |= (1 << (7 - b)); 
-                    }
-                    pixelIndex += 4;
+    // --- 以下保持原有的点阵转换逻辑不变 ---
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const widthBytes = canvas.width / 8;
+    const escPosBytes = [];
+    escPosBytes.push(0x1D, 0x76, 0x30, 0x00);
+    escPosBytes.push(widthBytes & 0xFF, (widthBytes >> 8) & 0xFF);
+    escPosBytes.push(canvas.height & 0xFF, (canvas.height >> 8) & 0xFF);
+    let pixelIndex = 0;
+    for (let h = 0; h < canvas.height; h++) {
+        for (let w = 0; w < widthBytes; w++) {
+            let byteVal = 0;
+            for (let b = 0; b < 8; b++) {
+                let r = imgData.data[pixelIndex];
+                let g = imgData.data[pixelIndex + 1];
+                let bl = imgData.data[pixelIndex + 2];
+                let brightness = (r + g + bl) / 3;
+                if (brightness < 128) { 
+                    byteVal |= (1 << (7 - b)); 
                 }
-                escPosBytes.push(byteVal);
+                pixelIndex += 4;
             }
-        }
-        return new Uint8Array(escPosBytes);
-    }
-
-    async function sendChunked(characteristic, dataBytes, chunkSize = 120) {
-        for (let i = 0; i < dataBytes.length; i += chunkSize) {
-            const chunk = dataBytes.slice(i, i + chunkSize);
-            await characteristic.writeValue(chunk);
-            await new Promise(r => setTimeout(r, 2)); 
+            escPosBytes.push(byteVal);
         }
     }
-
-    async function bluetoothPrint() {
-        const statusDiv = document.getElementById('status');
-        if (!navigator.bluetooth) {
-            statusDiv.innerText = "❌ 当前浏览器不支持 Web Bluetooth，请使用 Chrome 安卓版。";
-            return;
-        }
-        if (!printDataBytes) {
-            statusDiv.innerText = "❌ 图像未生成完毕，请稍后再试";
-            return;
-        }
-        statusDiv.innerText = "🔍 正在搜索打印机...";
-        try {
-            const device = await navigator.bluetooth.requestDevice({
-                filters: [
-                    { services: ['49535343-fe7d-4ae5-8fa9-9fafd205e455'] },
-                    { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }
-                ],
-                optionalServices: ['49535343-fe7d-4ae5-8fa9-9fafd205e455', '000018f0-0000-1000-8000-00805f9b34fb']
-            });
-            statusDiv.innerText = "✅ 已选择设备，正在连接...";
-            const server = await device.gatt.connect();
-            let service;
-            try {
-                service = await server.getPrimaryService('49535343-fe7d-4ae5-8fa9-9fafd205e455');
-            } catch(e) {
-                service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-            }
-            const chars = await service.getCharacteristics();
-            let writeChar = null;
-            for (let c of chars) {
-                if (c.properties.write || c.properties.writeWithoutResponse) {
-                    writeChar = c;
-                    break;
-                }
-            }
-            if (!writeChar) throw new Error("未找到可写入特征");
-            statusDiv.innerText = "⚡ 正在极速冲刺打印...";
-
-            await writeChar.writeValue(new Uint8Array([0x1B, 0x40]));
-            await new Promise(r => setTimeout(r, 30));
-
-            await sendChunked(writeChar, printDataBytes, 120);
-
-            await writeChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03]));
-            
-            statusDiv.innerText = "✅ 高速图像打印完成！";
-        } catch (err) {
-            console.error(err);
-            statusDiv.innerText = "❌ 打印失败: " + err.message;
-        }
-    }
-
-    window.onload = async function() {
-        const table = getQueryParam('table');
-        const discount = getQueryParam('discount') || '0';
-        let note = getQueryParam('note') || '';
-        const method = getQueryParam('method') || '现金';
-        const contentDiv = document.getElementById('contentArea');
-        const btn = document.getElementById('bluetoothBtn');
-        const backBtn = document.getElementById('backBtn');
-        const statusDiv = document.getElementById('status');
-
-        if (!table) {
-            contentDiv.innerHTML = '<div>❌ 缺少桌号参数</div>';
-            return;
-        }
-
-        note = cleanText(note);
-        contentDiv.innerHTML = '📡 读取订单中...';
-        statusDiv.innerText = '';
-        try {
-            const snapshot = await db.collection("pending_orders").where("table", "==", table).get();
-            if (snapshot.empty) throw new Error(`未找到 ${table} 号桌订单`);
-
-            const docs = snapshot.docs;
-            docs.sort((a,b) => (a.data().timestamp?.seconds||0) - (b.data().timestamp?.seconds||0));
-
-            let items = [], total = 0;
-            for (const doc of docs) {
-                const order = doc.data();
-                if (order.items) {
-                    for (const it of order.items) {
-                        const qty = Number(it.quantity) || 0;
-                        const price = Number(it.price) || 0;
-                        total += qty * price;
-                        let cleanName = cleanText(it.name);
-                        if (!cleanName) cleanName = "菜品";
-                        items.push({ name: cleanName, qty, price, subtotal: qty*price });
-                    }
-                }
-            }
-
-            const finalTotal = Math.max(0, total - Number(discount));
-            const now = new Date();
-            const timeStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
-
-            statusDiv.innerText = "🔄 正在渲染高速点阵图像...";
-            printDataBytes = generateReceiptImageBytes(table, discount, note, method, items, total, finalTotal, timeStr);
-
-            const itemsPreview = items.map(i => `<div>${escapeHtml(i.name)} ×${i.qty}  ${formatNum(i.subtotal)} Ks</div>`).join('');
-            contentDiv.innerHTML = `
-                <div style="font-size:12px; padding-top: 15px;">
-                    <div style="text-align:center; font-weight:bold;">夜夜烤烧烤 (高速版预览)</div>
-                    <div>桌号: ${escapeHtml(table)}</div>
-                    <div>时间: ${timeStr}</div>
-                    <hr>
-                    ${itemsPreview}
-                    <hr>
-                    <div>原价: ${formatNum(total)} Ks</div>
-                    ${discount>0?`<div>优惠: -${formatNum(discount)} Ks</div>`:''}
-                    <div style="font-weight:bold;">实收: ${formatNum(finalTotal)} Ks</div>
-                    ${note?`<div>备注: ${escapeHtml(note)}</div>`:''}
-                    <div style="text-align:center; margin-top:8px;">感谢光临</div>
-                </div>
-            `;
-            btn.style.display = 'block';
-            backBtn.style.display = 'block';
-            btn.onclick = bluetoothPrint;
-            statusDiv.innerText = "✅ 图像编译成功！可以开始高速打印";
-        } catch (err) {
-            console.error(err);
-            contentDiv.innerHTML = `<div>❌ 加载失败: ${err.message}</div>`;
-            backBtn.style.display = 'block';
-        }
-    };
-
-    function escapeHtml(s) {
-        if (!s) return '';
-        return s.replace(/[&<>]/g, m => m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;'));
-    }
-</script>
-</body>
-</html>
+    return new Uint8Array(escPosBytes);
+}
