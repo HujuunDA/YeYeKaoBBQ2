@@ -2,83 +2,92 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>订单预览</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background-color: #2b2b2b; /* 深色背景，突出小票 */
-            font-family: 'Courier New', Courier, monospace; /* 小票字体 */
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: radial-gradient(circle at 30% 10%, #2a2218, #1a140e, #0f0b07);
+            min-height: 100vh;
             display: flex;
             justify-content: center;
+            align-items: center;
+            padding: 16px;
+            color: #ffefcf;
         }
-
-        .receipt-card {
-            background: #fffdf5; /* 仿热敏纸颜色 */
-            width: 100%;
-            max-width: 360px;
-            min-height: 500px;
-            padding: 20px;
-            border-radius: 4px;
+        
+        .container { max-width: 540px; width: 100%; }
+        
+        .card {
+            background: rgba(35, 26, 18, 0.9);
+            backdrop-filter: blur(15px);
+            border-radius: 24px;
+            padding: 24px;
+            border: 1px solid rgba(255, 170, 80, 0.2);
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            display: flex;
-            flex-direction: column;
         }
 
-        .nav-bar {
+        /* 顶部标题栏 */
+        .header {
             display: flex;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px dashed #ccc;
+            margin-bottom: 24px;
+            gap: 16px;
         }
-
         .back-btn {
-            background: #eee;
-            border: 1px solid #ccc;
-            padding: 6px 16px;
-            border-radius: 4px;
-            font-size: 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 170, 80, 0.3);
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
-            color: #333;
-        }
-
-        .title-text { flex: 1; text-align: center; font-weight: bold; font-size: 16px; }
-
-        .btn-print {
-            margin-top: 20px;
-            background: #222;
-            color: #ffaa66;
-            border: 1px solid #ffaa66;
-            padding: 16px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            width: 100%;
+            color: #ffefcf;
+            font-size: 20px;
             transition: 0.2s;
         }
-        .btn-print:active { background: #333; }
+        .back-btn:active { background: rgba(255, 170, 80, 0.2); }
 
-        .status { margin-top: 15px; font-size: 12px; color: #666; text-align: center; }
-        hr { border: none; border-top: 1px dashed #ccc; margin: 10px 0; }
-        .flex-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .btn {
+            background: #d97706; /* 暖橙色，与主题更搭 */
+            color: #fff;
+            padding: 16px;
+            border-radius: 16px;
+            font-weight: 600;
+            border: none;
+            width: 100%;
+            margin-top: 24px;
+            font-size: 17px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+        }
+        .btn:active { transform: scale(0.98); background: #b45309; }
+
+        hr { border: 0; border-top: 1px dashed rgba(255,170,80,0.3); margin: 16px 0; }
+        .status { margin-top: 16px; font-size: 13px; color: #ffaa66; text-align: center; }
+        #printCanvas { display: none; }
+        .flex-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-<div class="receipt-card">
-    <div class="nav-bar">
-        <button class="back-btn" onclick="history.back()">返回</button>
-        <div class="title-text">订单预览</div>
+<div class="container">
+    <div class="card">
+        <div class="header">
+            <div class="back-btn" onclick="history.back()">←</div>
+            <h2 style="font-weight: 600;">订单详情</h2>
+        </div>
+
+        <div id="contentArea">📡 加载中...</div>
+        <button class="btn" id="bluetoothBtn" style="display:none;">确认并打印</button>
+        <div id="status" class="status"></div>
     </div>
-    
-    <div id="contentArea">📡 加载中...</div>
-    
-    <button class="btn-print" id="bluetoothBtn" style="display:none;">确认打印</button>
-    <div id="status" class="status"></div>
 </div>
 
 <canvas id="printCanvas" width="384"></canvas>
@@ -104,7 +113,6 @@
     function formatNum(n) { return Math.round(n).toLocaleString(); } 
     function cleanText(str) { return !str ? '' : str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim(); }
 
-    // (省略绘图逻辑，保持与之前版本一致，无需修改)
     function drawTextWithWrapping(ctx, text, x, y, maxWidth, lineHeight) {
         let words = text.split('');
         let line = '';
@@ -216,8 +224,13 @@
         return new Uint8Array(escPosBytes);
     }
     
+    async function sendChunked(characteristic, dataBytes, chunkSize=240) {
+        for (let i=0; i<dataBytes.length; i+=chunkSize) await characteristic.writeValue(dataBytes.slice(i, i+chunkSize));
+    }
+    
     async function bluetoothPrint() {
         const statusDiv = document.getElementById('status');
+        statusDiv.innerText = "Connecting...";
         try {
             const device = await navigator.bluetooth.requestDevice({
                 filters: [{ services: ['49535343-fe7d-4ae5-8fa9-9fafd205e455'] }, { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }],
@@ -228,58 +241,91 @@
             try { service = await server.getPrimaryService('49535343-fe7d-4ae5-8fa9-9fafd205e455'); } catch(e) { service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb'); }
             const writeChar = (await service.getCharacteristics()).find(c => c.properties.write || c.properties.writeWithoutResponse);
             await writeChar.writeValue(new Uint8Array([0x1B, 0x40])); 
-            
-            // 发送数据
-            for (let i=0; i<printDataBytes.length; i+=240) await writeChar.writeValue(printDataBytes.slice(i, i+240));
-            
+            await sendChunked(writeChar, printDataBytes, 240);
             await writeChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03])); 
-            statusDiv.innerText = "✅ 打印完成";
-        } catch(err) { statusDiv.innerText = "❌ 错误: "+err.message; }
+            statusDiv.innerText = "✅ Done!";
+        } catch(err) { statusDiv.innerText = "❌ Error: "+err.message; }
+    }
+    
+    async function refreshPrint() {
+        if (!currentOrderData.items.length) return;
+        if (customLogoImage && !customLogoImage.complete) await new Promise(r=>{ customLogoImage.onload=r; });
+        printDataBytes = generateReceiptImageBytes(currentOrderData, customLogoImage);
+        updatePreview();
+        document.getElementById('bluetoothBtn').style.display = 'block';
+    }
+    
+    function updatePreview() {
+        const { table, discount, note, items, total, tax, finalTotal, timeStr } = currentOrderData;
+        let itemsHtml = items.map(i => `
+            <div class="flex-row" style="margin-bottom:8px; font-size:13px;">
+                <span style="flex:1;">${escapeHtml(i.name)}</span>
+                <span style="width:80px; text-align:right;">${i.price}×${i.qty}</span>
+                <span style="width:70px; text-align:right;">${formatNum(i.subtotal)}Ks</span>
+            </div>
+        `).join('');
+        document.getElementById('contentArea').innerHTML = `
+            <div style="font-size:13px; line-height:1.6;">
+                <div style="text-align:center; margin-bottom: 10px;">🏷️ Table: <b>${escapeHtml(table)}</b></div>
+                <div style="text-align:center; opacity:0.7; margin-bottom: 10px;">${timeStr}</div>
+                <hr>${itemsHtml}<hr>
+                <div class="flex-row"><span>Subtotal</span><span>${formatNum(total)} Ks</span></div>
+                ${discount>0?`<div class="flex-row"><span>Discount</span><span>-${formatNum(discount)} Ks</span></div>`:''}
+                <div class="flex-row"><span>Tax (5%)</span><span>+${formatNum(tax)} Ks</span></div>
+                <div class="flex-row" style="font-size:18px; font-weight:bold; color:#ffaa66; margin-top:10px;">
+                    <span>Final Total</span><span>${formatNum(finalTotal)} Ks</span>
+                </div>
+                ${note?`<div style="margin-top:10px; opacity:0.8;">📝 ${escapeHtml(note)}</div>`:''}
+            </div>
+        `;
+    }
+    
+    async function loadOrder() {
+        const table = getQueryParam('table');
+        const discount = Number(getQueryParam('discount')||'0');
+        let note = cleanText(getQueryParam('note')||'');
+        if (!table) { document.getElementById('contentArea').innerHTML='<div>❌ Missing Table</div>'; return false; }
+        try {
+            const snapshot = await db.collection("pending_orders").where("table","==",table).get();
+            if(snapshot.empty) throw new Error(`Table ${table} not found`);
+            let items=[], total=0;
+            for(const doc of snapshot.docs){
+                const order=doc.data();
+                if(order.items){
+                    for(const it of order.items){
+                        let qty=Number(it.quantity)||0, price=Number(it.price)||0;
+                        if(qty===0) continue;
+                        let subtotal=qty*price;
+                        total+=subtotal;
+                        items.push({name: cleanText(it.name), qty, price, subtotal});
+                    }
+                }
+            }
+            const baseAmount = Math.max(0, total - discount); 
+            const tax = baseAmount * 0.05;                   
+            const finalTotal = baseAmount + tax;              
+            const now=new Date();
+            const timeStr=`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+            currentOrderData={table, discount, note, items, total, tax, finalTotal, timeStr};
+            return true;
+        } catch(e){
+            document.getElementById('contentArea').innerHTML=`<div>❌ ${e.message}</div>`;
+            return false;
+        }
     }
     
     async function init() {
-        // 加载逻辑保持不变...
-        const table = getQueryParam('table');
-        if (!table) { document.getElementById('contentArea').innerHTML='❌ 未找到订单'; return; }
-        
-        const snapshot = await db.collection("pending_orders").where("table","==",table).get();
-        if(snapshot.empty) { document.getElementById('contentArea').innerHTML='❌ 订单为空'; return; }
-        
-        let items=[], total=0;
-        snapshot.forEach(doc=>{
-            const order=doc.data();
-            if(order.items) order.items.forEach(it=>{
-                let qty=Number(it.quantity)||0, price=Number(it.price)||0;
-                if(qty>0) { total += qty*price; items.push({name: cleanText(it.name), qty, price, subtotal: qty*price}); }
-            });
-        });
-        const tax = total * 0.05;
-        currentOrderData = { table, discount: 0, note: '', items, total, tax, finalTotal: total+tax, timeStr: new Date().toLocaleString() };
-        
-        // 渲染页面
-        document.getElementById('contentArea').innerHTML = `
-            <div style="margin-bottom:10px; border-bottom:1px solid #ccc; padding-bottom:5px;">
-                <strong>桌号: ${table}</strong><br>
-                <small>${currentOrderData.timeStr}</small>
-            </div>
-            ${items.map(i=>`<div class="flex-row"><span>${i.name} x${i.qty}</span><span>${i.subtotal}Ks</span></div>`).join('')}
-            <hr>
-            <div class="flex-row"><span>合计:</span><span>${total}Ks</span></div>
-            <div class="flex-row"><span>税费(5%):</span><span>${tax}Ks</span></div>
-            <div class="flex-row" style="font-weight:bold; font-size:16px;"><span>应付:</span><span>${currentOrderData.finalTotal}Ks</span></div>
-        `;
-        document.getElementById('bluetoothBtn').style.display = 'block';
-        document.getElementById('bluetoothBtn').addEventListener('click', bluetoothPrint);
-        
-        // 生成图片数据
-        if (LOGO_URL) {
-            const img = new Image(); img.crossOrigin = 'Anonymous';
-            img.onload = () => { customLogoImage = img; printDataBytes = generateReceiptImageBytes(currentOrderData, img); };
-            img.onerror = () => { printDataBytes = generateReceiptImageBytes(currentOrderData, null); };
-            img.src = LOGO_URL + "?t=" + Date.now();
-        } else { printDataBytes = generateReceiptImageBytes(currentOrderData, null); }
+        if(await loadOrder()){
+            if (LOGO_URL) {
+                const img = new Image(); img.crossOrigin = 'Anonymous';
+                img.onload = () => { customLogoImage = img; refreshPrint(); };
+                img.onerror = () => { customLogoImage = null; refreshPrint(); };
+                img.src = LOGO_URL + "?t=" + new Date().getTime(); 
+            } else { refreshPrint(); }
+            document.getElementById('bluetoothBtn').addEventListener('click', bluetoothPrint);
+        }
     }
-    
+    function escapeHtml(s){ if(!s)return ''; return s.replace(/[&<>]/g, m=> m==='&'?'&amp;':(m==='<'?'&lt;':'&gt;')); }
     window.onload = init;
 </script>
 </body>
