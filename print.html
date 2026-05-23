@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>蓝牙打印 - 夜夜烤烧烤</title>
+    <!-- 标明版本号：v1.1 终极图片打印版 -->
+    <title>蓝牙打印 v1.1(图片版) - 夜夜烤烧烤</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <!-- 引入第三方 TextEncoder 库，完美支持浏览器端字符串转 GBK 字节 -->
-    <script src="https://fastly.jsdelivr.net/npm/text-encoding@0.7.0/lib/encoding.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -43,17 +42,21 @@
         .btn:active { transform: scale(0.96); }
         hr { border-color: rgba(255,180,100,0.3); margin: 12px 0; }
         .status { margin-top: 12px; font-size: 12px; color: #ffaa66; }
-        .preview-text { font-size: 12px; line-height: 1.4; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,180,100,0.3); }
+        /* 隐藏后台画图用的画布 */
+        #printCanvas { display: none; }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="card">
         <div id="contentArea">📡 加载订单中...</div>
-        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 蓝牙打印 (仅中文 GBK)</button>
+        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 智能图像打印 (免字库防乱码)</button>
         <div id="status" class="status"></div>
     </div>
 </div>
+
+<!-- 隐藏的画布，专门用来把小票文字画成像素画 -->
+<canvas id="printCanvas" width="384"></canvas>
 
 <script>
     const firebaseConfig = { 
@@ -67,65 +70,126 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    let currentGBKData = null; 
+    let printDataBytes = null; // 存储转换后的图片像素字节流
 
     function getQueryParam(p) { return new URLSearchParams(window.location.search).get(p); }
     function formatNum(n) { return Number(n).toLocaleString(); }
 
-    function keepOnlyChinese(str) {
+    // 核心更改 v1.1：不再强制过滤语言，图片支持打印任何你能看到的文字
+    function cleanText(str) {
         if (!str) return '';
-        let filtered = str.replace(/[a-zA-Z]/g, '');
-        filtered = filtered.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
-        const allowed = /[^\u4e00-\u9fff\u3400-\u4dbf0-9\s\.\:\-\—\,\。\、\：\；\！\？\（\）\【\】\《\》\…\·\-\+\×\÷\%\#\￥\（\）]/g;
-        filtered = filtered.replace(allowed, '');
-        return filtered.replace(/\s+/g, ' ').trim();
+        return str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
     }
 
-    // 关键修改点：使用专用的编码库转换字符串为真正的 GBK 字节数组
-    function stringToGBK(str) {
-        return new Promise((resolve) => {
-            // 使用引入的 TextEncoder 库进行 gbk 编码
-            const encoder = new TextEncoder('gbk', { NONSTANDARD_allowLegacyEncoding: true });
-            const gbkBytes = encoder.encode(str);
-            resolve(gbkBytes);
-        });
-    }
+    // 将小票内容绘制到Canvas并转为热敏打印机点阵数据的核心算法
+    function generateReceiptImageBytes(table, discount, note, method, items, total, finalTotal, timeStr) {
+        const canvas = document.getElementById('printCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 1. 动态计算画布高度
+        let rowHeight = 28;
+        let padding = 20;
+        let calculatedHeight = padding * 2 + 180 + (items.length * rowHeight);
+        if (note) calculatedHeight += 40;
+        canvas.height = calculatedHeight;
 
-    function generatePlainReceipt(table, discount, note, method, items, total, finalTotal, timeStr) {
-        let lines = [];
-        lines.push("夜夜烤烧烤");
-        lines.push("电话 123-4567-8901");
-        lines.push("星光美食街8号");
-        lines.push("--------------------------------");
-        lines.push(`桌号：${table}号桌`);
-        lines.push(`时间：${timeStr}`);
-        lines.push(`支付：${method}`);
-        lines.push("--------------------------------");
-        lines.push("菜品名称             数量  金额(Ks)");
+        // 2. 刷白底，画黑字（热敏全黑白点阵）
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#000000';
+        ctx.textBaseline = 'top';
+
+        let y = padding;
+
+        // 店名
+        ctx.font = 'bold 28px "Segoe UI", system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("夜夜烤烧烤", 192, y);
+        y += 36;
+
+        // 小字信息
+        ctx.font = '18px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText("电话: 123-4567-8901", 192, y); y += 24;
+        ctx.fillText("星光美食街8号", 192, y); y += 30;
+
+        // 分割线
+        ctx.textAlign = 'left';
+        ctx.fillText("------------------------------------------------", 10, y); y += 20;
+
+        // 单据信息
+        ctx.font = 'bold 20px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText(`桌号：${table}号桌`, 10, y); y += 26;
+        ctx.font = '18px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText(`时间：${timeStr}`, 10, y); y += 24;
+        ctx.fillText(`支付：${method}`, 10, y); y += 24;
+        ctx.fillText("------------------------------------------------", 10, y); y += 24;
+
+        // 表头
+        ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText("菜品名称", 10, y);
+        ctx.fillText("数量", 200, y);
+        ctx.fillText("金额(Ks)", 290, y);
+        y += 28;
+
+        // 菜品列表
+        ctx.font = '18px "Segoe UI", system-ui, sans-serif';
         for (let it of items) {
-            let name = it.name.length > 18 ? it.name.slice(0, 16) + ".." : it.name;
-            // 修复补位：中文在GBK中占2个字节，直接用 padEnd 会导致排版错乱。此处简单用空格衔接
-            let line = `${name}  x${it.qty}   ${formatNum(it.subtotal)}`;
-            lines.push(line);
+            let name = it.name.length > 10 ? it.name.slice(0, 9) + ".." : it.name;
+            ctx.fillText(name, 10, y);
+            ctx.fillText(it.qty.toString(), 210, y);
+            ctx.fillText(formatNum(it.subtotal), 290, y);
+            y += rowHeight;
         }
-        lines.push("--------------------------------");
-        lines.push(`原价合计：${formatNum(total)} Ks`);
-        if (discount > 0) lines.push(`优惠金额：- ${formatNum(discount)} Ks`);
-        lines.push(`实收金额：${formatNum(finalTotal)} Ks`);
-        if (note) lines.push(`备注：${note}`);
-        lines.push("--------------------------------");
-        lines.push("感谢光临，欢迎下次惠顾！");
-        lines.push("\n\n\n"); // 留出物理撕纸空间
-        return lines.join("\n");
+
+        ctx.fillText("------------------------------------------------", 10, y); y += 20;
+        ctx.fillText(`原价合计：${formatNum(total)} Ks`, 10, y); y += 24;
+        if (discount > 0) {
+            ctx.fillText(`优惠金额：- ${formatNum(discount)} Ks`, 10, y); y += 24;
+        }
+        ctx.font = 'bold 22px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText(`实收金额：${formatNum(finalTotal)} Ks`, 10, y); y += 30;
+        
+        ctx.font = '18px "Segoe UI", system-ui, sans-serif';
+        if (note) {
+            ctx.fillText(`备注：${note}`, 10, y); y += 28;
+        }
+        ctx.fillText("------------------------------------------------", 10, y); y += 20;
+        ctx.textAlign = 'center';
+        ctx.fillText("感谢光临，欢迎下次惠顾！", 192, y);
+
+        // 3. 将 Canvas 图案像素转化为打印机能读懂的 ESC/POS GS v 0 纯位图指令流
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const widthBytes = canvas.width / 8;
+        const escPosBytes = [];
+
+        // 位图打印指令头: GS v 0 0 (xL) (xH) (yL) (yH)
+        escPosBytes.push(0x1D, 0x76, 0x30, 0x00);
+        escPosBytes.push(widthBytes & 0xFF, (widthBytes >> 8) & 0xFF);
+        escPosBytes.push(canvas.height & 0xFF, (canvas.height >> 8) & 0xFF);
+
+        // 像素二值化算法（每8个全彩像素点压缩成1个电极开关字节）
+        for (let i = 0; i < imgData.data.length; i += 32) {
+            let byteVal = 0;
+            for (let b = 0; b < 8; b++) {
+                let pixelIndex = i + (b * 4);
+                let r = imgData.data[pixelIndex];
+                let g = imgData.data[pixelIndex + 1];
+                let bVal = imgData.data[pixelIndex + 2];
+                let brightness = (r + g + bVal) / 3;
+                if (brightness < 128) { 
+                    byteVal |= (1 << (7 - b)); // 黑色点置1
+                }
+            }
+            escPosBytes.push(byteVal);
+        }
+        return new Uint8Array(escPosBytes);
     }
 
     async function sendChunked(characteristic, dataBytes, chunkSize = 20) {
-        console.log(`总字节数: ${dataBytes.length}`);
-        // 关键修改点：绝大多数便携式蓝牙打印机的单次接收上限是 20 字节。480 字节太大会造成打印机断开或丢包乱码
         for (let i = 0; i < dataBytes.length; i += chunkSize) {
             const chunk = dataBytes.slice(i, i + chunkSize);
             await characteristic.writeValue(chunk);
-            await new Promise(r => setTimeout(r, 20)); // 短暂延迟，防止发太快打印机吃不下
+            await new Promise(r => setTimeout(r, 20)); 
         }
     }
 
@@ -135,8 +199,8 @@
             statusDiv.innerText = "❌ 当前浏览器不支持 Web Bluetooth，请使用 Chrome 安卓版。";
             return;
         }
-        if (!currentGBKData) {
-            statusDiv.innerText = "❌ 没有可打印的内容，请稍后再试";
+        if (!printDataBytes) {
+            statusDiv.innerText = "❌ 图像未生成完毕，请稍后再试";
             return;
         }
         statusDiv.innerText = "🔍 正在搜索打印机...";
@@ -165,19 +229,19 @@
                 }
             }
             if (!writeChar) throw new Error("未找到可写入特征");
-            statusDiv.innerText = "📄 发送数据中...";
+            statusDiv.innerText = "📄 发送位图数据中（图像打印稍慢，请稍候）...";
 
-            // 1. 初始化打印机
+            // 1. 初始化
             await writeChar.writeValue(new Uint8Array([0x1B, 0x40]));
             await new Promise(r => setTimeout(r, 50));
 
-            // 2. 发送真正的 GBK 数据（改用 20 字节小包发送）
-            await sendChunked(writeChar, currentGBKData, 20);
+            // 2. 发送全自研图像点阵数据包
+            await sendChunked(writeChar, printDataBytes, 20);
 
-            // 3. 走纸并切纸
+            // 3. 走纸 3 行以便切纸
             await writeChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03]));
             
-            statusDiv.innerText = "✅ 蓝牙打印完成！";
+            statusDiv.innerText = "✅ 图像打印完成！";
         } catch (err) {
             console.error(err);
             statusDiv.innerText = "❌ 打印失败: " + err.message;
@@ -198,7 +262,7 @@
             return;
         }
 
-        note = keepOnlyChinese(note);
+        note = cleanText(note);
         contentDiv.innerHTML = '📡 读取订单中...';
         statusDiv.innerText = '';
         try {
@@ -216,7 +280,7 @@
                         const qty = Number(it.quantity) || 0;
                         const price = Number(it.price) || 0;
                         total += qty * price;
-                        let cleanName = keepOnlyChinese(it.name);
+                        let cleanName = cleanText(it.name);
                         if (!cleanName) cleanName = "菜品";
                         items.push({ name: cleanName, qty, price, subtotal: qty*price });
                     }
@@ -227,15 +291,15 @@
             const now = new Date();
             const timeStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
 
-            const plainText = generatePlainReceipt(table, discount, note, method, items, total, finalTotal, timeStr);
-            
-            statusDiv.innerText = "🔄 编码转换中...";
-            currentGBKData = await stringToGBK(plainText);
+            // v1.1 核心更改：直接在后台秘密绘制黑白位图流
+            statusDiv.innerText = "🔄 正在渲染高清点阵图像...";
+            printDataBytes = generateReceiptImageBytes(table, discount, note, method, items, total, finalTotal, timeStr);
 
+            // 手机前端屏幕预览
             const itemsPreview = items.map(i => `<div>${escapeHtml(i.name)} ×${i.qty}  ${formatNum(i.subtotal)} Ks</div>`).join('');
             contentDiv.innerHTML = `
                 <div style="font-size:12px;">
-                    <div style="text-align:center; font-weight:bold;">夜夜烤烧烤</div>
+                    <div style="text-align:center; font-weight:bold;">夜夜烤烧烤 (图像预览)</div>
                     <div>桌号: ${escapeHtml(table)}</div>
                     <div>时间: ${timeStr}</div>
                     <hr>
@@ -250,7 +314,7 @@
             `;
             btn.style.display = 'block';
             btn.onclick = bluetoothPrint;
-            statusDiv.innerText = "✅ 数据准备就绪，可点击打印";
+            statusDiv.innerText = "✅ 图像编译成功！可以点击打印";
         } catch (err) {
             console.error(err);
             contentDiv.innerHTML = `<div>❌ 加载失败: ${err.message}</div>`;
