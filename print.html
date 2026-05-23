@@ -73,7 +73,7 @@
 <body>
 <div class="container">
     <div class="card">
-        <div class="version-tag">v3.4 Fast Print</div>
+        <div class="version-tag">v3.5 Turbo Mode</div>
 
         <div id="contentArea">📡 Loading...</div>
         <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ Print Receipt</button>
@@ -266,8 +266,8 @@
         return new Uint8Array(escPosBytes);
     }
     
-    // 【已修改】将 chunkSize 从 120 提升至 240 以加快打印速度
-    async function sendChunked(characteristic, dataBytes, chunkSize=240) {
+    // 【极限提速】 chunkSize 设置为 512
+    async function sendChunked(characteristic, dataBytes, chunkSize=512) {
         for (let i=0; i<dataBytes.length; i+=chunkSize) {
             await characteristic.writeValue(dataBytes.slice(i, i+chunkSize));
         }
@@ -292,8 +292,8 @@
             if (!writeChar) throw new Error("Write characteristic not found");
             statusDiv.innerText = "⚡ Printing...";
             await writeChar.writeValue(new Uint8Array([0x1B, 0x40])); 
-            await new Promise(r=>setTimeout(r,5));
-            await sendChunked(writeChar, printDataBytes, 240);
+            // 【已移除等待时间以提速】
+            await sendChunked(writeChar, printDataBytes, 512);
             await writeChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03])); 
             statusDiv.innerText = "✅ Done!";
         } catch(err) { statusDiv.innerText = "❌ Error: "+err.message; }
