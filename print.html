@@ -73,7 +73,7 @@
 <body>
 <div class="container">
     <div class="card">
-        <div class="version-tag">v3.6 Text Optimized</div>
+        <div class="version-tag">v3.4 Fast Print</div>
 
         <div id="contentArea">📡 Loading...</div>
         <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ Print Receipt</button>
@@ -86,6 +86,8 @@
 <canvas id="printCanvas" width="384"></canvas>
 
 <script>
+    const LOGO_URL = "打印logo.png"; 
+
     const firebaseConfig = { 
         apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
         authDomain: "yeyekao-3878d.firebaseapp.com", 
@@ -101,6 +103,7 @@
     let currentOrderData = {
         table: '', discount: 0, note: '', method: 'Cash', items: [], total: 0, tax: 0, finalTotal: 0, timeStr: ''
     };
+    let customLogoImage = null;
 
     function getQueryParam(p) { return new URLSearchParams(window.location.search).get(p); }
     function formatNum(n) { return Math.round(n).toLocaleString(); } 
@@ -128,8 +131,7 @@
         return currentY;
     }
 
-    // 【优化】直接移除 Logo 处理逻辑，速度大幅提升
-    function generateReceiptImageBytes(order) {
+    function generateReceiptImageBytes(order, logoImg) {
         const canvas = document.getElementById('printCanvas');
         const ctx = canvas.getContext('2d');
         const { table, discount, note, method, items, total, tax, finalTotal, timeStr } = order;
@@ -151,7 +153,8 @@
         }
 
         let padding = 12;
-        let titleHeight = 50; // 固定文字头部高度
+        let titleHeight = (logoImg && logoImg.complete && logoImg.naturalWidth > 0) ? ((Math.min(logoImg.naturalWidth, 280) / logoImg.naturalWidth) * logoImg.naturalHeight + 12) : 40;
+        
         let infoHeight = 26 * 4 + 16;
         let headerHeight = 28;
         let summaryHeight = 24 + 24 + 26 + 36 + (discount > 0 ? 24 : 0) + (note ? 32 : 0) + 24 + 24;
@@ -164,11 +167,18 @@
         ctx.textBaseline = 'top';
         let y = padding;
         
-        // 纯文字店名（不再绘制图片）
-        ctx.font = 'bold 32px "Segoe UI", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText("夜夜烤烧烤", canvas.width/2, y);
-        y += 45;
+        if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+            const maxLogoWidth = 280;
+            let drawWidth = Math.min(logoImg.naturalWidth, maxLogoWidth);
+            let drawHeight = (drawWidth / logoImg.naturalWidth) * logoImg.naturalHeight;
+            ctx.drawImage(logoImg, (canvas.width - drawWidth) / 2, y, drawWidth, drawHeight);
+            y += drawHeight + 12;
+        } else {
+            ctx.font = 'bold 28px "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText("夜夜烤烧烤", canvas.width/2, y);
+            y += 38;
+        }
         
         ctx.font = 'bold 17px "Segoe UI", sans-serif';
         ctx.textAlign = 'center';
@@ -205,6 +215,7 @@
         }
         
         ctx.font = 'bold 16px monospace';
+        ctx.textAlign = 'left';
         ctx.fillText("--------------------------------------", 4, y); y += 18;
         
         ctx.font = 'bold 18px sans-serif';
@@ -255,6 +266,7 @@
         return new Uint8Array(escPosBytes);
     }
     
+    // 【已修改】将 chunkSize 从 120 提升至 240 以加快打印速度
     async function sendChunked(characteristic, dataBytes, chunkSize=240) {
         for (let i=0; i<dataBytes.length; i+=chunkSize) {
             await characteristic.writeValue(dataBytes.slice(i, i+chunkSize));
@@ -280,6 +292,7 @@
             if (!writeChar) throw new Error("Write characteristic not found");
             statusDiv.innerText = "⚡ Printing...";
             await writeChar.writeValue(new Uint8Array([0x1B, 0x40])); 
+            await new Promise(r=>setTimeout(r,5));
             await sendChunked(writeChar, printDataBytes, 240);
             await writeChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03])); 
             statusDiv.innerText = "✅ Done!";
@@ -290,7 +303,8 @@
         const statusDiv = document.getElementById('status');
         if (!currentOrderData.items.length) return;
         statusDiv.innerText = "🖌️ Generating preview...";
-        printDataBytes = generateReceiptImageBytes(currentOrderData);
+        if (customLogoImage && !customLogoImage.complete) await new Promise(r=>{ customLogoImage.onload=r; });
+        printDataBytes = generateReceiptImageBytes(currentOrderData, customLogoImage);
         updatePreview();
         statusDiv.innerText = "✅ Ready";
         document.getElementById('bluetoothBtn').style.display = 'block';
@@ -365,10 +379,30 @@
         }
     }
     
+    function loadEmbeddedLogo() {
+        if (LOGO_URL) {
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.onload = () => {
+                customLogoImage = img;
+                refreshPrint();
+            };
+            img.onerror = () => { 
+                console.log("No logo found.");
+                customLogoImage = null; 
+                refreshPrint(); 
+            };
+            img.src = LOGO_URL + "?t=" + new Date().getTime(); 
+        } else {
+            customLogoImage = null;
+            refreshPrint();
+        }
+    }
+    
     async function init() {
         const ok = await loadOrder();
         if(!ok) return;
-        refreshPrint();
+        loadEmbeddedLogo();
         document.getElementById('bluetoothBtn').addEventListener('click', bluetoothPrint);
     }
     
