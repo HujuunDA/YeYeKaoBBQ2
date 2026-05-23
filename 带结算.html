@@ -400,6 +400,25 @@
             transform: scale(0.96);
         }
 
+        /* 纯新增：打印按钮样式 */
+        .btn-print {
+            background: linear-gradient(120deg, #0284c7, #0369a1);
+            color: white;
+            padding: 10px 18px;
+            border-radius: 48px;
+            font-size: 15px;
+            font-weight: 800;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
+            margin-right: 6px;
+        }
+
+        .btn-print:active {
+            transform: scale(0.96);
+        }
+
         #toast {
             display: none;
             position: fixed;
@@ -484,6 +503,25 @@
         if (/Macintosh/i.test(ua)) return "MacBook";
         return "其它设备";
     }
+
+    // 纯新增：预留给你的打印处理函数（目前绑定到打印按钮点击事件上）
+    function printOrder(tableNum, originalTotal) {
+    // 获取优惠金额和备注
+    var discInput = document.getElementById('disc-' + tableNum);
+    var noteInput = document.getElementById('note-' + tableNum);
+    var discount = discInput ? discInput.value : '0';
+    var note = noteInput ? noteInput.value : '';
+    var method = tablePayMethods[tableNum] || '现金';
+    
+    // 构造跳转地址
+    var url = 'print.html?table=' + encodeURIComponent(tableNum) 
+            + '&discount=' + encodeURIComponent(discount)
+            + '&note=' + encodeURIComponent(note)
+            + '&method=' + encodeURIComponent(method);
+    
+    // 跳转到打印页面
+    window.location.href = url;
+}
 
     async function deductStockFromInventory(orderItems, tableNum) {
         console.log("========== 开始扣减库存（静默模式）==========");
@@ -716,7 +754,10 @@
                             <div class="method-btn ${tablePayMethods[tableNum]==='转账'?'active':''}" onclick="setMethod('${tableNum}','转账',this)">🏦</div>
                         </div>
                         <div class="total-price" id="price-${tableNum}">${tableTotal.toLocaleString()}</div>
-                        <button class="btn-pay" onclick='confirmPay("${tableNum}", ${tableTotal})'>结账</button>
+                        <div>
+                            <button class="btn-print" onclick='printOrder("${tableNum}", ${tableTotal})'>打印</button>
+                            <button class="btn-pay" onclick='confirmPay("${tableNum}", ${tableTotal})'>结账</button>
+                        </div>
                     </div>`;
                 container.appendChild(card);
             });
