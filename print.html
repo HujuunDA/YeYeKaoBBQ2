@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+、<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -80,7 +80,7 @@
 <body>
 <div class="container">
     <div class="card">
-        <div class="version-tag">v3.2 大字清晰版</div>
+        <div class="version-tag">v3.3 适中清晰版</div>
 
         <div id="contentArea">📡 加载订单中...</div>
         <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 闪电图像打印 (含Logo+单价)</button>
@@ -93,9 +93,7 @@
 <canvas id="printCanvas" width="384"></canvas>
 
 <script>
-    // ======================= 🌐 动态读取同目录下的 Logo 图片 =======================
     const LOGO_URL = "打印logo.png"; 
-    // ============================================================================
 
     const firebaseConfig = { 
         apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
@@ -121,7 +119,7 @@
         return str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
     }
 
-    // 辅助函数：处理Canvas文字自动换行（针对大字优化了行高）
+    // 辅助函数：处理Canvas文字自动换行
     function drawTextWithWrapping(ctx, text, x, y, maxWidth, lineHeight) {
         let words = text.split('');
         let line = '';
@@ -130,7 +128,6 @@
         for (let n = 0; n < words.length; n++) {
             let testLine = line + words[n];
             let metrics = ctx.measureText(testLine);
-            // 因为字变大了，菜品名称可用宽度缩减到 150px，防止撞到右边单价
             if (metrics.width > maxWidth && n > 0) {
                 ctx.fillText(line, x, currentY);
                 line = words[n];
@@ -143,38 +140,37 @@
         return currentY;
     }
 
-    // 生成小票图像 (大字清晰排版引擎)
+    // 生成小票图像 (1.5倍舒适清晰排版)
     function generateReceiptImageBytes(order, logoImg) {
         const canvas = document.getElementById('printCanvas');
         const ctx = canvas.getContext('2d');
         const { table, discount, note, method, items, total, finalTotal, timeStr } = order;
         
-        // 【优化】使用大字号预估菜品高度（字号 20px，行高 26px）
-        ctx.font = 'bold 20px "Segoe UI", sans-serif';
+        // 【优化】采用 1.5 倍适中字号预估菜品高度（字号 17px，行高 22px）
+        ctx.font = 'bold 17px "Segoe UI", sans-serif';
         let calculatedItemsHeight = 0;
         for (let it of items) {
             let itemLines = 1;
             let line = '';
             for (let char of it.name.split('')) {
-                if (ctx.measureText(line + char).width > 150) {
+                if (ctx.measureText(line + char).width > 165) {
                     itemLines++;
                     line = char;
                 } else {
                     line += char;
                 }
             }
-            calculatedItemsHeight += Math.max(32, itemLines * 26) + 8;
+            calculatedItemsHeight += Math.max(26, itemLines * 22) + 6;
         }
 
         let padding = 12;
-        let titleHeight = (logoImg && logoImg.complete && logoImg.naturalWidth > 0) ? ((Math.min(logoImg.naturalWidth, 280) / logoImg.naturalWidth) * logoImg.naturalHeight + 12) : 48;
+        let titleHeight = (logoImg && logoImg.complete && logoImg.naturalWidth > 0) ? ((Math.min(logoImg.naturalWidth, 280) / logoImg.naturalWidth) * logoImg.naturalHeight + 12) : 40;
         
-        // 【优化】加大了全局高度预算，防止大字版下方内容被截断
-        let infoHeight = 32 * 4 + 24;
-        let headerHeight = 36;
-        let summaryHeight = 30 + 30 + 45 + (discount > 0 ? 30 : 0) + (note ? 40 : 0) + 30 + 30;
+        let infoHeight = 26 * 4 + 16;
+        let headerHeight = 28;
+        let summaryHeight = 24 + 24 + 36 + (discount > 0 ? 24 : 0) + (note ? 32 : 0) + 24 + 24;
         
-        canvas.height = padding + titleHeight + infoHeight + headerHeight + calculatedItemsHeight + summaryHeight + 40;
+        canvas.height = padding + titleHeight + infoHeight + headerHeight + calculatedItemsHeight + summaryHeight + 30;
         
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -188,80 +184,77 @@
             let drawWidth = Math.min(logoImg.naturalWidth, maxLogoWidth);
             let drawHeight = (drawWidth / logoImg.naturalWidth) * logoImg.naturalHeight;
             ctx.drawImage(logoImg, (canvas.width - drawWidth) / 2, y, drawWidth, drawHeight);
-            y += drawHeight + 15;
+            y += drawHeight + 12;
         } else {
-            ctx.font = 'bold 34px "Segoe UI", sans-serif';
+            ctx.font = 'bold 28px "Segoe UI", sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText("夜夜烤烧烤", canvas.width/2, y);
-            y += 46;
+            y += 38;
         }
         
-        // 2. 基本信息栏（字号放大，行距拉开）
-        ctx.font = 'bold 20px "Segoe UI", sans-serif';
+        // 2. 基本信息栏（1.5倍舒适大小）
+        ctx.font = 'bold 17px "Segoe UI", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText("📞 电话: 09795858987", canvas.width/2, y); y += 32;
+        ctx.fillText("📞 电话: 09795858987", canvas.width/2, y); y += 26;
         
         ctx.textAlign = 'left';
-        ctx.font = 'bold 28px "Segoe UI", sans-serif'; // 桌号特大字号
-        ctx.fillText(`桌号：${table}号桌`, 6, y); y += 38;
+        ctx.font = 'bold 22px "Segoe UI", sans-serif'; // 桌号适中加粗
+        ctx.fillText(`桌号：${table}号桌`, 6, y); y += 32;
         
-        ctx.font = 'bold 19px "Segoe UI", sans-serif';
-        ctx.fillText(`时间：${timeStr}`, 6, y); y += 28;
-        ctx.fillText(`支付：${method}`, 6, y); y += 30;
+        ctx.font = 'bold 16px "Segoe UI", sans-serif';
+        ctx.fillText(`时间：${timeStr}`, 6, y); y += 24;
+        ctx.fillText(`支付：${method}`, 6, y); y += 24;
         
-        ctx.font = 'bold 18px monospace';
-        ctx.fillText("--------------------------------------", 4, y); y += 24;
+        ctx.font = 'bold 16px monospace';
+        ctx.fillText("--------------------------------------", 4, y); y += 18;
         
-        // 3. 表头栏（放大加粗）
-        ctx.font = 'bold 20px "Segoe UI", sans-serif';
+        // 3. 表头栏
+        ctx.font = 'bold 17px "Segoe UI", sans-serif';
         ctx.textAlign = 'left'; ctx.fillText("品名", 6, y);
-        ctx.textAlign = 'right'; ctx.fillText("单价×数量", 270, y); // 左移防止重叠
+        ctx.textAlign = 'right'; ctx.fillText("单价×数量", 280, y); 
         ctx.textAlign = 'right'; ctx.fillText("金额", 378, y);
-        y += 32;
+        y += 26;
         
-        // 4. 动态菜品列表（字号从 16px 放大到 20px，全部加粗提升清晰度）
-        ctx.font = 'bold 20px "Segoe UI", sans-serif';
+        // 4. 动态菜品列表（统一采用舒适的 17px 加粗字，边缘非常清晰）
+        ctx.font = 'bold 17px "Segoe UI", sans-serif';
         for (let it of items) {
             let startY = y;
             ctx.textAlign = 'left';
-            // 限制菜品字宽为 150px，超出自动换行，行高 26px
-            let lastY = drawTextWithWrapping(ctx, it.name, 6, y, 150, 26);
+            let lastY = drawTextWithWrapping(ctx, it.name, 6, y, 165, 22);
             
-            // 右侧信息对齐首行
             ctx.textAlign = 'right';
-            ctx.fillText(`${it.price}×${it.qty}`, 270, startY);
+            ctx.fillText(`${it.price}×${it.qty}`, 280, startY);
             ctx.fillText(formatNum(it.subtotal), 378, startY);
             
-            // 动态累加高度
-            y = Math.max(lastY + 26, startY + 32) + 8;
+            y = Math.max(lastY + 22, startY + 26) + 6;
         }
         
-        // 5. 底部结算栏（全面放大）
-        ctx.font = 'bold 18px monospace';
+        // 5. 底部结算栏
+        ctx.font = 'bold 16px monospace';
         ctx.textAlign = 'left';
-        ctx.fillText("--------------------------------------", 4, y); y += 24;
+        ctx.fillText("--------------------------------------", 4, y); y += 18;
         
-        ctx.font = 'bold 21px sans-serif';
-        ctx.fillText(`原价合计：${formatNum(total)} Ks`, 6, y); y += 30;
+        ctx.font = 'bold 18px sans-serif';
+        ctx.fillText(`原价合计：${formatNum(total)} Ks`, 6, y); y += 26;
         if (discount > 0) {
             ctx.fillText(`优惠金额：- ${formatNum(discount)} Ks`, 6, y); 
-            y += 30;
+            y += 26;
         }
         
-        ctx.font = 'bold 28px sans-serif'; // 实收金额特大字号
-        ctx.fillText(`实收金额：${formatNum(finalTotal)} Ks`, 6, y); y += 42;
+        ctx.font = 'bold 23px sans-serif'; // 实收金额显眼放大
+        ctx.fillText(`实收金额：${formatNum(finalTotal)} Ks`, 6, y); y += 34;
         
-        ctx.font = 'bold 20px sans-serif';
+        ctx.font = 'bold 17px sans-serif';
         if (note) {
             ctx.fillText(`备注：${note}`, 6, y); 
-            y += 32;
+            y += 26;
         }
         
-        ctx.font = 'bold 18px monospace';
-        ctx.fillText("--------------------------------------", 4, y); y += 24;
+        ctx.font = 'bold 16px monospace';
+        ctx.fillText("--------------------------------------", 4, y); y += 18;
         
         ctx.textAlign = 'center';
-        ctx.font = 'bold 22px sans-serif'; // 欢迎语放大
+        ctx.font = 'bold 18px sans-serif'; 
         ctx.fillText("感谢光临，欢迎下次惠顾！", canvas.width/2, y);
         
         // 转ESC/POS点阵数据
@@ -288,7 +281,6 @@
         return new Uint8Array(escPosBytes);
     }
     
-    // 高速无延迟分片发送
     async function sendChunked(characteristic, dataBytes, chunkSize=120) {
         for (let i=0; i<dataBytes.length; i+=chunkSize) {
             await characteristic.writeValue(dataBytes.slice(i, i+chunkSize));
@@ -313,10 +305,10 @@
             let writeChar = chars.find(c => c.properties.write || c.properties.writeWithoutResponse);
             if (!writeChar) throw new Error("未找到写入特征");
             statusDiv.innerText = "⚡ 打印中...";
-            await writeChar.writeValue(new Uint8Array([0x1B, 0x40])); // 初始化
+            await writeChar.writeValue(new Uint8Array([0x1B, 0x40])); 
             await new Promise(r=>setTimeout(r,5));
             await sendChunked(writeChar, printDataBytes, 120);
-            await writeChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03])); // 切纸/走纸
+            await writeChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03])); 
             statusDiv.innerText = "✅ 打印完成！";
         } catch(err) { statusDiv.innerText = "❌ 打印失败: "+err.message; }
     }
@@ -345,7 +337,7 @@
         
         document.getElementById('contentArea').innerHTML = `
             <div style="font-size:12px;">
-                <div style="text-align:center; font-weight:bold; margin-bottom: 10px;">🧾 订单预览 (大字清晰排版)</div>
+                <div style="text-align:center; font-weight:bold; margin-bottom: 10px;">🧾 订单预览 (适中清晰排版)</div>
                 <div>🏷️ 桌号: ${escapeHtml(table)}</div>
                 <div>📞 电话: 09795858987</div>
                 <div>⏰ ${timeStr}  💳 ${method}</div>
