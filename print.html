@@ -1,4 +1,4 @@
-、<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -60,13 +60,6 @@
         hr { border-color: rgba(255,180,100,0.3); margin: 12px 0; }
         .status { margin-top: 12px; font-size: 12px; color: #ffaa66; word-break: break-word; }
         #printCanvas { display: none; }
-        .order-preview {
-            background: rgba(0,0,0,0.3);
-            border-radius: 20px;
-            padding: 12px;
-            margin-top: 8px;
-            font-size: 13px;
-        }
         .flex-row {
             display: flex;
             justify-content: space-between;
@@ -80,7 +73,7 @@
 <body>
 <div class="container">
     <div class="card">
-        <div class="version-tag">v3.3 适中清晰版</div>
+        <div class="version-tag">v3.4 含5%税金版</div>
 
         <div id="contentArea">📡 加载订单中...</div>
         <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 闪电图像打印 (含Logo+单价)</button>
@@ -108,23 +101,21 @@
 
     let printDataBytes = null;
     let currentOrderData = {
-        table: '', discount: 0, note: '', method: '现金', items: [], total: 0, finalTotal: 0, timeStr: ''
+        table: '', discount: 0, note: '', method: '现金', items: [], total: 0, tax: 0, finalTotal: 0, timeStr: ''
     };
     let customLogoImage = null;
 
     function getQueryParam(p) { return new URLSearchParams(window.location.search).get(p); }
-    function formatNum(n) { return Number(n).toLocaleString(); }
+    function formatNum(n) { return Math.round(n).toLocaleString(); } // 税金可能产生小数，自动四舍五入取整
     function cleanText(str) {
         if (!str) return '';
         return str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
     }
 
-    // 辅助函数：处理Canvas文字自动换行
     function drawTextWithWrapping(ctx, text, x, y, maxWidth, lineHeight) {
         let words = text.split('');
         let line = '';
         let currentY = y;
-        
         for (let n = 0; n < words.length; n++) {
             let testLine = line + words[n];
             let metrics = ctx.measureText(testLine);
@@ -140,13 +131,12 @@
         return currentY;
     }
 
-    // 生成小票图像 (1.5倍舒适清晰排版)
+    // 生成包含5%税金的小票图像
     function generateReceiptImageBytes(order, logoImg) {
         const canvas = document.getElementById('printCanvas');
         const ctx = canvas.getContext('2d');
-        const { table, discount, note, method, items, total, finalTotal, timeStr } = order;
+        const { table, discount, note, method, items, total, tax, finalTotal, timeStr } = order;
         
-        // 【优化】采用 1.5 倍适中字号预估菜品高度（字号 17px，行高 22px）
         ctx.font = 'bold 17px "Segoe UI", sans-serif';
         let calculatedItemsHeight = 0;
         for (let it of items) {
@@ -168,7 +158,8 @@
         
         let infoHeight = 26 * 4 + 16;
         let headerHeight = 28;
-        let summaryHeight = 24 + 24 + 36 + (discount > 0 ? 24 : 0) + (note ? 32 : 0) + 24 + 24;
+        // 【新增】高度预算里加上了“食品税 5%”这一行的高度
+        let summaryHeight = 24 + 24 + 26 + 36 + (discount > 0 ? 24 : 0) + (note ? 32 : 0) + 24 + 24;
         
         canvas.height = padding + titleHeight + infoHeight + headerHeight + calculatedItemsHeight + summaryHeight + 30;
         
@@ -192,13 +183,13 @@
             y += 38;
         }
         
-        // 2. 基本信息栏（1.5倍舒适大小）
+        // 2. 基本信息栏
         ctx.font = 'bold 17px "Segoe UI", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText("📞 电话: 09795858987", canvas.width/2, y); y += 26;
         
         ctx.textAlign = 'left';
-        ctx.font = 'bold 22px "Segoe UI", sans-serif'; // 桌号适中加粗
+        ctx.font = 'bold 22px "Segoe UI", sans-serif'; 
         ctx.fillText(`桌号：${table}号桌`, 6, y); y += 32;
         
         ctx.font = 'bold 16px "Segoe UI", sans-serif';
@@ -215,7 +206,7 @@
         ctx.textAlign = 'right'; ctx.fillText("金额", 378, y);
         y += 26;
         
-        // 4. 动态菜品列表（统一采用舒适的 17px 加粗字，边缘非常清晰）
+        // 4. 动态菜品列表
         ctx.font = 'bold 17px "Segoe UI", sans-serif';
         for (let it of items) {
             let startY = y;
@@ -229,7 +220,7 @@
             y = Math.max(lastY + 22, startY + 26) + 6;
         }
         
-        // 5. 底部结算栏
+        // 5. 底部结算栏（新增税金打印展示）
         ctx.font = 'bold 16px monospace';
         ctx.textAlign = 'left';
         ctx.fillText("--------------------------------------", 4, y); y += 18;
@@ -241,7 +232,10 @@
             y += 26;
         }
         
-        ctx.font = 'bold 23px sans-serif'; // 实收金额显眼放大
+        // 【新增纸质小票打印展示】
+        ctx.fillText(`食品税 (5%)：+ ${formatNum(tax)} Ks`, 6, y); y += 26;
+        
+        ctx.font = 'bold 23px sans-serif'; 
         ctx.fillText(`实收金额：${formatNum(finalTotal)} Ks`, 6, y); y += 34;
         
         ctx.font = 'bold 17px sans-serif';
@@ -325,8 +319,9 @@
         document.getElementById('backBtn').style.display = 'block';
     }
     
+    // 【更新】非打印状态下的屏幕预览效果
     function updatePreview() {
-        const { table, discount, note, method, items, total, finalTotal, timeStr } = currentOrderData;
+        const { table, discount, note, method, items, total, tax, finalTotal, timeStr } = currentOrderData;
         let itemsHtml = items.map(i => `
             <div class="flex-row" style="margin-bottom:8px; font-size:13px;">
                 <span class="col-name">${escapeHtml(i.name)}</span>
@@ -337,7 +332,7 @@
         
         document.getElementById('contentArea').innerHTML = `
             <div style="font-size:12px;">
-                <div style="text-align:center; font-weight:bold; margin-bottom: 10px;">🧾 订单预览 (适中清晰排版)</div>
+                <div style="text-align:center; font-weight:bold; margin-bottom: 10px;">🧾 订单预览 (含5%税金版)</div>
                 <div>🏷️ 桌号: ${escapeHtml(table)}</div>
                 <div>📞 电话: 09795858987</div>
                 <div>⏰ ${timeStr}  💳 ${method}</div>
@@ -346,12 +341,15 @@
                 <hr>
                 <div>💰 原价: ${formatNum(total)} Ks</div>
                 ${discount>0?`<div>🎁 优惠: -${formatNum(discount)} Ks</div>`:''}
+                <!-- 【屏幕预览新增展示】 -->
+                <div style="color: #ffaa66;">📊 食品税 (5%): +${formatNum(tax)} Ks</div>
                 <div style="font-weight:bold; font-size:14px; margin-top:4px;">💵 实收: ${formatNum(finalTotal)} Ks</div>
                 ${note?`<div>📝 备注: ${escapeHtml(note)}</div>`:''}
             </div>
         `;
     }
     
+    // 【更新】加载数据时计算 5% 税率和实收
     async function loadOrder() {
         const table = getQueryParam('table');
         const discount = Number(getQueryParam('discount')||'0');
@@ -376,10 +374,16 @@
                 }
             }
             if(items.length===0) throw new Error("无有效菜品");
-            const finalTotal=Math.max(0,total-discount);
+            
+            // ================= 📊 税金与实收核心逻辑 =================
+            const baseAmount = Math.max(0, total - discount); // 计算税金的基数 = 原价 - 优惠
+            const tax = baseAmount * 0.05;                   // 5% 食品税金
+            const finalTotal = baseAmount + tax;              // 最终实际应收 = 基数 + 税金
+            // =======================================================
+
             const now=new Date();
             const timeStr=`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
-            currentOrderData={table, discount, note, method, items, total, finalTotal, timeStr};
+            currentOrderData={table, discount, note, method, items, total, tax, finalTotal, timeStr};
             return true;
         } catch(e){
             document.getElementById('contentArea').innerHTML=`<div>❌ ${e.message}</div>`;
