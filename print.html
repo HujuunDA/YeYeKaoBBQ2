@@ -1,119 +1,376 @@
-function generateReceiptImageBytes(table, discount, note, method, items, total, finalTotal, timeStr) {
-    const canvas = document.getElementById('printCanvas');
-    const ctx = canvas.getContext('2d');
-    
-    // 动态计算画布高度（行高调大到 32 像素以适应大字，新增单价行）
-    let rowHeight = 32;
-    let padding = 10; 
-    let calculatedHeight = padding * 2 + 420 + (items.length * rowHeight);
-    if (note) calculatedHeight += 40;
-    canvas.height = calculatedHeight;
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#000000';
-    ctx.textBaseline = 'top';
-
-    let y = padding;
-
-    // --- 1. 绘制 LOGO 图片 (预留位置) ---
-    // 注意：如果需要打印图片 Logo，需要先用 JavaScript 的 Image 对象预加载你的 Firebase 图片链接
-    // 这里先使用优雅的大字加粗排版替代名称。如果要换成纯图片，请参考下方的图片上传教程。
-    ctx.font = 'bold 36px "Segoe UI", system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText("我的店铺Logo", 192, y); // 替换为你想要的文字或预留给图片
-    y += 50;
-
-    // --- 2. 更改电话与地址 ---
-    ctx.font = '20px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText("电话: 09795858987", 192, y); y += 28;
-    ctx.fillText("星光美食街8号", 192, y); y += 32;
-
-    ctx.textAlign = 'left';
-    ctx.font = '18px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText("-------------------------------------------", 4, y); y += 22;
-
-    // --- 3. 优化桌号与基本信息排版 ---
-    ctx.font = 'bold 24px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText(`桌号：${table} 号桌`, 6, y); y += 32;
-    ctx.font = '18px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText(`时间：${timeStr}`, 6, y); y += 26;
-    ctx.fillText(`支付：${method}`, 6, y); y += 26;
-    ctx.fillText("-------------------------------------------", 4, y); y += 26;
-
-    // --- 4. 重新排版表头（加入单价展示） ---
-    ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText("菜品(单价)", 6, y);
-    ctx.fillText("数量", 210, y);
-    ctx.textAlign = 'right';
-    ctx.fillText("金额(Ks)", 378, y);
-    y += 32;
-
-    // --- 5. 菜品列表大字化 + 显示单价 ---
-    ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
-    for (let it of items) {
-        // 在菜名后面加上 (单价)
-        let nameWithPrice = `${it.name}(${formatNum(it.price)})`;
-        // 如果太长则截断，防止重叠
-        let displayName = nameWithPrice.length > 12 ? nameWithPrice.slice(0, 11) + ".." : nameWithPrice;
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>蓝牙打印 - 夜夜烤烧烤</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui;
+            background: radial-gradient(circle at 30% 10%, #2a2218, #1a140e, #0f0b07);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container { max-width: 500px; width: 100%; position: relative; }
+        .card {
+            background: rgba(35, 26, 18, 0.85);
+            backdrop-filter: blur(20px);
+            border-radius: 32px;
+            padding: 20px;
+            border: 1px solid rgba(255, 170, 80, 0.5);
+            color: #ffefcf;
+            position: relative;
+        }
+        .version-tag {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 170, 80, 0.2);
+            border: 1px solid #ffaa50;
+            color: #ffefcf;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .btn {
+            background: linear-gradient(120deg, #0284c7, #0369a1);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 48px;
+            font-weight: bold;
+            border: none;
+            width: 100%;
+            margin-top: 16px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn-back {
+            background: linear-gradient(120deg, #4b5563, #374151);
+            margin-top: 10px;
+        }
+        hr { border-color: rgba(255,180,100,0.3); margin: 12px 0; }
+        .status { margin-top: 12px; font-size: 12px; color: #ffaa66; }
+        #printCanvas { display: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <div class="version-tag">版本: v1.4 大字单价嵌入版</div>
         
+        <div id="contentArea">📡 加载订单中...</div>
+        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 闪电图像打印 (高速防乱码)</button>
+        <button class="btn btn-back" id="backBtn" style="display:none;" onclick="history.back()">⬅️ 返回上一页</button>
+        
+        <div id="status" class="status"></div>
+    </div>
+</div>
+
+<canvas id="printCanvas" width="384"></canvas>
+
+<script>
+    // Firebase 配置保持不变
+    const firebaseConfig = { 
+        apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
+        authDomain: "yeyekao-3878d.firebaseapp.com", 
+        projectId: "yeyekao-3878d", 
+        storageBucket: "yeyekao-3878d.firebasestorage.app", 
+        messagingSenderId: "560765118345", 
+        appId: "1:560765118345:web:5f24d021e7a6db90b76358" 
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let printDataBytes = null; 
+
+    // --- LOGO 图片内存嵌入核心逻辑 ---
+    const logoImg = new Image();
+    // ⚠️ 请在此处粘贴你转换出来的 Base64 字符串
+    const logoBase64 = "/9j/4QC8RXhpZgAASUkqAAgAAAAGABIBAwABAAAAAQAAABoBBQABAAAAVgAAABsBBQABAAAAXgAAACgBAwABAAAAAgAAABMCAwABAAAAAQAAAGmHBAABAAAAZgAAAAAAAABIAAAAAQAAAEgAAAABAAAABgAAkAcABAAAADAyMTABkQcABAAAAAECAwAAoAcABAAAADAxMDABoAMAAQAAAP//AAACoAQAAQAAAIABAAADoAQAAQAAAIABAAAAAAAA/+EO52h0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8APD94cGFja2V0IGJlZ2luPSfvu78nIGlkPSdXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQnPz4KPHg6eG1wbWV0YSB4bWxuczp4PSdhZG9iZTpuczptZXRhLyc+CjxyZGY6UkRGIHhtbG5zOnJkZj0naHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyc+CgogPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9JycKICB4bWxuczpBdHRyaWI9J2h0dHA6Ly9ucy5hdHRyaWJ1dGlvbi5jb20vYWRzLzEuMC8nPgogIDxBdHRyaWI6QWRzPgogICA8cmRmOlNlcT4KICAgIDxyZGY6bGkgcmRmOnBhcnNlVHlwZT0nUmVzb3VyY2UnPgogICAgIDxBdHRyaWI6Q3JlYXRlZD4yMDI2LTA1LTIzPC9BdHRyaWI6Q3JlYXRlZD4KICAgICA8QXR0cmliOkRhdGE+eyZxdW90O2RvYyZxdW90OzomcXVvdDtEQUhFdzNXR3pfQSZxdW90OywmcXVvdDt1c2VyJnF1b3Q7OiZxdW90O1VBRnNSUEZXblJ3JnF1b3Q7LCZxdW90O2JyYW5kJnF1b3Q7OiZxdW90O0NhbnZhIFBybyBMaWNlbnNlJnF1b3Q7fTwvQXR0cmliOkRhdGE+CiAgICAgPEF0dHJpYjpFeHRJZD4yMWNlODQzMC00NGNiLTQ4ZDMtYTdjMy1hNjMwZDE4MDA0NTI8L0F0dHJpYjpFeHRJZD4KICAgICA8QXR0cmliOkZiSWQ+NTI1MjY1OTE0MTc5NTgwPC9BdHRyaWI6RmJJZD4KICAgICA8QXR0cmliOlRvdWNoVHlwZT4yPC9BdHRyaWI6VG91Y2hUeXBlPgogICAgPC9yZGY6bGk+CiAgIDwvcmRmOlNlcT4KICA8L0F0dHJpYjpBZHM+CiA8L3JkZjpEZXNjcmlwdGlvbj4KCiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0nJwogIHhtbG5zOmRjPSdodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyc+CiAgPGRjOnRpdGxlPgogICA8cmRmOkFsdD4KICAgIDxyZGY6bGkgeG1sOmxhbmc9J3gtZGVmYXVsdCc+WWVZZUthb0xvZ28gKDUxMiB4IDUxMiDlg4/ntKApIOWJr+acrCAtIDIxPC9yZGY6bGk+CiAgIDwvcmRmOkFsdD4KICA8L2RjOnRpdGxlPgogPC9yZGY6RGVzY3JpcHRpb24+CgogPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9JycKICB4bWxuczpwZGY9J2h0dHA6Ly9ucy5hZG9iZS5jb20vcGRmLzEuMy8nPgogIDxwZGY6QXV0aG9yPldpbiBLeWF3IFNvZTwvcGRmOkF1dGhvcj4KIDwvcmRmOkRlc2NyaXB0aW9uPgoKIDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PScnCiAgeG1sbnM6eG1wPSdodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvJz4KICA8eG1wOkNyZWF0b3JUb29sPkNhbnZhIGRvYz1EQUhFdzNXR3pfQSB1c2VyPVVBRnNSUEZXblJ3IGJyYW5kPUNhbnZhIFBybyBMaWNlbnNlPC94bXA6Q3JlYXRvclRvb2w+CiA8L3JkZjpEZXNjcmlwdGlvbj4KPC9yZGY6UkRGPgo8L3g6eG1wbWV0YT4KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKPD94cGFja2V0IGVuZD0ndyc/Pv/bAEMABgQFBgUEBgYFBgcHBggKEAoKCQkKFA4PDBAXFBgYFxQWFhodJR8aGyMcFhYgLCAjJicpKikZHy0wLSgwJSgpKP/AAAsIAYABgAEBEQD/xAAfAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgv/xAC1EAACAQMDAgQDBQUEBAAAAX0BAgMABBEFEiExQQYTUWEHInEUMoGRoQgjQrHBFVLR8CQzYnKCCQoWFxgZGiUmJygpKjQ1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4eLj5OXm5+jp6vHy8/T19vf4+fr/2gAIAQEAAD8A+qaKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK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 来，你帮我加进去"; 
+    logoImg.src = logoBase64;
+
+    function getQueryParam(p) { return new URLSearchParams(window.location.search).get(p); }
+    function formatNum(n) { return Number(n).toLocaleString(); }
+
+    function cleanText(str) {
+        if (!str) return '';
+        return str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
+    }
+
+    function generateReceiptImageBytes(table, discount, note, method, items, total, finalTotal, timeStr) {
+        const canvas = document.getElementById('printCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 增大行高至 32 像素以匹配大字，防止文本上下重叠
+        let rowHeight = 32;
+        let padding = 10; 
+        let calculatedHeight = padding * 2 + 420 + (items.length * rowHeight);
+        if (note) calculatedHeight += 40;
+        canvas.height = calculatedHeight;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#000000';
+        ctx.textBaseline = 'top';
+
+        let y = padding;
+
+        // --- 1. 绘制 LOGO 图像 ---
+        if (logoImg.complete && logoImg.naturalWidth > 1) {
+            // 将 Logo 图像居中打印（设定尺寸为 90x90 像素）
+            ctx.drawImage(logoImg, 147, y, 90, 90); 
+            y += 100;
+        } else {
+            // 如果没放代码或解析失败，默认打印店名文字
+            ctx.font = 'bold 32px "Segoe UI", system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText("夜夜烤烧烤", 192, y);
+            y += 44;
+        }
+
+        // --- 2. 更改后的新电话与店铺信息 ---
+        ctx.font = '20px "Segoe UI", system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("电话: 09795858987", 192, y); y += 28;
+        ctx.fillText("星光美食街8号", 192, y); y += 32;
+
         ctx.textAlign = 'left';
-        ctx.fillText(displayName, 6, y);
-        ctx.fillText(it.qty.toString(), 220, y);
+        ctx.font = '18px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText("-------------------------------------------", 4, y); y += 22;
+
+        // --- 3. 桌号及基本资料大字化 ---
+        ctx.font = 'bold 24px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText(`桌号：${table} 号桌`, 6, y); y += 32;
+        ctx.font = '18px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText(`时间：${timeStr}`, 6, y); y += 26;
+        ctx.fillText(`支付：${method}`, 6, y); y += 26;
+        ctx.fillText("-------------------------------------------", 4, y); y += 26;
+
+        // --- 4. 表头重新排版（加入单价展示） ---
+        ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText("菜品(单价)", 6, y);
+        ctx.fillText("数量", 210, y);
         ctx.textAlign = 'right';
-        ctx.fillText(formatNum(it.subtotal), 378, y);
-        y += rowHeight;
-    }
+        ctx.fillText("金额(Ks)", 378, y);
+        y += 32;
 
-    ctx.textAlign = 'left';
-    ctx.fillText("-------------------------------------------", 4, y); y += 22;
-    
-    // --- 6. 账单汇总大字化 ---
-    ctx.font = '20px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText(`原价合计：${formatNum(total)} Ks`, 6, y); y += 28;
-    if (discount > 0) {
-        ctx.fillText(`优惠金额：- ${formatNum(discount)} Ks`, 6, y); y += 28;
-    }
-    
-    // 显著放大实收金额
-    ctx.font = 'bold 26px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText(`实收金额：${formatNum(finalTotal)} Ks`, 6, y); y += 36;
-    
-    ctx.font = '20px "Segoe UI", system-ui, sans-serif';
-    if (note) {
-        ctx.fillText(`备注：${note}`, 6, y); y += 30;
-    }
-    ctx.fillText("-------------------------------------------", 4, y); y += 24;
-    
-    // 底部感谢语
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 20px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText("感谢光临，欢迎下次惠顾！", 192, y);
+        // --- 5. 菜品列表（嵌入单价并防止文本超出） ---
+        ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
+        for (let it of items) {
+            let nameWithPrice = `${it.name}(${formatNum(it.price)})`;
+            // 如果合并了单价后的文字太长，进行截断，防止侵入数量列
+            let displayName = nameWithPrice.length > 12 ? nameWithPrice.slice(0, 11) + ".." : nameWithPrice;
+            
+            ctx.textAlign = 'left';
+            ctx.fillText(displayName, 6, y);
+            ctx.fillText(it.qty.toString(), 220, y);
+            ctx.textAlign = 'right';
+            ctx.fillText(formatNum(it.subtotal), 378, y);
+            y += rowHeight;
+        }
 
-    // --- 以下保持原有的点阵转换逻辑不变 ---
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const widthBytes = canvas.width / 8;
-    const escPosBytes = [];
-    escPosBytes.push(0x1D, 0x76, 0x30, 0x00);
-    escPosBytes.push(widthBytes & 0xFF, (widthBytes >> 8) & 0xFF);
-    escPosBytes.push(canvas.height & 0xFF, (canvas.height >> 8) & 0xFF);
-    let pixelIndex = 0;
-    for (let h = 0; h < canvas.height; h++) {
-        for (let w = 0; w < widthBytes; w++) {
-            let byteVal = 0;
-            for (let b = 0; b < 8; b++) {
-                let r = imgData.data[pixelIndex];
-                let g = imgData.data[pixelIndex + 1];
-                let bl = imgData.data[pixelIndex + 2];
-                let brightness = (r + g + bl) / 3;
-                if (brightness < 128) { 
-                    byteVal |= (1 << (7 - b)); 
+        ctx.textAlign = 'left';
+        ctx.fillText("-------------------------------------------", 4, y); y += 22;
+        
+        // --- 6. 账单总计大字化 ---
+        ctx.font = '20px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText(`原价合计：${formatNum(total)} Ks`, 6, y); y += 28;
+        if (discount > 0) {
+            ctx.fillText(`优惠金额：- ${formatNum(discount)} Ks`, 6, y); y += 28;
+        }
+        
+        // 核心实收金额再次放大凸显
+        ctx.font = 'bold 26px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText(`实收金额：${formatNum(finalTotal)} Ks`, 6, y); y += 36;
+        
+        ctx.font = '20px "Segoe UI", system-ui, sans-serif';
+        if (note) {
+            ctx.fillText(`备注：${note}`, 6, y); y += 30;
+        }
+        ctx.fillText("-------------------------------------------", 4, y); y += 24;
+        
+        // 底部欢迎语
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 20px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText("感谢光临，欢迎下次惠顾！", 192, y);
+
+        // 以下点阵核心算法保持不变
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const widthBytes = canvas.width / 8;
+        const escPosBytes = [];
+
+        escPosBytes.push(0x1D, 0x76, 0x30, 0x00);
+        escPosBytes.push(widthBytes & 0xFF, (widthBytes >> 8) & 0xFF);
+        escPosBytes.push(canvas.height & 0xFF, (canvas.height >> 8) & 0xFF);
+
+        let pixelIndex = 0;
+        for (let h = 0; h < canvas.height; h++) {
+            for (let w = 0; w < widthBytes; w++) {
+                let byteVal = 0;
+                for (let b = 0; b < 8; b++) {
+                    let r = imgData.data[pixelIndex];
+                    let g = imgData.data[pixelIndex + 1];
+                    let bl = imgData.data[pixelIndex + 2];
+                    
+                    let brightness = (r + g + bl) / 3;
+                    if (brightness < 128) { 
+                        byteVal |= (1 << (7 - b)); 
+                    }
+                    pixelIndex += 4;
                 }
-                pixelIndex += 4;
+                escPosBytes.push(byteVal);
             }
-            escPosBytes.push(byteVal);
+        }
+        return new Uint8Array(escPosBytes);
+    }
+
+    async function sendChunked(characteristic, dataBytes, chunkSize = 120) {
+        for (let i = 0; i < dataBytes.length; i += chunkSize) {
+            const chunk = dataBytes.slice(i, i + chunkSize);
+            await characteristic.writeValue(chunk);
+            await new Promise(r => setTimeout(r, 2)); 
         }
     }
-    return new Uint8Array(escPosBytes);
-}
+
+    async function bluetoothPrint() {
+        const statusDiv = document.getElementById('status');
+        if (!navigator.bluetooth) {
+            statusDiv.innerText = "❌ 当前浏览器不支持 Web Bluetooth，请使用 Chrome 安卓版。";
+            return;
+        }
+        if (!printDataBytes) {
+            statusDiv.innerText = "❌ 图像未生成完毕，请稍后再试";
+            return;
+        }
+        statusDiv.innerText = "🔍 正在搜索打印机...";
+        try {
+            const device = await navigator.bluetooth.requestDevice({
+                filters: [
+                    { services: ['49535343-fe7d-4ae5-8fa9-9fafd205e455'] },
+                    { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }
+                ],
+                optionalServices: ['49535343-fe7d-4ae5-8fa9-9fafd205e455', '000018f0-0000-1000-8000-00805f9b34fb']
+            });
+            statusDiv.innerText = "✅ 已选择设备，正在连接...";
+            const server = await device.gatt.connect();
+            let service;
+            try {
+                service = await server.getPrimaryService('49535343-fe7d-4ae5-8fa9-9fafd205e455');
+            } catch(e) {
+                service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+            }
+            const chars = await service.getCharacteristics();
+            let writeChar = null;
+            for (let c of chars) {
+                if (c.properties.write || c.properties.writeWithoutResponse) {
+                    writeChar = c;
+                    break;
+                }
+            }
+            if (!writeChar) throw new Error("未找到可写入特征");
+            statusDiv.innerText = "⚡ 正在极速冲刺打印...";
+
+            await writeChar.writeValue(new Uint8Array([0x1B, 0x40]));
+            await new Promise(r => setTimeout(r, 30));
+
+            await sendChunked(writeChar, printDataBytes, 120);
+
+            await writeChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03]));
+            
+            statusDiv.innerText = "✅ 高速图像打印完成！";
+        } catch (err) {
+            console.error(err);
+            statusDiv.innerText = "❌ 打印失败: " + err.message;
+        }
+    }
+
+    window.onload = async function() {
+        const table = getQueryParam('table');
+        const discount = getQueryParam('discount') || '0';
+        let note = getQueryParam('note') || '';
+        const method = getQueryParam('method') || '现金';
+        const contentDiv = document.getElementById('contentArea');
+        const btn = document.getElementById('bluetoothBtn');
+        const backBtn = document.getElementById('backBtn');
+        const statusDiv = document.getElementById('status');
+
+        if (!table) {
+            contentDiv.innerHTML = '<div>❌ 缺少桌号参数</div>';
+            return;
+        }
+
+        note = cleanText(note);
+        contentDiv.innerHTML = '📡 读取订单中...';
+        statusDiv.innerText = '';
+        try {
+            const snapshot = await db.collection("pending_orders").where("table", "==", table).get();
+            if (snapshot.empty) throw new Error(`未找到 ${table} 号桌订单`);
+
+            const docs = snapshot.docs;
+            docs.sort((a,b) => (a.data().timestamp?.seconds||0) - (b.data().timestamp?.seconds||0));
+
+            let items = [], total = 0;
+            for (const doc of docs) {
+                const order = doc.data();
+                if (order.items) {
+                    for (const it of order.items) {
+                        const qty = Number(it.quantity) || 0;
+                        const price = Number(it.price) || 0;
+                        total += qty * price;
+                        let cleanName = cleanText(it.name);
+                        if (!cleanName) cleanName = "菜品";
+                        items.push({ name: cleanName, qty, price, subtotal: qty*price });
+                    }
+                }
+            }
+
+            const finalTotal = Math.max(0, total - Number(discount));
+            const now = new Date();
+            const timeStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+
+            statusDiv.innerText = "🔄 正在渲染高速点阵图像...";
+            printDataBytes = generateReceiptImageBytes(table, discount, note, method, items, total, finalTotal, timeStr);
+
+            const itemsPreview = items.map(i => `<div>${escapeHtml(i.name)}(${formatNum(i.price)}) ×${i.qty}   ${formatNum(i.subtotal)} Ks</div>`).join('');
+            contentDiv.innerHTML = `
+                <div style="font-size:12px; padding-top: 15px;">
+                    <div style="text-align:center; font-weight:bold;">夜夜烤烧烤 (大字预览)</div>
+                    <div>桌号: ${escapeHtml(table)}</div>
+                    <div>时间: ${timeStr}</div>
+                    <hr>
+                    ${itemsPreview}
+                    <hr>
+                    <div>原价: ${formatNum(total)} Ks</div>
+                    ${discount>0?`<div>优惠: -${formatNum(discount)} Ks</div>`:''}
+                    <div style="font-weight:bold;">实收: ${formatNum(finalTotal)} Ks</div>
+                    ${note?`<div>备注: ${escapeHtml(note)}</div>`:''}
+                    <div style="text-align:center; margin-top:8px;">感谢光临</div>
+                </div>
+            `;
+            btn.style.display = 'block';
+            backBtn.style.display = 'block';
+            btn.onclick = bluetoothPrint;
+            statusDiv.innerText = "✅ 图像编译成功！可以开始高速打印";
+        } catch (err) {
+            console.error(err);
+            contentDiv.innerHTML = `<div>❌ 加载失败: ${err.message}</div>`;
+            backBtn.style.display = 'block';
+        }
+    };
+
+    function escapeHtml(s) {
+        if (!s) return '';
+        return s.replace(/[&<>]/g, m => m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;'));
+    }
+</script>
+</body>
+</html>
