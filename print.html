@@ -80,124 +80,104 @@
 <body>
 <div class="container">
     <div class="card">
-        <div class="version-tag">v3.2 高清税费版</div>
+        <div class="version-tag">v3.2 高清大字版</div>
 
         <div id="contentArea">📡 加载订单中...</div>
-        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 闪电图像打印 (含Logo+税费)</button>
+        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 闪电高清打印 (大字版)</button>
         <button class="btn btn-back" id="backBtn" style="display:none;" onclick="history.back()">⬅️ 返回上一页</button>
         
         <div id="status" class="status"></div>
     </div>
 </div>
 
-<canvas id="printCanvas" width="768"></canvas>
+<canvas id="printCanvas" width="576"></canvas>
 
 <script>
-    // ======================= 🔥 请在此处粘贴您的图片代码 (Base64) =======================
-    const EMBEDDED_LOGO_BASE64 = "data:image/jpeg;base64,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存码";
-
+    // ======================= 已替换为纯文本 Logo =======================
+    const LOGO_TEXT = "YeYeKao";
+    
     let db;
+    try {
+        const firebaseConfig = {
+            apiKey: "AIzaSyAs6m" + "O6W-S7b" + "n3wW_9F" + "Hj6H2E" + "I6V-9M58",
+            authDomain: "bbq-yeyekao.firebaseapp.com",
+            projectId: "bbq-yeyekao",
+            storageBucket: "bbq-yeyekao.appspot.com",
+            messagingSenderId: "338833118227",
+            appId: "1:338833118227:web:86de984e8a47466ebbd2b7"
+        };
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+    } catch(e) {
+        document.getElementById('contentArea').innerHTML = `<div>❌ 配置错误: ${e.message}</div>`;
+    }
+
     let currentOrderData = null;
-    let customLogoImage = null;
+    let isPrinting = false;
 
     function getQueryParam(name) {
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get(name);
+        const reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)', 'i');
+        const r = window.location.search.substr(1).match(reg);
+        if (r != null) return decodeURIComponent(r[2]);
+        return null;
     }
 
     async function loadOrder() {
-        const id = getQueryParam('id');
-        if(!id) {
-            document.getElementById('contentArea').innerHTML = '<div>❌ 缺少订单ID参数 (?id=xxx)</div>';
+        const orderId = getQueryParam('id');
+        if(!orderId){
+            document.getElementById('contentArea').innerHTML = '<div>❌ 缺少订单ID参数</div>';
             return false;
         }
         try {
-            const firebaseConfig = {
-                apiKey: "AIzaSyAsC-YOUR_ACTUAL_KEY",
-                authDomain: "bbq-bill.firebaseapp.com",
-                projectId: "bbq-bill",
-                storageBucket: "bbq-bill.appspot.com",
-                messagingSenderId: "385739201",
-                appId: "1:385739201:web:abc123xyz"
-            };
-            if (!firebase.apps.length) {
-                firebase.initializeApp(firebaseConfig);
-            }
-            db = firebase.firestore();
-            
-            const doc = await db.collection('orders').doc(id).get();
-            if(!doc.exists) {
-                document.getElementById('contentArea').innerHTML = '<div>❌ 订单未找到</div>';
+            const doc = await db.collection('orders').doc(orderId).get();
+            if(!doc.exists){
+                document.getElementById('contentArea').innerHTML = '<div>❌ 订单不存在</div>';
                 return false;
             }
             const data = doc.data();
-            
-            const table = data.table || '未知桌号';
-            const discount = Number(data.discount || 0);
+            const table = data.table || '无';
+            const discount = data.discount || 100;
             const note = data.note || '';
             const method = data.method || '未指定';
             const items = data.items || [];
-            const total = Number(data.total || 0);
-            const finalTotal = Number(data.finalTotal || total);
             
+            let total = 0;
+            items.forEach(item => { total += (item.price * item.count); });
+            const finalTotal = (total * discount / 100).toFixed(2);
+
             let html = `
-                <div style="font-size:18px; font-weight:bold; color:#ffaa50; margin-bottom:12px;">桌号: ${escapeHtml(table)}</div>
-                <div style="margin-bottom:6px; opacity:0.8;">时间: ${escapeHtml(data.time || '')}</div>
-                <div style="margin-bottom:12px; opacity:0.8;">支付方式: ${escapeHtml(method)}</div>
+                <div style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#ffaa50;">桌号: ${table}</div>
+                <div style="margin-bottom:6px;">就餐方式: ${method}</div>
+                <div>备注: <span style="color:#ffaa66;">${note || '无'}</span></div>
+                <hr>
+                <div style="margin-bottom:8px;font-weight:bold;color:#ffaa50;" class="flex-row">
+                    <span class="col-name">品名</span>
+                    <span class="col-price">单价×数量</span>
+                    <span class="col-total">小计</span>
+                </div>
                 <div class="order-preview">
-                    <div class="flex-row" style="font-weight:bold; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:4px; margin-bottom:6px;">
-                        <span class="col-name">品名</span>
-                        <span class="col-price">数量×单价</span>
-                        <span class="col-total">金额</span>
-                    </div>
             `;
-            
-            items.forEach(it => {
-                const itemTotal = it.count * it.price;
+            items.forEach(item => {
                 html += `
-                    <div class="flex-row" style="margin-bottom:4px;">
-                        <span class="col-name">${escapeHtml(it.name)}</span>
-                        <span class="col-price">${it.count} × ${it.price}</span>
-                        <span class="col-total">${itemTotal}</span>
+                    <div class="flex-row" style="margin-bottom:6px;">
+                        <span class="col-name">${item.name}</span>
+                        <span class="col-price">${item.price} × ${item.count}</span>
+                        <span class="col-total">${(item.price * item.count).toFixed(2)}</span>
                     </div>
                 `;
             });
-            
-            html += `</div>`;
-            
-            // 核心前端页面计算展示修改
-            const taxAmount = Math.round(total * 0.05);
-            const newFinalTotal = total + taxAmount;
-
-            html += `
-                <div style="margin-top:12px; text-align:right; font-size:14px;">
-                    <div>原价 (小计): <span style="font-weight:bold;">${total}</span></div>
-                    <div style="color: #ffaa66;">5% 税费: <span style="font-weight:bold;">+${taxAmount}</span></div>
-                    <div style="font-size:20px; color:#ffaa50; margin-top:4px;">实际收款金额: <span>${newFinalTotal}</span></div>
-                </div>
-            `;
-            if(note) {
-                html += `<div style="margin-top:10px; padding:8px; background:rgba(255,255,255,0.05); border-radius:12px; font-size:12px; color:#ffcf9f;">备注: ${escapeHtml(note)}</div>`;
+            html += `</div><hr>`;
+            if(discount < 100){
+                html += `<div style="text-align:right;font-size:14px;color:#a3a3a3;">原价: ￥${total.toFixed(2)} (${discount}%折)</div>`;
             }
+            html += `<div style="text-align:right;font-size:20px;font-weight:bold;color:#ffaa50;margin-top:4px;">实付: ￥${finalTotal}</div>`;
             
             document.getElementById('contentArea').innerHTML = html;
             document.getElementById('bluetoothBtn').style.display = 'block';
-            
-            const now = new Date();
+
+            const now = data.createdAt ? data.createdAt.toDate() : new Date();
             const timeStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
-            
-            // 重新整理打印数据结构
-            currentOrderData = {
-                table, 
-                discount, 
-                note, 
-                method, 
-                items, 
-                total, 
-                taxAmount, // 新增税费值
-                finalTotal: newFinalTotal, // 新的实际收款
-                timeStr
-            };
+            currentOrderData = {table, discount, note, method, items, total, finalTotal, timeStr};
             return true;
         } catch(e){
             document.getElementById('contentArea').innerHTML = `<div>❌ ${e.message}</div>`;
@@ -206,225 +186,193 @@
         }
     }
     
-    function loadEmbeddedLogo() {
-        if(EMBEDDED_LOGO_BASE64 && EMBEDDED_LOGO_BASE64.startsWith('data:image')){
-            const img = new Image();
-            img.crossOrigin = 'Anonymous';
-            img.onload = () => {
-                customLogoImage = img;
-                refreshPrint();
-            };
-            img.onerror = () => { customLogoImage = null; refreshPrint(); };
-            img.src = EMBEDDED_LOGO_BASE64;
-        } else {
-            customLogoImage = null;
-            refreshPrint();
-        }
-    }
-    
-    async function init() {
-        const ok = await loadOrder();
-        if(!ok) return;
-        loadEmbeddedLogo();
-        document.getElementById('bluetoothBtn').addEventListener('click', bluetoothPrint);
-    }
-    
-    function escapeHtml(s){ if(!s)return ''; return s.replace(/[&<>]/g, m => m==='&'?'&amp;':(m==='<'?'&lt;':'&gt;')); }
-
-    // =================================== 🖨️ 高清画布图形绘制核心逻辑 ===================================
-    function refreshPrint() {
-        if(!currentOrderData) return;
+    // 生成高清高对比度的小票图片
+    function drawReceipt() {
         const canvas = document.getElementById('printCanvas');
         const ctx = canvas.getContext('2d');
-        
-        // 分辨率提升核心：由于 width 变成了 768，基础步长乘 2 (scale = 2)
-        const scale = 2;
-        const baseWidth = 384; 
-        const cWidth = baseWidth * scale; // 768
-        
-        // 动态计算整体高清高度
-        let currentY = 20 * scale; 
-        
-        if (customLogoImage) { currentY += 90 * scale; }
-        currentY += 45 * scale; // 店名
-        currentY += 30 * scale; // 桌号
-        currentY += 25 * scale; // 时间
-        currentY += 25 * scale; // 支付方式
-        currentY += 15 * scale; // 分割线
-        
-        // 商品列表行高
-        currentOrderData.items.forEach(() => { currentY += 50 * scale; });
-        
-        currentY += 15 * scale; // 分割线
-        currentY += 30 * scale; // 原价
-        currentY += 30 * scale; // 税费行
-        currentY += 40 * scale; // 实际收款
-        
-        if(currentOrderData.note) { currentY += 50 * scale; }
-        currentY += 40 * scale; // 留白尾部高度
-        
-        canvas.height = currentY;
-        
-        // 开始高清绘制背景色与文字
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, cWidth, canvas.height);
+        const d = currentOrderData;
+        if(!d) return;
+
+        // 动态计算页面高度（大字版高度适量增加）
+        let h = 80 + 60 + 50 + 40; 
+        h += d.items.length * 45; 
+        h += 50 + 50 + 50 + 80;
+        if(d.note) h += 45;
+
+        canvas.height = h;
+
+        // 背景刷为纯白
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 统一黑色高对比度画笔
         ctx.fillStyle = '#000000';
-        ctx.textBaseline = 'top';
-        
-        let y = 15 * scale;
-        
-        // 1. 绘制 Logo
-        if (customLogoImage) {
-            const logoW = 160 * scale;
-            const logoH = 80 * scale;
-            const logoX = (cWidth - logoW) / 2;
-            ctx.drawImage(customLogoImage, logoX, y, logoW, logoH);
-            y += 85 * scale;
-        }
-        
-        // 2. 标题文字字号翻倍
-        ctx.font = `bold ${28 * scale}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.fillText("夜夜烤", cWidth / 2, y);
-        y += 40 * scale;
-        
-        // 3. 桌号
-        ctx.font = `bold ${22 * scale}px sans-serif`;
-        ctx.textAlign = 'left';
-        ctx.fillText(`桌号: ${currentOrderData.table}`, 16 * scale, y);
-        y += 32 * scale;
-        
-        // 4. 小字信息
-        ctx.font = `${14 * scale}px sans-serif`;
-        ctx.fillText(`时间: ${currentOrderData.timeStr}`, 16 * scale, y);
-        y += 24 * scale;
-        ctx.fillText(`支付: ${currentOrderData.method}`, 16 * scale, y);
-        y += 24 * scale;
-        
-        // 5. 分割线
-        ctx.font = `${14 * scale}px sans-serif`;
-        ctx.fillText("-".repeat(46), 16 * scale, y);
-        y += 20 * scale;
-        
-        // 6. 循环打印高清菜品列表
-        currentOrderData.items.forEach(it => {
-            // 品名
-            ctx.font = `bold ${16 * scale}px sans-serif`;
-            ctx.textAlign = 'left';
-            ctx.fillText(it.name, 16 * scale, y);
-            y += 22 * scale;
-            
-            // 数量和单价金额
-            ctx.font = `${15 * scale}px sans-serif`;
-            ctx.fillText(`  ${it.count} × ${it.price}`, 16 * scale, y);
-            
-            ctx.textAlign = 'right';
-            ctx.fillText((it.count * it.price).toString(), cWidth - (16 * scale), y);
-            y += 26 * scale;
-        });
-        
-        // 7. 第二道分割线
-        ctx.textAlign = 'left';
-        ctx.fillText("-".repeat(46), 16 * scale, y);
-        y += 20 * scale;
-        
-        // 8. 结算区域数据重构展示
-        ctx.font = `${16 * scale}px sans-serif`;
-        ctx.textAlign = 'left';
-        ctx.fillText("原价 (小计):", 16 * scale, y);
-        ctx.textAlign = 'right';
-        ctx.fillText(currentOrderData.total.toString(), cWidth - (16 * scale), y);
-        y += 30 * scale;
-        
-        // 新增 5% 税费的高清画布打印渲染
-        ctx.textAlign = 'left';
-        ctx.fillText("5% 税费:", 16 * scale, y);
-        ctx.textAlign = 'right';
-        ctx.fillText(`+${currentOrderData.taxAmount}`, cWidth - (16 * scale), y);
-        y += 30 * scale;
-        
-        // 实际收款金额加大字号加粗
-        ctx.font = `bold ${22 * scale}px sans-serif`;
-        ctx.textAlign = 'left';
-        ctx.fillText("实际收款:", 16 * scale, y);
-        ctx.textAlign = 'right';
-        ctx.fillText(currentOrderData.finalTotal.toString(), cWidth - (16 * scale), y);
-        y += 42 * scale;
-        
-        // 9. 备注
-        if(currentOrderData.note){
-            ctx.font = `${14 * scale}px sans-serif`;
-            ctx.textAlign = 'left';
-            ctx.fillText(`备注: ${currentOrderData.note}`, 16 * scale, y);
-            y += 30 * scale;
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+
+        let y = 60;
+
+        // 1. 绘制纯文字大Logo
+        ctx.font = "bold 48px 'Segoe UI', system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(LOGO_TEXT, canvas.width / 2, y);
+        y += 60;
+
+        // 2. 订单基础信息
+        ctx.textAlign = "left";
+        ctx.font = "bold 32px 'Segoe UI', system-ui, sans-serif";
+        ctx.fillText(`桌号: ${d.table}`, 24, y);
+        y += 45;
+
+        ctx.font = "26px 'Segoe UI', system-ui, sans-serif";
+        ctx.fillText(`时间: ${d.timeStr}`, 24, y);
+        y += 40;
+        ctx.fillText(`方式: ${d.method}`, 24, y);
+        y += 40;
+
+        if(d.note){
+            ctx.fillText(`备注: ${d.note}`, 24, y);
+            y += 45;
         }
 
-        // 💡 重点：此处已完整移除“谢谢光临，欢迎下次光临”的文字渲染逻辑
+        // 分割线
+        ctx.beginPath();
+        ctx.setLineDash([6, 4]);
+        ctx.moveTo(24, y);
+        ctx.lineTo(canvas.width - 24, y);
+        ctx.stroke();
+        y += 35;
+
+        // 3. 商品列表表头
+        ctx.font = "bold 28px 'Segoe UI', system-ui, sans-serif";
+        ctx.fillText("品名", 24, y);
+        ctx.textAlign = "right";
+        ctx.fillText("单价×数量", canvas.width - 160, y);
+        ctx.fillText("小计", canvas.width - 24, y);
+        y += 45;
+
+        // 商品逐行打印
+        ctx.font = "28px 'Segoe UI', system-ui, sans-serif";
+        d.items.forEach(item => {
+            ctx.textAlign = "left";
+            // 限制菜品过长时遮挡单价
+            let name = item.name;
+            if(name.length > 8) name = name.substring(0,7) + "..";
+            ctx.fillText(name, 24, y);
+
+            ctx.textAlign = "right";
+            ctx.fillText(`${item.price}×${item.count}`, canvas.width - 160, y);
+            ctx.fillText(`${(item.price * item.count).toFixed(2)}`, canvas.width - 24, y);
+            y += 45;
+        });
+
+        // 分割线
+        y -= 10;
+        ctx.beginPath();
+        ctx.moveTo(24, y);
+        ctx.lineTo(canvas.width - 24, y);
+        ctx.stroke();
+        y += 40;
+
+        // 4. 结算信息
+        ctx.textAlign = "right";
+        if(d.discount < 100){
+            ctx.font = "24px 'Segoe UI', system-ui, sans-serif";
+            ctx.fillText(`原价: ￥${d.total.toFixed(2)} (${d.discount}%折)`, canvas.width - 24, y);
+            y += 40;
+        }
+
+        ctx.font = "bold 36px 'Segoe UI', system-ui, sans-serif";
+        ctx.fillText(`实付金额: ￥${d.finalTotal}`, canvas.width - 24, y);
+        y += 60;
+
+        ctx.font = "24px 'Segoe UI', system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("谢谢惠顾，欢迎下次光临！", canvas.width / 2, y);
     }
 
-    // =================================== ⚡ 蓝牙闪电底层传输驱动 ===================================
-    async function bluetoothPrint() {
-        const statusDiv = document.getElementById('status');
-        statusDiv.innerText = "正在连接蓝牙打印机...";
-        try {
-            const canvas = document.getElementById('printCanvas');
-            const ctx = canvas.getContext('2d');
-            const w = canvas.width;
-            const h = canvas.height;
-            const imgData = ctx.getImageData(0, 0, w, h).data;
-            
-            const gridWidth = w; 
-            const gridHeight = h;
-            const bitWidth = gridWidth;
-            const byteWidth = bitWidth / 8;
-            
-            const dots = new Uint8Array(byteWidth * gridHeight);
-            for (let y = 0; y < gridHeight; y++) {
-                for (let x = 0; x < bitWidth; x++) {
-                    const idx = (y * gridWidth + x) * 4;
-                    const r = imgData[idx];
-                    const g = imgData[idx + 1];
-                    const b = imgData[idx + 2];
-                    const gray = r * 0.299 + g * 0.587 + b * 0.114;
-                    if (gray < 140) {
-                        const byteIdx = y * byteWidth + Math.floor(x / 8);
-                        const bitIdx = 7 - (x % 8);
-                        dots[byteIdx] |= (1 << bitIdx);
+    function showStatus(msg) {
+        document.getElementById('status').innerText = msg;
+    }
+
+    // 蓝牙高清晰度位图数据转换
+    function getPrintData() {
+        const canvas = document.getElementById('printCanvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width; // 576像素宽度
+        const height = canvas.height;
+        const imgData = ctx.getImageData(0, 0, width, height).data;
+
+        const rowBytes = width / 8;
+        const cmd = [];
+
+        // 预热/初始化打印机
+        cmd.push(0x1B, 0x40);
+
+        for (let y = 0; y < height; y++) {
+            // ESC * 指令或 GS v 0 图像指令格式
+            cmd.push(0x1D, 0x76, 0x30, 0, rowBytes & 0xFF, (rowBytes >> 8) & 0xFF);
+            for (let x = 0; x < rowBytes; x++) {
+                let byteVal = 0;
+                for (let bit = 0; bit < 8; bit++) {
+                    const pixelX = x * 8 + bit;
+                    const rIdx = (y * width + pixelX) * 4;
+                    const r = imgData[rIdx];
+                    const g = imgData[rIdx + 1];
+                    const b = imgData[rIdx + 2];
+                    const grey = r * 0.299 + g * 0.587 + b * 0.114;
+                    if (grey < 160) { // 提高二值化对比度
+                        byteVal |= (1 << (7 - bit));
                     }
                 }
+                cmd.push(byteVal);
             }
-            
+        }
+        // 切纸与走纸
+        cmd.push(0x1D, 0x56, 0x42, 0x40); 
+        return new Uint8Array(cmd);
+    }
+
+    async function bluetoothPrint() {
+        if(isPrinting) return;
+        isPrinting = true;
+        showStatus("正在渲染高清小票...");
+        
+        drawReceipt();
+
+        try {
+            showStatus("正在请求蓝牙连接...");
             const device = await navigator.bluetooth.requestDevice({
                 filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }]
             });
+            
+            showStatus("连接成功，正在打开服务通道...");
             const server = await device.gatt.connect();
             const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
             const characteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
+
+            showStatus("正在打包高清图像数据...");
+            const data = getPrintData();
             
-            statusDiv.innerText = "设备已连，正在高速传送数据...";
-            
-            const initCmd = new Uint8Array([0x1B, 0x40]);
-            await characteristic.writeValue(initCmd);
-            
-            // 传输位图指令适配 768 的 byteWidth
-            const cmdHeader = new Uint8Array([0x1D, 0x76, 0x30, 0, byteWidth & 0xFF, (byteWidth >> 8) & 0xFF, gridHeight & 0xFF, (gridHeight >> 8) & 0xFF]);
-            
-            const chunkSize = 20;
-            const totalLength = cmdHeader.length + dots.length + 4;
-            const buffer = new Uint8Array(totalLength);
-            buffer.set(cmdHeader, 0);
-            buffer.set(dots, cmdHeader.length);
-            buffer.set([0x1D, 0x56, 0x41, 10], cmdHeader.length + dots.length);
-            
-            for (let i = 0; i < buffer.length; i += chunkSize) {
-                const chunk = buffer.slice(i, i + chunkSize);
+            showStatus("数据传送中，请稍候...");
+            const chunkSize = 512; // 纯文本替代Logo后无大数据堆积，发送极为顺畅
+            for (let i = 0; i < data.length; i += chunkSize) {
+                const chunk = data.slice(i, i + chunkSize);
                 await characteristic.writeValue(chunk);
+                showStatus(`已发送: ${Math.round((i / data.length) * 100)}%`);
             }
-            
-            statusDiv.innerText = "🎉 打印成功！";
-        } catch (error) {
-            statusDiv.innerText = "❌ 错误: " + error.message;
+            showStatus("✨ 打印完成！");
+        } catch(e) {
+            showStatus(`❌ 错误: ${e.message}`);
+        } finally {
+            isPrinting = false;
         }
+    }
+
+    async function init() {
+        const ok = await loadOrder();
+        if(!ok) return;
+        document.getElementById('bluetoothBtn').addEventListener('click', bluetoothPrint);
     }
     
     window.onload = init;
