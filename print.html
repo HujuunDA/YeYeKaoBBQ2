@@ -43,12 +43,14 @@
         hr { border-color: rgba(255,180,100,0.3); margin: 12px 0; }
         .status { margin-top: 12px; font-size: 12px; color: #ffaa66; }
     </style>
+    <!-- 动态加载 iconv-lite 用于 GBK 编码 -->
+    <script src="https://cdn.jsdelivr.net/npm/iconv-lite@0.6.3/lib/index.js"></script>
 </head>
 <body>
 <div class="container">
     <div class="card" id="receiptCard">
         <div id="contentArea">📡 加载订单中...</div>
-        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 蓝牙打印 (直连)</button>
+        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 蓝牙打印 (仅中文)</button>
         <div id="status" class="status"></div>
     </div>
 </div>
@@ -65,15 +67,30 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    let currentPlainText = '';
+    let currentPlainText = '';  // 过滤后的纯中文文本
 
     function getQueryParam(p) { return new URLSearchParams(window.location.search).get(p); }
     function formatNum(n) { return Number(n).toLocaleString(); }
 
-    // 移除图标 emoji
-    function removeIcons(str) {
+    // 只保留中文字符、数字、常用标点（去除英文、缅文、图标等）
+    function keepOnlyChinese(str) {
         if (!str) return '';
-        return str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
+        // 允许的字符：中文基本区(4E00-9FFF) + 中文扩展区(3400-4DBF) + 数字0-9 + 小数点 + 空格 + 换行 + 常用标点（，。、：；！？（）【】《》—…·-）
+        // 以及中英文括号、冒号、短横等
+        // 注意去除所有英文字母 a-z A-Z
+        const allowed = /[^\u4e00-\u9fff\u3400-\u4dbf0-9\s\.\:\-\—\,\。\、\：\；\！\？\（\）\【\】\《\》\…\·\-\+\×\÷\%\#\￥\（\）]/g;
+        let filtered = str.replace(/[a-zA-Z]/g, ''); // 先去掉英文字母
+        filtered = filtered.replace(allowed, '');
+        // 去掉多余的空格
+        return filtered.replace(/\s+/g, ' ').trim();
+    }
+
+    // 过滤 emoji 和特殊图标（保留中文字符）
+    function removeIconsAndNonChinese(str) {
+        // 先移除 emoji
+        let s = str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
+        // 再保留仅中文
+        return keepOnlyChinese(s);
     }
 
     function escapeHtml(s) {
@@ -81,7 +98,7 @@
         return s.replace(/[&<>]/g, m => m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;'));
     }
 
-    // 生成纯文本小票 (UTF-8 编码)
+    // 生成纯文本小票（仅中文 + 必要数字标点）
     function generatePlainReceipt(table, discount, note, method, items, total, finalTotal, timeStr) {
         let lines = [];
         lines.push("夜夜烤烧烤");
@@ -110,15 +127,24 @@
         return lines.join("\n");
     }
 
-    // 分包发送数据 (使用 UTF-8 编码)
+    // 将字符串转换为 GBK 字节数组（使用 iconv-lite）
+    function stringToGBK(str) {
+        if (window.iconv && window.iconv.encode) {
+            return window.iconv.encode(str, 'gbk');
+        } else {
+            console.error("iconv-lite 未加载，使用 UTF-8 降级");
+            return new TextEncoder().encode(str);
+        }
+    }
+
+    // 分包发送数据 (GBK 编码)
     async function sendChunked(characteristic, text, chunkSize = 480) {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(text);
-        console.log(`总字节数: ${data.length}`);
-        for (let i = 0; i < data.length; i += chunkSize) {
-            const chunk = data.slice(i, i + chunkSize);
+        const gbkBytes = stringToGBK(text);
+        console.log(`总字节数: ${gbkBytes.length}`);
+        for (let i = 0; i < gbkBytes.length; i += chunkSize) {
+            const chunk = gbkBytes.slice(i, i + chunkSize);
             await characteristic.writeValue(chunk);
-            await new Promise(r => setTimeout(r, 60)); // 间隔 60ms
+            await new Promise(r => setTimeout(r, 60));
         }
     }
 
@@ -127,6 +153,10 @@
         const statusDiv = document.getElementById('status');
         if (!navigator.bluetooth) {
             statusDiv.innerText = "❌ 当前浏览器不支持 Web Bluetooth，请使用 Chrome 安卓版。";
+            return;
+        }
+        if (!currentPlainText) {
+            statusDiv.innerText = "❌ 没有可打印的内容";
             return;
         }
         statusDiv.innerText = "🔍 正在搜索打印机...";
@@ -161,7 +191,7 @@
             await writeChar.writeValue(new Uint8Array([0x1B, 0x40]));
             await new Promise(r => setTimeout(r, 100));
 
-            // 2. 发送小票内容 (UTF-8)
+            // 2. 发送小票内容 (GBK编码，已过滤只留中文)
             await sendChunked(writeChar, currentPlainText, 480);
 
             // 3. 走纸 3 行
@@ -187,7 +217,8 @@
             return;
         }
 
-        note = removeIcons(note);
+        // 过滤备注：只留中文
+        note = removeIconsAndNonChinese(note);
         contentDiv.innerHTML = '📡 读取订单中...';
         try {
             const snapshot = await db.collection("pending_orders").where("table", "==", table).get();
@@ -204,7 +235,11 @@
                         const qty = Number(it.quantity) || 0;
                         const price = Number(it.price) || 0;
                         total += qty * price;
-                        items.push({ name: removeIcons(it.name), qty, price, subtotal: qty*price });
+                        // 菜品名称过滤：只留中文
+                        let cleanName = removeIconsAndNonChinese(it.name);
+                        // 如果过滤后名称为空，则显示默认名称
+                        if (!cleanName) cleanName = "菜品";
+                        items.push({ name: cleanName, qty, price, subtotal: qty*price });
                     }
                 }
             }
@@ -213,9 +248,10 @@
             const now = new Date();
             const timeStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
 
+            // 生成纯文本（会自动使用过滤后的中文）
             currentPlainText = generatePlainReceipt(table, discount, note, method, items, total, finalTotal, timeStr);
 
-            // 预览
+            // 预览（同样过滤）
             const itemsHtml = items.map(i => `<div>${escapeHtml(i.name)} ×${i.qty}  ${formatNum(i.subtotal)} Ks</div>`).join('');
             contentDiv.innerHTML = `
                 <div style="font-size:12px;">
