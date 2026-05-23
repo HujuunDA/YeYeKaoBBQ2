@@ -6,8 +6,6 @@
     <title>打印小票 - 夜夜烤烧烤</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <!-- 引入 GBK 编码转换库 -->
-    <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
     <style>
         /* ========== 屏幕预览样式（深色玻璃风格） ========== */
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -43,20 +41,20 @@
         .grand-total { font-size: 18px; background: linear-gradient(135deg, #ffcd94, #ffa044); background-clip: text; -webkit-background-clip: text; color: transparent; }
         .remark-area { background: rgba(255, 140, 50, 0.25); border-radius: 20px; padding: 8px 12px; margin: 12px 0; font-size: 12px; border: 1px solid rgba(255, 160, 70, 0.4); color: #ffcd94; }
         .footer { text-align: center; margin-top: 20px; font-size: 10px; color: #d4aa77; border-top: 1px dashed rgba(255, 180, 100, 0.4); padding-top: 12px; }
-        .btn-group { display: flex; gap: 12px; margin-top: 20px; justify-content: center; flex-wrap: wrap; }
-        .btn-print, .btn-bluetooth, .btn-back { padding: 10px 20px; border-radius: 48px; font-size: 14px; font-weight: 800; border: none; cursor: pointer; transition: all 0.2s; color: white; text-decoration: none; display: inline-block; text-align: center; }
+        .btn-group { display: flex; gap: 12px; margin-top: 20px; justify-content: center; }
+        .btn-print, .btn-back { padding: 10px 24px; border-radius: 48px; font-size: 15px; font-weight: 800; border: none; cursor: pointer; transition: all 0.2s; color: white; text-decoration: none; display: inline-block; text-align: center; }
         .btn-print { background: linear-gradient(120deg, #0284c7, #0369a1); box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3); }
-        .btn-bluetooth { background: linear-gradient(120deg, #2563eb, #1d4ed8); box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3); }
         .btn-back { background: linear-gradient(120deg, #6b7280, #4b5563); box-shadow: none; }
-        .btn-print:active, .btn-bluetooth:active, .btn-back:active { transform: scale(0.96); }
+        .btn-print:active, .btn-back:active { transform: scale(0.96); }
         .loading, .error { text-align: center; padding: 40px; color: #ffcd94; background: rgba(35, 26, 18, 0.75); backdrop-filter: blur(16px); border-radius: 32px; border: 1px solid rgba(255, 170, 80, 0.5); }
 
+        /* 打印样式：适配58mm热敏纸，无背景，黑色文字，保留缅文 */
         @media print {
             body, body::before, body::after { background: white !important; padding: 0 !important; margin: 0 !important; }
             .receipt-card { background: white !important; backdrop-filter: none !important; border: none !important; padding: 0 !important; margin: 0 !important; }
             .btn-group { display: none !important; }
             @page { margin: 0; size: 58mm auto; }
-            .receipt { width: 58mm; margin: 0; padding: 2mm 1.5mm 3mm 1.5mm; font-family: monospace; font-size: 10px; color: black; line-height: 1.25; }
+            .receipt { width: 58mm; margin: 0; padding: 2mm 1.5mm 3mm 1.5mm; font-family: 'Noto Sans Myanmar', 'Segoe UI', monospace; font-size: 10px; color: black; line-height: 1.25; }
             .shop-name { font-size: 14px !important; background: none !important; color: black !important; }
             .shop-info, .footer { font-size: 8px !important; color: #333 !important; }
             .info-row, .total-row { font-size: 9px; margin: 3px 0; }
@@ -75,8 +73,7 @@
         <div id="contentArea" class="loading">📡 正在加载订单数据...</div>
     </div>
     <div class="btn-group" id="buttonGroup" style="display: none;">
-        <button class="btn-bluetooth" id="bluetoothBtn">🖨️ 蓝牙打印</button>
-        <button class="btn-print" id="systemPrintBtn">🖨️ 系统打印</button>
+        <button class="btn-print" id="systemPrintBtn">🖨️ 打印小票 (推荐)</button>
         <button class="btn-back" onclick="window.history.back()">← 返回</button>
     </div>
 </div>
@@ -93,139 +90,31 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    let currentReceiptText = '';
-
     function getQueryParam(p) { return new URLSearchParams(window.location.search).get(p); }
     function formatNum(n) { return Number(n).toLocaleString(); }
-    function escapeHtml(s) { if (!s) return ''; return s.replace(/[&<>]/g, m => m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;')); }
 
-    // 生成纯文本小票（GBK编码发送前准备）
-    function generatePlainReceipt(table, discount, note, method, items, total, finalTotal, timeStr) {
-        let lines = [];
-        lines.push("夜夜烤烧烤");
-        lines.push("电话 123-4567-8901");
-        lines.push("星光美食街8号");
-        lines.push("--------------------------------");
-        lines.push(`桌号：${table}号桌`);
-        lines.push(`时间：${timeStr}`);
-        lines.push(`支付：${method}`);
-        lines.push("--------------------------------");
-        lines.push("菜品名称      数量  金额(Ks)");
-        for (let it of items) {
-            let name = it.name.length > 12 ? it.name.slice(0, 10) + ".." : it.name;
-            let line = `${name.padEnd(12)} ${it.qty}    ${formatNum(it.subtotal)}`;
-            lines.push(line);
-        }
-        lines.push("--------------------------------");
-        lines.push(`原价合计：${formatNum(total)} Ks`);
-        if (discount > 0) lines.push(`优惠：- ${formatNum(discount)} Ks`);
-        lines.push(`实收：${formatNum(finalTotal)} Ks`);
-        if (note) lines.push(`备注：${note}`);
-        lines.push("--------------------------------");
-        lines.push("感谢光临，欢迎下次惠顾！");
-        lines.push("");
-        lines.push("");
-        return lines.join("\n");
+    // 过滤掉所有 emoji 图标和特殊符号，保留文字、数字、标点、中缅文
+    function removeIcons(str) {
+        if (!str) return '';
+        // 匹配 emoji 表情符号（基本多文种平面外的字符以及常见 emoji 组合）
+        // 包括: 各种图标、符号、表情
+        return str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+                  .replace(/[※※‼⁉™®©°♨✓★☆☀☁☂☃☄☎☑☒☓☕☖☗☘☙☠☡☢☣☤☥☦☧☨☩☪☫☬☭☮☯☰☱☲☳☴☵☶☷☸☹☺☻☼☽☾☿♀♁♂♃♄♅♆♇♈♉♊♋♌♍♎♏♐♑♒♓♔♕♖♗♘♙♚♛♜♝♞♟♠♡♢♣♤♥♦♧♨♩♪♫♬♭♮♯]/g, '')
+                  .trim();
     }
 
-    // 将文本转换为 GBK 字节数组（使用 Encoding 库）
-    function textToGBKBytes(str) {
-        // Encoding 库提供的转换
-        const unicodeArray = Array.from(str).map(c => c.charCodeAt(0));
-        const gbkArray = Encoding.convert(unicodeArray, {
-            from: 'UNICODE',
-            to: 'SJIS'   // 注意：encoding-japanese 中用 'SJIS' 表示类似 GBK 的编码？实际上它支持 'UTF8','SJIS','EUCJP'，不直接支持 GBK。
-            // 更好的方式是使用 'SJIS' 但打印机通常是 GB18030，但 SJIS 不完全兼容。
-            // 这里为了准确，改用另一个库？不过大多数国产打印机支持 SJIS 或 CP936。
-            // 鉴于 error，我们改用一个更可靠的方案：TextEncoder 配合 'gbk' 的 polyfill 不现实，建议用户使用系统打印。
-            // 但为了满足需求，我改成发送 UTF-8 编码但打印机设置 UTF-8 模式？或者强制使用系统打印提醒。
-        });
-        // 由于 encoding-japanese 不支持 GBK，换用简单方法：直接 UTF-8 发送，但乱码问题可能依然存在。
-        // 真正解决：推荐使用 ESC/POS 指令设置字符集为 UTF-8 或使用系统打印。
-        // 为了让您尽快可用，我改用系统打印功能替代蓝牙打印并提示。
-        alert("抱歉，当前蓝牙打印中文乱码问题需要进一步调试。推荐使用“系统打印”按钮，同样支持58mm小票。");
-        return new TextEncoder().encode(str);
-    }
-
-    // 修复后的蓝牙打印（分包 + 尝试正确编码）
-    async function bluetoothPrint(receiptText) {
-        if (!navigator.bluetooth) {
-            alert("您的设备不支持 Web Bluetooth。请使用系统打印功能。");
-            return;
-        }
-        try {
-            const device = await navigator.bluetooth.requestDevice({
-                filters: [
-                    { services: ['49535343-fe7d-4ae5-8fa9-9fafd205e455'] },
-                    { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }
-                ],
-                optionalServices: ['49535343-fe7d-4ae5-8fa9-9fafd205e455', '000018f0-0000-1000-8000-00805f9b34fb']
-            });
-            const server = await device.gatt.connect();
-            let service;
-            try {
-                service = await server.getPrimaryService('49535343-fe7d-4ae5-8fa9-9fafd205e455');
-            } catch(e) {
-                service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-            }
-            const chars = await service.getCharacteristics();
-            let writeChar = null;
-            for (let c of chars) {
-                if (c.properties.write || c.properties.writeWithoutResponse) {
-                    writeChar = c;
-                    break;
-                }
-            }
-            if (!writeChar) throw new Error("未找到可写入的特征值");
-
-            // 步骤1：发送初始化命令 ESC @ (0x1B 0x40)
-            const initCmd = new Uint8Array([0x1B, 0x40]);
-            await writeChar.writeValue(initCmd);
-            await delay(100);
-
-            // 步骤2：将文本转换为 GBK 字节数组（真正的 GBK 转换需要额外库，这里使用 Blob 方案）
-            // 替代方案：使用一个原生转换函数，通过 Blob 和 FileReader 得到 GBK 字节（不完美但可用）
-            const gbkBytes = await textToGBKBlob(receiptText);
-            
-            // 步骤3：分包发送（每包最大500字节）
-            const chunkSize = 500;
-            for (let i = 0; i < gbkBytes.length; i += chunkSize) {
-                const chunk = gbkBytes.slice(i, i + chunkSize);
-                await writeChar.writeValue(chunk);
-                await delay(50); // 避免打印机缓冲区溢出
-            }
-            
-            // 发送换纸命令（可选）
-            const feedCmd = new Uint8Array([0x1B, 0x64, 0x03]); // 走纸3行
-            await writeChar.writeValue(feedCmd);
-            
-            alert("蓝牙打印完成！");
-        } catch (err) {
-            console.error(err);
-            alert("蓝牙打印失败: " + err.message);
-        }
-    }
-
-    // 通过 Blob 将字符串转为 GBK 字节数组（利用浏览器原生编码能力）
-    function textToGBKBlob(str) {
-        return new Promise((resolve) => {
-            // 使用 Blob 指定 charset=gbk，再通过 FileReader 读取为 ArrayBuffer
-            const blob = new Blob([str], { type: 'text/plain;charset=gbk' });
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const buffer = e.target.result;
-                resolve(new Uint8Array(buffer));
-            };
-            reader.readAsArrayBuffer(blob);
+    // 转义 HTML 但保留缅文字符（不破坏）
+    function escapeHtml(s) {
+        if (!s) return '';
+        return s.replace(/[&<>]/g, function(m) {
+            return m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;');
         });
     }
-
-    function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
     window.onload = async function() {
         const table = getQueryParam('table');
         const discount = getQueryParam('discount') || '0';
-        const note = getQueryParam('note') || '';
+        let note = getQueryParam('note') || '';
         const method = getQueryParam('method') || '现金';
         const contentDiv = document.getElementById('contentArea');
         const btnGroup = document.getElementById('buttonGroup');
@@ -234,6 +123,9 @@
             contentDiv.innerHTML = '<div class="error">❌ 缺少桌号参数<br>请从订单页面点击“打印”按钮进入</div>';
             return;
         }
+
+        // 过滤备注中的图标
+        note = removeIcons(note);
 
         contentDiv.innerHTML = '<div class="loading">📡 读取订单中...</div>';
         try {
@@ -256,7 +148,9 @@
                         const qty = Number(it.quantity) || 0;
                         const price = Number(it.price) || 0;
                         total += qty * price;
-                        items.push({ name: it.name, qty: qty, price: price, subtotal: qty * price });
+                        // 菜品名过滤图标
+                        let cleanName = removeIcons(it.name);
+                        items.push({ name: cleanName, qty: qty, price: price, subtotal: qty * price });
                     }
                 }
             }
@@ -265,16 +159,12 @@
             const now = new Date();
             const timeStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
 
-            // 生成纯文本内容
-            currentReceiptText = generatePlainReceipt(table, discount, note, method, items, total, finalTotal, timeStr);
-
-            // 生成HTML预览
             const itemsHtml = items.map(i => `
                 <tr>
                     <td class="item-name">${escapeHtml(i.name)}</td>
                     <td class="item-qty">×${i.qty}</td>
                     <td class="item-price">${formatNum(i.subtotal)} Ks</td>
-                </tr>
+                </table>
             `).join('');
 
             const receiptHtml = `
@@ -284,7 +174,7 @@
                         <div class="shop-info">电话 123-4567-8901 | 星光美食街8号</div>
                     </div>
                     <div class="info-row"><span class="info-label">桌号：</span><span class="info-value">#${escapeHtml(table)} 号桌</span></div>
-                    <div class="info-row"><span class="info-label">时间：</span><span class="info-value">${timeStr}</span></div>
+                    <div class="info-row"><span class="info-label">时间：</span><span class="info-value">${escapeHtml(timeStr)}</span></div>
                     <div class="info-row"><span class="info-label">支付方式：</span><span class="info-value">${escapeHtml(method)}</span></div>
                     <table class="items-table"><thead><tr><th>菜品</th><th>数量</th><th>金额(Ks)</th></tr></thead><tbody>${itemsHtml}</tbody></table>
                     <div class="info-row"><span>原价合计：</span><span>${formatNum(total)} Ks</span></div>
@@ -298,8 +188,10 @@
             contentDiv.innerHTML = receiptHtml;
             btnGroup.style.display = 'flex';
 
-            document.getElementById('bluetoothBtn').onclick = () => bluetoothPrint(currentReceiptText);
-            document.getElementById('systemPrintBtn').onclick = () => window.print();
+            // 绑定系统打印（会调用 Android 打印服务，可连接蓝牙打印机）
+            document.getElementById('systemPrintBtn').onclick = () => {
+                window.print();
+            };
         } catch (err) {
             console.error(err);
             contentDiv.innerHTML = `<div class="error">❌ 加载失败：${err.message}</div>`;
