@@ -73,14 +73,14 @@
             align-items: flex-start;
         }
         .col-name { flex: 1; padding-right: 8px; word-break: break-all; }
-        .col-price { width: 90px; text-align: right; }
-        .col-total { width: 85px; text-align: right; }
+        .col-price { width: 100px; text-align: right; }
+        .col-total { width: 95px; text-align: right; }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="card">
-        <div class="version-tag">v3.1 高速排版版</div>
+        <div class="version-tag">v3.2 大字清晰版</div>
 
         <div id="contentArea">📡 加载订单中...</div>
         <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 闪电图像打印 (含Logo+单价)</button>
@@ -94,7 +94,6 @@
 
 <script>
     // ======================= 🌐 动态读取同目录下的 Logo 图片 =======================
-    // 已经修改为您指定的图片名称，确保 GitHub 仓库中包含此文件
     const LOGO_URL = "打印logo.png"; 
     // ============================================================================
 
@@ -122,7 +121,7 @@
         return str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
     }
 
-    // 辅助函数：处理Canvas文字自动换行
+    // 辅助函数：处理Canvas文字自动换行（针对大字优化了行高）
     function drawTextWithWrapping(ctx, text, x, y, maxWidth, lineHeight) {
         let words = text.split('');
         let line = '';
@@ -131,6 +130,7 @@
         for (let n = 0; n < words.length; n++) {
             let testLine = line + words[n];
             let metrics = ctx.measureText(testLine);
+            // 因为字变大了，菜品名称可用宽度缩减到 150px，防止撞到右边单价
             if (metrics.width > maxWidth && n > 0) {
                 ctx.fillText(line, x, currentY);
                 line = words[n];
@@ -140,39 +140,41 @@
             }
         }
         ctx.fillText(line, x, currentY);
-        return currentY; // 返回当前行最后一行行首的Y坐标
+        return currentY;
     }
 
-    // 生成小票图像 (全新高速排版引擎)
+    // 生成小票图像 (大字清晰排版引擎)
     function generateReceiptImageBytes(order, logoImg) {
         const canvas = document.getElementById('printCanvas');
         const ctx = canvas.getContext('2d');
         const { table, discount, note, method, items, total, finalTotal, timeStr } = order;
         
-        // 临时绘制用于精确测算高度
-        ctx.font = '16px "Segoe UI", sans-serif';
+        // 【优化】使用大字号预估菜品高度（字号 20px，行高 26px）
+        ctx.font = 'bold 20px "Segoe UI", sans-serif';
         let calculatedItemsHeight = 0;
         for (let it of items) {
             let itemLines = 1;
             let line = '';
             for (let char of it.name.split('')) {
-                if (ctx.measureText(line + char).width > 165) {
+                if (ctx.measureText(line + char).width > 150) {
                     itemLines++;
                     line = char;
                 } else {
                     line += char;
                 }
             }
-            calculatedItemsHeight += Math.max(28, itemLines * 20) + 6;
+            calculatedItemsHeight += Math.max(32, itemLines * 26) + 8;
         }
 
         let padding = 12;
         let titleHeight = (logoImg && logoImg.complete && logoImg.naturalWidth > 0) ? ((Math.min(logoImg.naturalWidth, 280) / logoImg.naturalWidth) * logoImg.naturalHeight + 12) : 48;
-        let infoHeight = 28 * 4 + 24;
-        let headerHeight = 32;
-        let summaryHeight = 24 + 24 + 32 + (discount > 0 ? 24 : 0) + (note ? 35 : 0) + 28 + 28;
         
-        canvas.height = padding + titleHeight + infoHeight + headerHeight + calculatedItemsHeight + summaryHeight + 20;
+        // 【优化】加大了全局高度预算，防止大字版下方内容被截断
+        let infoHeight = 32 * 4 + 24;
+        let headerHeight = 36;
+        let summaryHeight = 30 + 30 + 45 + (discount > 0 ? 30 : 0) + (note ? 40 : 0) + 30 + 30;
+        
+        canvas.height = padding + titleHeight + infoHeight + headerHeight + calculatedItemsHeight + summaryHeight + 40;
         
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -180,69 +182,86 @@
         ctx.textBaseline = 'top';
         let y = padding;
         
-        // 绘制Logo或店名
+        // 1. 绘制Logo或店名
         if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
             const maxLogoWidth = 280;
             let drawWidth = Math.min(logoImg.naturalWidth, maxLogoWidth);
             let drawHeight = (drawWidth / logoImg.naturalWidth) * logoImg.naturalHeight;
             ctx.drawImage(logoImg, (canvas.width - drawWidth) / 2, y, drawWidth, drawHeight);
-            y += drawHeight + 10;
+            y += drawHeight + 15;
         } else {
-            ctx.font = 'bold 32px "Segoe UI", sans-serif';
+            ctx.font = 'bold 34px "Segoe UI", sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText("夜夜烤烧烤", canvas.width/2, y);
-            y += 42;
+            y += 46;
         }
         
-        // 基本信息
-        ctx.font = '18px "Segoe UI", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText("📞 电话: 09795858987", canvas.width/2, y); y += 26;
-        ctx.textAlign = 'left';
+        // 2. 基本信息栏（字号放大，行距拉开）
         ctx.font = 'bold 20px "Segoe UI", sans-serif';
-        ctx.fillText(`桌号：${table}号桌`, 8, y); y += 28;
-        ctx.font = '17px "Segoe UI", sans-serif';
-        ctx.fillText(`时间：${timeStr}`, 8, y); y += 24;
-        ctx.fillText(`支付：${method}`, 8, y); y += 28;
-        ctx.fillText("-------------------------------------------", 4, y); y += 22;
+        ctx.textAlign = 'center';
+        ctx.fillText("📞 电话: 09795858987", canvas.width/2, y); y += 32;
         
-        // 新排版表头：品名靠左(6)，单价数量靠右(285)，金额靠右(375)
-        ctx.font = 'bold 17px "Segoe UI", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 28px "Segoe UI", sans-serif'; // 桌号特大字号
+        ctx.fillText(`桌号：${table}号桌`, 6, y); y += 38;
+        
+        ctx.font = 'bold 19px "Segoe UI", sans-serif';
+        ctx.fillText(`时间：${timeStr}`, 6, y); y += 28;
+        ctx.fillText(`支付：${method}`, 6, y); y += 30;
+        
+        ctx.font = 'bold 18px monospace';
+        ctx.fillText("--------------------------------------", 4, y); y += 24;
+        
+        // 3. 表头栏（放大加粗）
+        ctx.font = 'bold 20px "Segoe UI", sans-serif';
         ctx.textAlign = 'left'; ctx.fillText("品名", 6, y);
-        ctx.textAlign = 'right'; ctx.fillText("单价×数量", 285, y);
-        ctx.textAlign = 'right'; ctx.fillText("金额(Ks)", 375, y);
-        y += 28;
+        ctx.textAlign = 'right'; ctx.fillText("单价×数量", 270, y); // 左移防止重叠
+        ctx.textAlign = 'right'; ctx.fillText("金额", 378, y);
+        y += 32;
         
-        // 动态循环渲染菜品列表
-        ctx.font = '16px "Segoe UI", sans-serif';
+        // 4. 动态菜品列表（字号从 16px 放大到 20px，全部加粗提升清晰度）
+        ctx.font = 'bold 20px "Segoe UI", sans-serif';
         for (let it of items) {
             let startY = y;
             ctx.textAlign = 'left';
-            // 限制菜品宽度为 165px，超出自动换行，行高 20px
-            let lastY = drawTextWithWrapping(ctx, it.name, 6, y, 165, 20);
+            // 限制菜品字宽为 150px，超出自动换行，行高 26px
+            let lastY = drawTextWithWrapping(ctx, it.name, 6, y, 150, 26);
             
             // 右侧信息对齐首行
             ctx.textAlign = 'right';
-            ctx.fillText(`${it.price}×${it.qty}`, 285, startY);
-            ctx.fillText(formatNum(it.subtotal), 375, startY);
+            ctx.fillText(`${it.price}×${it.qty}`, 270, startY);
+            ctx.fillText(formatNum(it.subtotal), 378, startY);
             
-            // 动态累加高度（保留间距）
-            y = Math.max(lastY + 20, startY + 28) + 6;
+            // 动态累加高度
+            y = Math.max(lastY + 26, startY + 32) + 8;
         }
         
-        ctx.font = '16px monospace';
+        // 5. 底部结算栏（全面放大）
+        ctx.font = 'bold 18px monospace';
         ctx.textAlign = 'left';
-        ctx.fillText("-------------------------------------------", 4, y); y += 20;
-        ctx.font = '18px sans-serif';
-        ctx.fillText(`原价合计：${formatNum(total)} Ks`, 8, y); y += 26;
-        if (discount > 0) ctx.fillText(`优惠金额：- ${formatNum(discount)} Ks`, 8, y), y+=26;
-        ctx.font = 'bold 24px sans-serif';
-        ctx.fillText(`实收金额：${formatNum(finalTotal)} Ks`, 8, y); y += 34;
-        ctx.font = '16px sans-serif';
-        if (note) ctx.fillText(`备注：${note}`, 8, y), y+=28;
-        ctx.fillText("-------------------------------------------", 4, y); y+=20;
+        ctx.fillText("--------------------------------------", 4, y); y += 24;
+        
+        ctx.font = 'bold 21px sans-serif';
+        ctx.fillText(`原价合计：${formatNum(total)} Ks`, 6, y); y += 30;
+        if (discount > 0) {
+            ctx.fillText(`优惠金额：- ${formatNum(discount)} Ks`, 6, y); 
+            y += 30;
+        }
+        
+        ctx.font = 'bold 28px sans-serif'; // 实收金额特大字号
+        ctx.fillText(`实收金额：${formatNum(finalTotal)} Ks`, 6, y); y += 42;
+        
+        ctx.font = 'bold 20px sans-serif';
+        if (note) {
+            ctx.fillText(`备注：${note}`, 6, y); 
+            y += 32;
+        }
+        
+        ctx.font = 'bold 18px monospace';
+        ctx.fillText("--------------------------------------", 4, y); y += 24;
+        
         ctx.textAlign = 'center';
-        ctx.font = 'bold 18px sans-serif';
+        ctx.font = 'bold 22px sans-serif'; // 欢迎语放大
         ctx.fillText("感谢光临，欢迎下次惠顾！", canvas.width/2, y);
         
         // 转ESC/POS点阵数据
@@ -326,7 +345,7 @@
         
         document.getElementById('contentArea').innerHTML = `
             <div style="font-size:12px;">
-                <div style="text-align:center; font-weight:bold; margin-bottom: 10px;">🧾 订单预览 (高清点阵排版)</div>
+                <div style="text-align:center; font-weight:bold; margin-bottom: 10px;">🧾 订单预览 (大字清晰排版)</div>
                 <div>🏷️ 桌号: ${escapeHtml(table)}</div>
                 <div>📞 电话: 09795858987</div>
                 <div>⏰ ${timeStr}  💳 ${method}</div>
@@ -377,11 +396,10 @@
         }
     }
     
-    // 核心网络读取函数：加载你在 GitHub 同目录下的图片
     function loadEmbeddedLogo() {
         if (LOGO_URL) {
             const img = new Image();
-            img.crossOrigin = 'Anonymous'; // 允许跨域，防 Canvas 受污染报错
+            img.crossOrigin = 'Anonymous';
             img.onload = () => {
                 customLogoImage = img;
                 refreshPrint();
@@ -391,7 +409,6 @@
                 customLogoImage = null; 
                 refreshPrint(); 
             };
-            // 拼接时间戳，防止浏览器死缓存旧图片，方便以后随时在 GitHub 替换
             img.src = LOGO_URL + "?t=" + new Date().getTime(); 
         } else {
             customLogoImage = null;
