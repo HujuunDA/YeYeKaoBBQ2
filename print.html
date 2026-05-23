@@ -17,6 +17,29 @@
             align-items: center;
             padding: 20px;
         }
+        
+        /* 圆形返回按钮样式 */
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 48px;
+            height: 48px;
+            background: rgba(45, 35, 28, 0.9);
+            border: 1px solid rgba(255, 170, 80, 0.4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffefcf;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: 0.2s;
+        }
+        .back-btn:active { transform: scale(0.9); background: rgba(60, 45, 35, 0.9); }
+
         .container { max-width: 540px; width: 100%; position: relative; }
         .card {
             background: rgba(35, 26, 18, 0.85);
@@ -53,10 +76,6 @@
             transition: 0.1s linear;
         }
         .btn:active { transform: scale(0.96); }
-        .btn-back {
-            background: linear-gradient(120deg, #4b5563, #374151);
-            margin-top: 10px;
-        }
         hr { border-color: rgba(255,180,100,0.3); margin: 12px 0; }
         .status { margin-top: 12px; font-size: 12px; color: #ffaa66; word-break: break-word; }
         #printCanvas { display: none; }
@@ -67,12 +86,14 @@
     </style>
 </head>
 <body>
+
+<div class="back-btn" onclick="history.back()">←</div>
+
 <div class="container">
     <div class="card">
-        <div class="version-tag">v3.4 Fast Print</div>
+        <div class="version-tag">v3.5 Print Ready</div>
         <div id="contentArea">📡 Loading...</div>
         <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ Print Receipt</button>
-        <button class="btn btn-back" id="backBtn" style="display:none;" onclick="history.back()">⬅️ Back</button>
         <div id="status" class="status"></div>
     </div>
 </div>
@@ -134,11 +155,10 @@
 
         let padding = 12;
         let titleHeight = (logoImg && logoImg.complete && logoImg.naturalWidth > 0) ? ((Math.min(logoImg.naturalWidth, 280) / logoImg.naturalWidth) * logoImg.naturalHeight + 12) : 40;
-        let infoHeight = 26 * 3 + 16; // 减少了一行高度
-        let headerHeight = 28;
+        let infoHeight = 26 * 3 + 16;
         let summaryHeight = 24 + 24 + 26 + 36 + (discount > 0 ? 24 : 0) + (note ? 32 : 0) + 24 + 24;
         
-        canvas.height = padding + titleHeight + infoHeight + headerHeight + calculatedItemsHeight + summaryHeight + 30;
+        canvas.height = padding + titleHeight + infoHeight + 28 + calculatedItemsHeight + summaryHeight + 30;
         ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#000000'; ctx.textBaseline = 'top';
         let y = padding;
@@ -166,7 +186,7 @@
         
         ctx.font = 'bold 17px "Segoe UI", sans-serif';
         ctx.textAlign = 'left'; ctx.fillText("Item", 6, y);
-        ctx.textAlign = 'right'; ctx.fillText("Price × Qty", 280, y); 
+        ctx.textAlign = 'right'; ctx.fillText("Price×Qty", 280, y); 
         ctx.textAlign = 'right'; ctx.fillText("Amt", 378, y); y += 26;
         
         for (let it of items) {
@@ -240,7 +260,6 @@
         printDataBytes = generateReceiptImageBytes(currentOrderData, customLogoImage);
         updatePreview();
         document.getElementById('bluetoothBtn').style.display = 'block';
-        document.getElementById('backBtn').style.display = 'block';
     }
     
     function updatePreview() {
