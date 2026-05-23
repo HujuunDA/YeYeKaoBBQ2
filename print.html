@@ -1,4 +1,4 @@
-、<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -73,7 +73,7 @@
 <body>
 <div class="container">
     <div class="card">
-        <div class="version-tag">v3.4 Tax Edition</div>
+        <div class="version-tag">v3.4 Fast Print</div>
 
         <div id="contentArea">📡 Loading...</div>
         <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ Print Receipt</button>
@@ -266,7 +266,8 @@
         return new Uint8Array(escPosBytes);
     }
     
-    async function sendChunked(characteristic, dataBytes, chunkSize=120) {
+    // 【已修改】将 chunkSize 从 120 提升至 240 以加快打印速度
+    async function sendChunked(characteristic, dataBytes, chunkSize=240) {
         for (let i=0; i<dataBytes.length; i+=chunkSize) {
             await characteristic.writeValue(dataBytes.slice(i, i+chunkSize));
         }
@@ -292,7 +293,7 @@
             statusDiv.innerText = "⚡ Printing...";
             await writeChar.writeValue(new Uint8Array([0x1B, 0x40])); 
             await new Promise(r=>setTimeout(r,5));
-            await sendChunked(writeChar, printDataBytes, 120);
+            await sendChunked(writeChar, printDataBytes, 240);
             await writeChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03])); 
             statusDiv.innerText = "✅ Done!";
         } catch(err) { statusDiv.innerText = "❌ Error: "+err.message; }
