@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>蓝牙快印 - 烧烤店小票系统 | 一键无感打印</title>
+    <title>蓝牙打印 - 烧烤店小票系统</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Segoe UI', system-ui, -apple-system, 'Roboto', sans-serif;
+            font-family: 'Segoe UI', system-ui;
             background: radial-gradient(circle at 30% 10%, #2a2218, #1a140e, #0f0b07);
             min-height: 100vh;
             display: flex;
@@ -26,25 +26,12 @@
             border: 1px solid rgba(255, 170, 80, 0.5);
             color: #ffefcf;
             position: relative;
-            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.5);
         }
-        .version-tag {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 170, 80, 0.2);
-            border: 1px solid #ffaa50;
-            color: #ffefcf;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: bold;
-            backdrop-filter: blur(4px);
-        }
+        /* 版本号标签已完全移除 */
         .btn {
             background: linear-gradient(120deg, #0284c7, #0369a1);
             color: white;
-            padding: 14px 24px;
+            padding: 12px 24px;
             border-radius: 48px;
             font-weight: bold;
             border: none;
@@ -53,30 +40,14 @@
             font-size: 16px;
             cursor: pointer;
             transition: 0.1s linear;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         .btn:active { transform: scale(0.96); }
         .btn-back {
             background: linear-gradient(120deg, #4b5563, #374151);
             margin-top: 10px;
         }
-        .btn-reset {
-            background: linear-gradient(120deg, #92400e, #78350f);
-            margin-top: 8px;
-            font-size: 13px;
-            padding: 8px;
-        }
         hr { border-color: rgba(255,180,100,0.3); margin: 12px 0; }
-        .status { 
-            margin-top: 12px; 
-            font-size: 12px; 
-            color: #ffaa66; 
-            word-break: break-word;
-            background: rgba(0,0,0,0.5);
-            padding: 8px 12px;
-            border-radius: 28px;
-            font-family: monospace;
-        }
+        .status { margin-top: 12px; font-size: 12px; color: #ffaa66; word-break: break-word; }
         #printCanvas { display: none; }
         .flex-row {
             display: flex;
@@ -86,41 +57,25 @@
         .col-name { flex: 1; padding-right: 8px; word-break: break-all; }
         .col-price { width: 100px; text-align: right; }
         .col-total { width: 95px; text-align: right; }
-        .preview-card {
-            background: rgba(0,0,0,0.3);
-            border-radius: 24px;
-            padding: 12px;
-            margin-top: 8px;
-            border-left: 3px solid #ffaa50;
-        }
-        .device-memory {
-            font-size: 10px;
-            text-align: right;
-            opacity: 0.7;
-            margin-top: 8px;
-        }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="card">
-        <div class="version-tag">v5.0 • 真一键打印</div>
+        <!-- 版本号标签已按需求移除（原version-tag已删除） -->
 
-        <div id="contentArea">📡 加载订单中...</div>
-        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 一键打印小票</button>
+        <div id="contentArea">📡 加载订单数据中...</div>
+        <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 打印小票</button>
         <button class="btn btn-back" id="backBtn" style="display:none;" onclick="history.back()">⬅️ 返回</button>
-        <button class="btn btn-reset" id="resetPrinterBtn" style="display:none;">🔄 更换打印机 / 清除记忆</button>
         
-        <div id="status" class="status">⚙️ 初始化完成，准备就绪</div>
-        <div class="device-memory" id="memoryHint"></div>
+        <div id="status" class="status"></div>
     </div>
 </div>
 
 <canvas id="printCanvas" width="384"></canvas>
 
 <script>
-    // ---------------------------- 配置 ---------------------------------
-    const LOGO_URL = "打印logo.png";   // 如不需要logo会自动使用文字标题
+    const LOGO_URL = "打印logo.png"; 
 
     const firebaseConfig = { 
         apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
@@ -133,16 +88,11 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // 全局打印数据 & 订单
     let printDataBytes = null;
     let currentOrderData = {
-        table: '', discount: 0, note: '', items: [], total: 0, tax: 0, finalTotal: 0, timeStr: ''
+        table: '', discount: 0, note: '', method: 'Cash', items: [], total: 0, tax: 0, finalTotal: 0, timeStr: ''
     };
     let customLogoImage = null;
-    
-    // ---------- 蓝牙一键打印核心: 自动记住设备，无弹窗重连 ----------
-    const STORAGE_KEY = 'bbq_last_printer_id';
-    let isPrintingLock = false;
 
     function getQueryParam(p) { return new URLSearchParams(window.location.search).get(p); }
     function formatNum(n) { return Math.round(n).toLocaleString(); } 
@@ -150,9 +100,7 @@
         if (!str) return '';
         return str.replace(/[\p{Emoji}\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
     }
-    function escapeHtml(s){ if(!s)return ''; return s.replace(/[&<>]/g, m=> m==='&'?'&amp;':(m==='<'?'&lt;':'&gt;')); }
 
-    // 文本换行
     function drawTextWithWrapping(ctx, text, x, y, maxWidth, lineHeight) {
         let words = text.split('');
         let line = '';
@@ -172,11 +120,10 @@
         return currentY;
     }
 
-    // 生成ESC/POS 位图指令 (已经移除支付方式)
     function generateReceiptImageBytes(order, logoImg) {
         const canvas = document.getElementById('printCanvas');
         const ctx = canvas.getContext('2d');
-        const { table, discount, note, items, total, tax, finalTotal, timeStr } = order;
+        const { table, discount, note, method, items, total, tax, finalTotal, timeStr } = order;
         
         ctx.font = 'bold 17px "Segoe UI", sans-serif';
         let calculatedItemsHeight = 0;
@@ -197,7 +144,8 @@
         let padding = 12;
         let titleHeight = (logoImg && logoImg.complete && logoImg.naturalWidth > 0) ? ((Math.min(logoImg.naturalWidth, 280) / logoImg.naturalWidth) * logoImg.naturalHeight + 12) : 40;
         
-        let infoHeight = 26 * 3 + 16;    // 减少了一行Pay
+        // 【修改】移除现金(Pay)行后，减少infoHeight中的一行预留高度 (原26*4+16 -> 26*3+16)
+        let infoHeight = 26 * 3 + 16;   // 原为Table/Time/分隔线区域预留，不再包含Pay行
         let headerHeight = 28;
         let summaryHeight = 24 + 24 + 26 + 36 + (discount > 0 ? 24 : 0) + (note ? 32 : 0) + 24 + 24;
         
@@ -228,19 +176,19 @@
         
         ctx.textAlign = 'left';
         ctx.font = 'bold 22px "Segoe UI", sans-serif'; 
-        ctx.fillText(`Table: ${table}`, 6, y); y += 32;
+        ctx.fillText(`桌号: ${table}`, 6, y); y += 32;
         
         ctx.font = 'bold 16px "Segoe UI", sans-serif';
-        ctx.fillText(`Time: ${timeStr}`, 6, y); y += 24;
-        // 已删除 Pay: 显示  ————————————  满足客户要求
+        ctx.fillText(`时间: ${timeStr}`, 6, y); y += 24;
+        // 【已删除】支付方式(Pay/Cash)行已按需求移除，小票和预览均不再显示现金相关内容
         
         ctx.font = 'bold 16px monospace';
         ctx.fillText("--------------------------------------", 4, y); y += 18;
         
         ctx.font = 'bold 17px "Segoe UI", sans-serif';
-        ctx.textAlign = 'left'; ctx.fillText("Item", 6, y);
-        ctx.textAlign = 'right'; ctx.fillText("Price × Qty", 280, y); 
-        ctx.textAlign = 'right'; ctx.fillText("Amt", 378, y);
+        ctx.textAlign = 'left'; ctx.fillText("菜品", 6, y);
+        ctx.textAlign = 'right'; ctx.fillText("单价 × 数量", 280, y); 
+        ctx.textAlign = 'right'; ctx.fillText("金额", 378, y);
         y += 26;
         
         ctx.font = 'bold 17px "Segoe UI", sans-serif';
@@ -261,20 +209,20 @@
         ctx.fillText("--------------------------------------", 4, y); y += 18;
         
         ctx.font = 'bold 18px sans-serif';
-        ctx.fillText(`Subtotal: ${formatNum(total)} Ks`, 6, y); y += 26;
+        ctx.fillText(`小计: ${formatNum(total)} Ks`, 6, y); y += 26;
         if (discount > 0) {
-            ctx.fillText(`Discount: - ${formatNum(discount)} Ks`, 6, y); 
+            ctx.fillText(`折扣: - ${formatNum(discount)} Ks`, 6, y); 
             y += 26;
         }
         
-        ctx.fillText(`Tax (5%): + ${formatNum(tax)} Ks`, 6, y); y += 26;
+        ctx.fillText(`税费 (5%): + ${formatNum(tax)} Ks`, 6, y); y += 26;
         
         ctx.font = 'bold 23px sans-serif'; 
-        ctx.fillText(`Final: ${formatNum(finalTotal)} Ks`, 6, y); y += 34;
+        ctx.fillText(`总计: ${formatNum(finalTotal)} Ks`, 6, y); y += 34;
         
         ctx.font = 'bold 17px sans-serif';
         if (note) {
-            ctx.fillText(`Note: ${note}`, 6, y); 
+            ctx.fillText(`备注: ${note}`, 6, y); 
             y += 26;
         }
         
@@ -283,7 +231,7 @@
         
         ctx.textAlign = 'center';
         ctx.font = 'bold 18px sans-serif'; 
-        ctx.fillText("Thank you!", canvas.width/2, y);
+        ctx.fillText("感谢惠顾！", canvas.width/2, y);
         
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const widthBytes = canvas.width / 8;
@@ -308,161 +256,52 @@
         return new Uint8Array(escPosBytes);
     }
     
+    // 保持高速分块打印 (chunkSize = 240)
     async function sendChunked(characteristic, dataBytes, chunkSize=240) {
         for (let i=0; i<dataBytes.length; i+=chunkSize) {
             await characteristic.writeValue(dataBytes.slice(i, i+chunkSize));
         }
     }
     
-    async function getWriteCharacteristic(server) {
-        let service;
-        try {
-            service = await server.getPrimaryService('49535343-fe7d-4ae5-8fa9-9fafd205e455');
-        } catch(e) {
-            service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-        }
-        const chars = await service.getCharacteristics();
-        let writeChar = chars.find(c => c.properties.write || c.properties.writeWithoutResponse);
-        if (!writeChar) throw new Error("未找到可写入特征，请检查打印机");
-        return writeChar;
-    }
-    
-    // 核心打印: 传入已连接的 BluetoothDevice 对象
-    async function performPrintWithDevice(device) {
-        if (!device) throw new Error("无效设备");
-        const server = await device.gatt.connect();
-        const writeChar = await getWriteCharacteristic(server);
-        await writeChar.writeValue(new Uint8Array([0x1B, 0x40]));
-        await new Promise(r=>setTimeout(r,5));
-        await sendChunked(writeChar, printDataBytes, 240);
-        await writeChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03]));
-        return true;
-    }
-    
-    // 🚀 智能一键打印: 无弹窗自动重连 + 降级弹窗配对(仅首次/换机)
     async function bluetoothPrint() {
         const statusDiv = document.getElementById('status');
-        const resetBtn = document.getElementById('resetPrinterBtn');
-        
-        if (!navigator.bluetooth) {
-            statusDiv.innerText = "❌ 当前浏览器不支持蓝牙打印，请使用 Chrome / Edge 安卓版";
-            return;
-        }
-        if (!printDataBytes) {
-            statusDiv.innerText = "❌ 票据数据未生成，请刷新重试";
-            return;
-        }
-        if (isPrintingLock) {
-            statusDiv.innerText = "⏳ 打印进行中，请稍后...";
-            return;
-        }
-        
-        isPrintingLock = true;
-        const savedDeviceId = localStorage.getItem(STORAGE_KEY);
-        let usedDevice = null;
-        
+        if (!navigator.bluetooth) { statusDiv.innerText = "❌ 浏览器不支持蓝牙"; return; }
+        if (!printDataBytes) { statusDiv.innerText = "❌ 小票数据未就绪"; return; }
+        statusDiv.innerText = "🔍 搜索打印机...";
         try {
-            // ----- 阶段1: 尝试无感自动重连 (基于已保存设备) -----
-            if (savedDeviceId && navigator.bluetooth.getDevices) {
-                const authorizedDevices = await navigator.bluetooth.getDevices();
-                const knownDevice = authorizedDevices.find(dev => dev.id === savedDeviceId);
-                if (knownDevice) {
-                    statusDiv.innerText = `🔄 自动连接上次打印机: ${knownDevice.name || '打印机'} ...`;
-                    try {
-                        await performPrintWithDevice(knownDevice);
-                        statusDiv.innerText = `✅ 打印成功！ (${knownDevice.name || '已存设备'})`;
-                        if (knownDevice.name) localStorage.setItem('bbq_last_printer_name', knownDevice.name);
-                        isPrintingLock = false;
-                        if (resetBtn) resetBtn.style.display = 'block';
-                        return;
-                    } catch (autoErr) {
-                        console.warn("自动重连失败，尝试清除记忆后重新配对:", autoErr);
-                        localStorage.removeItem(STORAGE_KEY);
-                        localStorage.removeItem('bbq_last_printer_name');
-                        statusDiv.innerText = `⚠️ 自动连接失败，即将重新配对打印机...`;
-                        await new Promise(r => setTimeout(r, 800));
-                    }
-                } else {
-                    statusDiv.innerText = `📭 上次打印机已不可用，需重新选择`;
-                    localStorage.removeItem(STORAGE_KEY);
-                    localStorage.removeItem('bbq_last_printer_name');
-                    await new Promise(r => setTimeout(r, 600));
-                }
-            }
-            
-            // ----- 阶段2: 首次使用 或 自动连接失败 -> 弹出选择器 (仅首次或换打印机时) -----
-            statusDiv.innerText = "🔍 请选择烧烤店蓝牙打印机 (仅此一次，以后自动打印) ...";
             const device = await navigator.bluetooth.requestDevice({
-                filters: [
-                    { services: ['49535343-fe7d-4ae5-8fa9-9fafd205e455'] },
-                    { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }
-                ],
+                filters: [{ services: ['49535343-fe7d-4ae5-8fa9-9fafd205e455'] }, { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }],
                 optionalServices: ['49535343-fe7d-4ae5-8fa9-9fafd205e455', '000018f0-0000-1000-8000-00805f9b34fb']
             });
-            if (!device) throw new Error("未选择任何打印机");
-            
-            // 保存设备信息，下一次即可免选
-            if (device.id) {
-                localStorage.setItem(STORAGE_KEY, device.id);
-                localStorage.setItem('bbq_last_printer_name', device.name || '蓝牙打印机');
-                document.getElementById('memoryHint').innerHTML = `📌 已记住: ${device.name || '打印机'} 下次直接打印`;
-                setTimeout(()=>{ if(document.getElementById('memoryHint')) document.getElementById('memoryHint').innerHTML = `🖨️ 已记忆: ${device.name || '打印机'}`; }, 2000);
-            }
-            
-            statusDiv.innerText = `✅ 连接中 (${device.name || '打印机'}) ...`;
-            await performPrintWithDevice(device);
-            statusDiv.innerText = `🎉 打印完成！已保存设备，后续一键打印。`;
-            if (resetBtn) resetBtn.style.display = 'block';
-            
-        } catch (err) {
-            console.error("打印流程错误", err);
-            let errMsg = err.message;
-            if (errMsg.includes("Network") || errMsg.includes("GATT") || errMsg.includes("404") || errMsg.includes("设备")) {
-                localStorage.removeItem(STORAGE_KEY);
-                localStorage.removeItem('bbq_last_printer_name');
-                statusDiv.innerText = `❌ 连接失败，已清除记忆。请点击打印重新配对。 ${errMsg}`;
-            } else {
-                statusDiv.innerText = `❌ 打印异常: ${errMsg}`;
-            }
-        } finally {
-            isPrintingLock = false;
-        }
+            statusDiv.innerText = "✅ 连接中...";
+            const server = await device.gatt.connect();
+            let service;
+            try { service = await server.getPrimaryService('49535343-fe7d-4ae5-8fa9-9fafd205e455'); } catch(e) { service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb'); }
+            const chars = await service.getCharacteristics();
+            let writeChar = chars.find(c => c.properties.write || c.properties.writeWithoutResponse);
+            if (!writeChar) throw new Error("未找到可写特性");
+            statusDiv.innerText = "⚡ 打印中...";
+            await writeChar.writeValue(new Uint8Array([0x1B, 0x40])); 
+            await new Promise(r=>setTimeout(r,5));
+            await sendChunked(writeChar, printDataBytes, 240);
+            await writeChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03])); 
+            statusDiv.innerText = "✅ 打印完成！";
+        } catch(err) { statusDiv.innerText = "❌ 错误: "+err.message; }
     }
     
-    function resetPrinterMemory() {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem('bbq_last_printer_name');
-        const statusDiv = document.getElementById('status');
-        statusDiv.innerText = "🧹 已清除打印机记忆，下次打印将重新选择设备。";
-        document.getElementById('memoryHint').innerHTML = "⚙️ 已遗忘旧打印机，下次点击打印会重新配对";
-        setTimeout(()=>{
-            if(document.getElementById('memoryHint')) document.getElementById('memoryHint').innerHTML = "✨ 下次打印将重新选择打印机，选一次即永久记忆";
-        }, 3000);
-    }
-    
-    // 更新预览 (已移除支付方式)
     async function refreshPrint() {
         const statusDiv = document.getElementById('status');
         if (!currentOrderData.items.length) return;
-        statusDiv.innerText = "🖌️ 生成高清小票...";
+        statusDiv.innerText = "🖌️ 生成小票图像...";
         if (customLogoImage && !customLogoImage.complete) await new Promise(r=>{ customLogoImage.onload=r; });
         printDataBytes = generateReceiptImageBytes(currentOrderData, customLogoImage);
         updatePreview();
-        statusDiv.innerText = "✅ 小票已准备 | 点击一键打印 (无需重复配对)";
+        statusDiv.innerText = "✅ 就绪";
         document.getElementById('bluetoothBtn').style.display = 'block';
         document.getElementById('backBtn').style.display = 'block';
-        
-        const savedId = localStorage.getItem(STORAGE_KEY);
-        if (savedId) {
-            document.getElementById('resetPrinterBtn').style.display = 'block';
-            const name = localStorage.getItem('bbq_last_printer_name') || '已配对设备';
-            document.getElementById('memoryHint').innerHTML = `🖨️ 上次打印机: ${name}  · 下次自动连接无弹窗`;
-        } else {
-            document.getElementById('resetPrinterBtn').style.display = 'none';
-            document.getElementById('memoryHint').innerHTML = `✨ 首次使用请点击打印并授权，之后永不再弹窗`;
-        }
     }
     
+    // 页面预览：移除所有现金/支付方式相关的显示 (包括method)
     function updatePreview() {
         const { table, discount, note, items, total, tax, finalTotal, timeStr } = currentOrderData;
         let itemsHtml = items.map(i => `
@@ -473,9 +312,10 @@
             </div>
         `).join('');
         
+        // 完全移除支付方式（现金）的显示，只保留时间、桌号等核心信息
         document.getElementById('contentArea').innerHTML = `
-            <div class="preview-card">
-                <div style="text-align:center; font-weight:bold; margin-bottom: 8px;">🔥 夜夜烤烧烤 小票预览</div>
+            <div style="font-size:12px;">
+                <div style="text-align:center; font-weight:bold; margin-bottom: 10px;">🧾 订单预览</div>
                 <div>🏷️ 桌号: ${escapeHtml(table)}</div>
                 <div>📞 09795858987</div>
                 <div>⏰ ${timeStr}</div>
@@ -484,10 +324,9 @@
                 <hr>
                 <div>💰 小计: ${formatNum(total)} Ks</div>
                 ${discount>0?`<div>🎁 折扣: -${formatNum(discount)} Ks</div>`:''}
-                <div style="color: #ffaa66;">📊 税费5%: +${formatNum(tax)} Ks</div>
-                <div style="font-weight:bold; font-size:15px; margin-top:6px;">💵 总计: ${formatNum(finalTotal)} Ks</div>
+                <div style="color: #ffaa66;">📊 税费 (5%): +${formatNum(tax)} Ks</div>
+                <div style="font-weight:bold; font-size:14px; margin-top:4px;">💵 总计: ${formatNum(finalTotal)} Ks</div>
                 ${note?`<div>📝 备注: ${escapeHtml(note)}</div>`:''}
-                <div style="text-align:center; font-size:10px; margin-top:12px;">⬇️ 点击下方“一键打印小票” ⬇️</div>
             </div>
         `;
     }
@@ -496,8 +335,10 @@
         const table = getQueryParam('table');
         const discount = Number(getQueryParam('discount')||'0');
         let note = cleanText(getQueryParam('note')||'');
-        // 不再使用method字段
-        if (!table) { document.getElementById('contentArea').innerHTML='<div>❌ 缺少桌号参数，请扫码正确二维码</div>'; return false; }
+        // method参数保留但不用于显示和打印，彻底去除现金显示
+        // const method = getQueryParam('method')||'Cash';  // 不再影响界面
+        
+        if (!table) { document.getElementById('contentArea').innerHTML='<div>❌ 缺少桌号参数</div>'; return false; }
         try {
             const snapshot = await db.collection("pending_orders").where("table","==",table).get();
             if(snapshot.empty) throw new Error(`未找到桌号 ${table} 的订单`);
@@ -515,7 +356,7 @@
                     }
                 }
             }
-            if(items.length===0) throw new Error("订单无有效商品");
+            if(items.length===0) throw new Error("订单无有效菜品");
             
             const baseAmount = Math.max(0, total - discount); 
             const tax = baseAmount * 0.05;                   
@@ -523,10 +364,11 @@
 
             const now=new Date();
             const timeStr=`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
-            currentOrderData = { table, discount, note, items, total, tax, finalTotal, timeStr };
+            // method 保留默认值但后续完全不会展示，满足“取消现金显示”需求
+            currentOrderData={table, discount, note, method: 'Cash', items, total, tax, finalTotal, timeStr};
             return true;
         } catch(e){
-            document.getElementById('contentArea').innerHTML=`<div>❌ 订单加载失败: ${e.message}</div>`;
+            document.getElementById('contentArea').innerHTML=`<div>❌ ${e.message}</div>`;
             document.getElementById('backBtn').style.display='block';
             return false;
         }
@@ -556,25 +398,10 @@
         const ok = await loadOrder();
         if(!ok) return;
         loadEmbeddedLogo();
-        const printBtn = document.getElementById('bluetoothBtn');
-        const resetBtnDom = document.getElementById('resetPrinterBtn');
-        if (printBtn) printBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            bluetoothPrint();
-        });
-        if (resetBtnDom) resetBtnDom.addEventListener('click', (e) => {
-            e.preventDefault();
-            resetPrinterMemory();
-        });
-        const savedDevId = localStorage.getItem(STORAGE_KEY);
-        if (savedDevId) {
-            const devName = localStorage.getItem('bbq_last_printer_name') || '蓝牙打印机';
-            document.getElementById('memoryHint').innerHTML = `🖨️ 记忆设备: ${devName} · 下次一键打印无弹窗`;
-        } else {
-            document.getElementById('memoryHint').innerHTML = `💡 首次点击打印，授权后即可永久免选`;
-        }
+        document.getElementById('bluetoothBtn').addEventListener('click', bluetoothPrint);
     }
     
+    function escapeHtml(s){ if(!s)return ''; return s.replace(/[&<>]/g, m=> m==='&'?'&amp;':(m==='<'?'&lt;':'&gt;')); }
     window.onload = init;
 </script>
 </body>
