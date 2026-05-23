@@ -64,7 +64,7 @@
 <body>
 <div class="container">
     <div class="card">
-        <div class="version-tag">版本: v1.2.2 底部完整版</div>
+        <div class="version-tag">版本: v1.3 大字满幅版</div>
         
         <div id="contentArea">📡 加载订单中...</div>
         <button class="btn" id="bluetoothBtn" style="display:none;">🖨️ 闪电图像打印 (高速防乱码)</button>
@@ -102,11 +102,11 @@
         const canvas = document.getElementById('printCanvas');
         const ctx = canvas.getContext('2d');
         
-        // 核心修改：调大基础留白高度到 280，让底部的原价、实收、备注有地方画
-        let rowHeight = 24;
+        // 字号变大后，相应调高每行高度，防止文字上下重叠
+        let rowHeight = 28;
         let padding = 10; 
-        let calculatedHeight = padding * 2 + 280 + (items.length * rowHeight);
-        if (note) calculatedHeight += 30;
+        let calculatedHeight = padding * 2 + 340 + (items.length * rowHeight);
+        if (note) calculatedHeight += 35;
         canvas.height = calculatedHeight;
 
         ctx.fillStyle = '#ffffff';
@@ -116,54 +116,71 @@
 
         let y = padding;
 
-        ctx.font = 'bold 26px "Segoe UI", system-ui, sans-serif';
+        // 放大店铺招牌
+        ctx.font = 'bold 32px "Segoe UI", system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText("夜夜烤烧烤", 192, y);
-        y += 32;
+        y += 40;
 
-        ctx.font = '16px "Segoe UI", system-ui, sans-serif';
-        ctx.fillText("电话: 123-4567-8901", 192, y); y += 20;
-        ctx.fillText("星光美食街8号", 192, y); y += 24;
+        // 放大电话和地址
+        ctx.font = '18px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText("电话: 123-4567-8901", 192, y); y += 24;
+        ctx.fillText("星光美食街8号", 192, y); y += 28;
 
         ctx.textAlign = 'left';
-        ctx.fillText("------------------------------------------------", 10, y); y += 16;
+        ctx.fillText("-------------------------------------------", 4, y); y += 20;
 
+        // 大字展示桌号与基本信息
+        ctx.font = 'bold 22px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText(`桌号：${table}号桌`, 6, y); y += 28;
+        ctx.font = '18px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText(`时间：${timeStr}`, 6, y); y += 24;
+        ctx.fillText(`支付：${method}`, 6, y); y += 24;
+        ctx.fillText("-------------------------------------------", 4, y); y += 24;
+
+        // 表头字号放大，并向两边靠拢（左边距缩到6，右边距撑到378）
         ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
-        ctx.fillText(`桌号：${table}号桌`, 10, y); y += 22;
-        ctx.font = '16px "Segoe UI", system-ui, sans-serif';
-        ctx.fillText(`时间：${timeStr}`, 10, y); y += 20;
-        ctx.fillText(`支付：${method}`, 10, y); y += 20;
-        ctx.fillText("------------------------------------------------", 10, y); y += 20;
+        ctx.textAlign = 'left';
+        ctx.fillText("菜品名称", 6, y);
+        ctx.fillText("数量", 195, y);
+        ctx.textAlign = 'right';
+        ctx.fillText("金额(Ks)", 378, y);
+        y += 28;
 
-        ctx.font = 'bold 16px "Segoe UI", system-ui, sans-serif';
-        ctx.fillText("菜品名称", 10, y);
-        ctx.fillText("数量", 200, y);
-        ctx.fillText("金额(Ks)", 290, y);
-        y += 24;
-
-        ctx.font = '16px "Segoe UI", system-ui, sans-serif';
+        // 菜品列表大字化
+        ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
         for (let it of items) {
-            let name = it.name.length > 10 ? it.name.slice(0, 9) + ".." : it.name;
-            ctx.fillText(name, 10, y);
-            ctx.fillText(it.qty.toString(), 210, y);
-            ctx.fillText(formatNum(it.subtotal), 290, y);
+            let name = it.name.length > 9 ? it.name.slice(0, 8) + ".." : it.name;
+            ctx.textAlign = 'left';
+            ctx.fillText(name, 6, y);
+            ctx.fillText(it.qty.toString(), 205, y);
+            ctx.textAlign = 'right';
+            ctx.fillText(formatNum(it.subtotal), 378, y);
             y += rowHeight;
         }
 
-        ctx.fillText("------------------------------------------------", 10, y); y += 16;
-        ctx.fillText(`原价合计：${formatNum(total)} Ks`, 10, y); y += 20;
-        if (discount > 0) {
-            ctx.fillText(`优惠金额：- ${formatNum(discount)} Ks`, 10, y); y += 20;
-        }
-        ctx.font = 'bold 20px "Segoe UI", system-ui, sans-serif';
-        ctx.fillText(`实收金额：${formatNum(finalTotal)} Ks`, 10, y); y += 26;
+        ctx.textAlign = 'left';
+        ctx.fillText("-------------------------------------------", 4, y); y += 20;
         
-        ctx.font = '16px "Segoe UI", system-ui, sans-serif';
-        if (note) {
-            ctx.fillText(`备注：${note}`, 10, y); y += 22;
+        ctx.font = '18px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText(`原价合计：${formatNum(total)} Ks`, 6, y); y += 24;
+        if (discount > 0) {
+            ctx.fillText(`优惠金额：- ${formatNum(discount)} Ks`, 6, y); y += 24;
         }
-        ctx.fillText("------------------------------------------------", 10, y); y += 16;
+        
+        // 放大实收金额
+        ctx.font = 'bold 24px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText(`实收金额：${formatNum(finalTotal)} Ks`, 6, y); y += 32;
+        
+        ctx.font = '18px "Segoe UI", system-ui, sans-serif';
+        if (note) {
+            ctx.fillText(`备注：${note}`, 6, y); y += 26;
+        }
+        ctx.fillText("-------------------------------------------", 4, y); y += 20;
+        
+        // 放大底部感谢语
         ctx.textAlign = 'center';
+        ctx.font = 'bold 18px "Segoe UI", system-ui, sans-serif';
         ctx.fillText("感谢光临，欢迎下次惠顾！", 192, y);
 
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
