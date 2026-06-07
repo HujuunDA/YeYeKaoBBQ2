@@ -824,7 +824,7 @@
         const now = new Date();
         const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
         const purchasedItems = (globalData.cartData || []).filter(item => item.purchased === true);
-        let text = `📅 日期: ${dateStr}\n📋 采购清单（已勾选项目）\n----------------------\n`;
+        let text = `📅 日期: ${dateStr}\n📋 采购清单\n----------------------\n`;
         let totalCost = 0;
         purchasedItems.forEach(i => {
             const price = parseFloat(i.price) || 0;
