@@ -677,7 +677,7 @@
             row.innerHTML = `
                 <div style="flex:1;" onclick="toggleDone(${idx}, ${!item.purchased})">
                     <input type="checkbox" ${item.purchased ? 'checked' : ''}>
-                    <span style="margin-left:8px; ${item.purchased ? 'text-decoration:line-through;color:#f7ca9c;' : 'color:#ffefcf;'}">${item.name} <span class="qty-unit">(x${qtyDisplay})</span></span>
+                    <span style="margin-left:8px; ${item.purchased ? 'text-decoration:line-through;color:#f7ca9c;' : 'color:#ffefcf;'}">${item.name} <span class="qty-unit">(${qtyDisplay})</span></span>
                 </div>
                 <div class="price-wrapper">
                     <input type="text" class="price-input" inputmode="decimal" placeholder="Ks" value="${item.price ? formatNumber(item.price) : ''}" 
