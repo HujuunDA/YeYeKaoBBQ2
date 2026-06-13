@@ -116,7 +116,7 @@
         }
         .summary {
             display: flex;
-            justify-content: flex-start;
+            justify-content: space-between;
             margin: 12px 0;
             font-size: 14px;
             background: rgba(0,0,0,0.3);
@@ -125,6 +125,29 @@
         }
         .summary span {
             color: #ffcf8e;
+        }
+        .record-block {
+            background: rgba(255, 200, 140, 0.1);
+            border-radius: 24px;
+            padding: 10px;
+            margin-bottom: 12px;
+            border-left: 3px solid #ffaa55;
+        }
+        .record-title {
+            font-size: 12px;
+            color: #ffcf94;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .record-items {
+            padding-left: 12px;
+        }
+        .record-items p {
+            color: #ffebc2;
+            font-size: 13px;
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(255,160,70,0.2);
         }
         .detail-btn {
             background: rgba(255, 140, 50, 0.3);
@@ -144,20 +167,9 @@
         .items-detail {
             display: none;
             margin-top: 12px;
-            background: rgba(0,0,0,0.3);
-            border-radius: 24px;
-            padding: 12px;
-            max-height: 200px;
-            overflow-y: auto;
         }
         .items-detail.show {
             display: block;
-        }
-        .items-detail p {
-            color: #ffebc2;
-            font-size: 13px;
-            padding: 4px 0;
-            border-bottom: 1px solid rgba(255,160,70,0.3);
         }
         .empty-msg {
             text-align: center;
@@ -171,13 +183,14 @@
             padding: 40px;
         }
 
+        /* 编辑模态框样式 */
         .modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.8);
             backdrop-filter: blur(12px);
             display: none;
             justify-content: center;
@@ -188,12 +201,12 @@
             display: flex;
         }
         .modal-content {
-            background: rgba(30, 22, 14, 0.95);
+            background: rgba(30, 22, 14, 0.96);
             backdrop-filter: blur(20px);
             border-radius: 44px;
             width: 95%;
-            max-width: 550px;
-            max-height: 80vh;
+            max-width: 650px;
+            max-height: 85vh;
             overflow-y: auto;
             padding: 20px;
             border: 1px solid #ffac62;
@@ -203,11 +216,66 @@
             margin-bottom: 16px;
             color: #ffb45e;
         }
-        .item-row-editor {
+        .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255,160,70,0.5);
+            padding-bottom: 10px;
+        }
+        .tab-btn {
+            background: rgba(255, 200, 140, 0.2);
+            border: 1px solid rgba(255, 150, 60, 0.6);
+            color: #ffcf94;
+            padding: 6px 16px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .tab-btn.active {
+            background: linear-gradient(100deg, #fa6928, #cf5016);
+            color: white;
+            border-color: #ffcc88;
+        }
+        .tab-pane {
+            display: none;
+        }
+        .tab-pane.active {
+            display: block;
+        }
+        .order-card {
             background: rgba(255,245,230,0.1);
             border-radius: 28px;
             padding: 12px;
+            margin-bottom: 16px;
+        }
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed rgba(255,160,70,0.4);
+        }
+        .order-title {
+            font-weight: bold;
+            color: #ffd8a8;
+        }
+        .remove-order-btn {
+            background: rgba(255,80,50,0.6);
+            border: none;
+            color: white;
+            border-radius: 40px;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .item-row-editor {
+            background: rgba(0,0,0,0.3);
+            border-radius: 24px;
+            padding: 10px;
+            margin-bottom: 10px;
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
@@ -216,7 +284,7 @@
         .item-row-editor input {
             flex: 1;
             min-width: 80px;
-            background: rgba(255,250,235,0.8);
+            background: rgba(255,250,235,0.9);
             border: 1px solid #ffac62;
             padding: 6px 10px;
             border-radius: 28px;
@@ -234,14 +302,15 @@
             padding: 6px 12px;
             cursor: pointer;
         }
-        .add-item-btn {
+        .add-item-btn, .add-order-btn {
             background: rgba(255,140,50,0.5);
             border: none;
             color: white;
             padding: 8px 16px;
             border-radius: 40px;
             cursor: pointer;
-            margin: 8px 0;
+            margin: 8px 8px 0 0;
+            font-size: 13px;
         }
         .save-modal-btn {
             background: linear-gradient(100deg, #fa6928, #cf5016);
@@ -251,7 +320,7 @@
             border-radius: 44px;
             font-weight: bold;
             width: 100%;
-            margin-top: 16px;
+            margin-top: 20px;
             cursor: pointer;
         }
         .close-modal {
@@ -289,8 +358,11 @@
     <div class="modal-content">
         <h3 id="modalTitle">编辑采购记录</h3>
         <input type="date" id="recordDate" class="date-input">
-        <div id="itemsContainer"></div>
-        <button class="add-item-btn" onclick="addItemRow()">+ 添加采购项</button>
+        <div id="tabsContainer" class="tabs"></div>
+        <div id="panesContainer"></div>
+        <div style="margin-top: 12px;">
+            <button class="add-order-btn" onclick="addNewOrder()">+ 添加新采购单</button>
+        </div>
         <button class="save-modal-btn" id="saveModalBtn">保存修改</button>
         <button class="close-modal" onclick="closeModal()">取消</button>
     </div>
@@ -317,8 +389,8 @@
     }
 
     const HISTORY_COLLECTION = "purchase_history";
-    let currentEditGroup = null;
-    let currentItems = [];
+    let currentEditGroup = null;      // { dateStr, orders: [{ id, totalCost, purchasedItems }] }
+    let currentOrders = [];            // 编辑时的订单数组，每个订单包含 { id, purchasedItems, totalCost }
 
     function formatNumber(num) {
         if (num === undefined || num === null || isNaN(num)) return "0";
@@ -328,9 +400,7 @@
     function extractPreferredLanguage(text) {
         if (!text) return '';
         const chineseMatch = text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]+/g);
-        if (chineseMatch) {
-            return chineseMatch.join('');
-        }
+        if (chineseMatch) return chineseMatch.join('');
         return text;
     }
 
@@ -339,8 +409,8 @@
         if (!db) return;
         container.innerHTML = '<div class="loading">加载历史记录中...</div>';
         try {
-            const snapshot = await db.collection(HISTORY_COLLECTION).orderBy('timestamp', 'desc').get();
-            console.log("获取到记录数:", snapshot.size);
+            // 按时间戳升序排列，这样最早的订单显示在前面（采购单1，采购单2...）
+            const snapshot = await db.collection(HISTORY_COLLECTION).orderBy('timestamp', 'asc').get();
             const records = [];
             snapshot.forEach(doc => {
                 const data = doc.data();
@@ -348,7 +418,8 @@
                     id: doc.id,
                     dateStr: data.dateStr || '未知日期',
                     totalCost: data.totalCost || 0,
-                    purchasedItems: data.purchasedItems || []
+                    purchasedItems: data.purchasedItems || [],
+                    timestamp: data.timestamp
                 });
             });
             
@@ -363,17 +434,21 @@
                 if (!groupMap.has(date)) {
                     groupMap.set(date, {
                         dateStr: date,
-                        purchasedItems: [],
-                        totalCost: 0,
-                        recordIds: []
+                        orders: [],
+                        totalCost: 0
                     });
                 }
                 const group = groupMap.get(date);
-                group.purchasedItems.push(...record.purchasedItems);
+                group.orders.push({
+                    id: record.id,
+                    totalCost: record.totalCost,
+                    purchasedItems: record.purchasedItems,
+                    timestamp: record.timestamp
+                });
                 group.totalCost += record.totalCost;
-                group.recordIds.push(record.id);
             }
             const grouped = Array.from(groupMap.values());
+            // 按日期倒序（最新的日期在上方）
             grouped.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
             renderGroupedHistory(grouped);
         } catch (err) {
@@ -392,6 +467,24 @@
         groups.forEach(group => {
             const card = document.createElement('div');
             card.className = 'history-card';
+            let ordersHtml = '';
+            group.orders.forEach((order, idx) => {
+                const itemsHtml = order.purchasedItems.map(item => {
+                    const unitText = item.unit ? ` ${item.unit}` : '';
+                    return `<p>✅ ${item.name} (${item.qty}${unitText}) : ${formatNumber(item.price)} Ks</p>`;
+                }).join('');
+                ordersHtml += `
+                    <div class="record-block">
+                        <div class="record-title">
+                            <span>📋 采购单 ${idx+1}</span>
+                            <span>💰 小计: ${formatNumber(order.totalCost)} Ks</span>
+                        </div>
+                        <div class="record-items">
+                            ${itemsHtml}
+                        </div>
+                    </div>
+                `;
+            });
             card.innerHTML = `
                 <div class="card-header">
                     <div class="date">📅 ${group.dateStr}</div>
@@ -402,14 +495,11 @@
                     </div>
                 </div>
                 <div class="summary">
-                    <span>💰 总支出: ${formatNumber(group.totalCost)} Ks</span>
+                    <span>💰 当日总计: ${formatNumber(group.totalCost)} Ks</span>
                 </div>
-                <button class="detail-btn" data-date="${group.dateStr}">📋 查看详细清单</button>
+                <button class="detail-btn" data-date="${group.dateStr}">📋 展开/收起清单</button>
                 <div class="items-detail" id="detail-${group.dateStr.replace(/-/g, '')}">
-                    ${group.purchasedItems.map(item => {
-                        const unitText = item.unit ? ` ${item.unit}` : '';
-                        return `<p>✅ ${item.name} (x${item.qty}${unitText}) : ${formatNumber(item.price * item.qty)} Ks</p>`;
-                    }).join('')}
+                    ${ordersHtml}
                 </div>
             `;
             container.appendChild(card);
@@ -432,8 +522,7 @@
         document.querySelectorAll('.delete-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const date = btn.getAttribute('data-date');
-                const group = groups.find(g => g.dateStr === date);
-                if (group && confirm(`确定要删除 ${date} 的所有采购记录吗？`)) {
+                if (confirm(`确定要删除 ${date} 的所有采购记录吗？`)) {
                     try {
                         const snapshot = await db.collection(HISTORY_COLLECTION).where("dateStr", "==", date).get();
                         const batch = db.batch();
@@ -453,7 +542,7 @@
                 const detailDiv = document.getElementById(detailId);
                 if (detailDiv) {
                     detailDiv.classList.toggle('show');
-                    btn.textContent = detailDiv.classList.contains('show') ? '🔽 收起清单' : '📋 查看详细清单';
+                    btn.textContent = detailDiv.classList.contains('show') ? '🔽 收起清单' : '📋 展开清单';
                 }
             });
         });
@@ -462,14 +551,16 @@
     function copyGroupToClipboard(group) {
         let text = `📅 日期: ${group.dateStr}\n📋 采购清单\n----------------------\n`;
         let totalCost = 0;
-        group.purchasedItems.forEach(item => {
-            const price = item.price || 0;
-            const qty = item.qty || 1;
-            const cost = price * qty;
-            totalCost += cost;
-            const unitText = item.unit ? ` ${item.unit}` : '';
-            const displayName = extractPreferredLanguage(item.name);
-            text += `✅ ${displayName} (x${qty}${unitText}) : ${formatNumber(cost)} Ks\n`;
+        group.orders.forEach((order, idx) => {
+            text += `\n📌 采购单 ${idx+1}:\n`;
+            order.purchasedItems.forEach(item => {
+                const price = item.price || 0;
+                totalCost += price;
+                const unitText = item.unit ? ` ${item.unit}` : '';
+                const displayName = extractPreferredLanguage(item.name);
+                text += `  ✅ ${displayName} (${item.qty}${unitText}) : ${formatNumber(price)} Ks\n`;
+            });
+            text += `  小计: ${formatNumber(order.totalCost)} Ks\n`;
         });
         text += `----------------------\n💰 总计支出: ${formatNumber(totalCost)} Ks`;
         navigator.clipboard.writeText(text).then(() => {
@@ -481,15 +572,23 @@
 
     async function openEditGroupModal(group) {
         currentEditGroup = group;
-        document.getElementById('modalTitle').innerText = '编辑采购记录（合并当天所有）';
+        document.getElementById('modalTitle').innerText = '编辑采购记录 (分单编辑)';
         document.getElementById('recordDate').value = group.dateStr;
-        currentItems = group.purchasedItems.map(item => ({
-            name: item.name,
-            qty: item.qty,
-            price: item.price,
-            unit: item.unit || ''
-        }));
-        renderItemsEditor();
+        // 深拷贝 orders，保留 id
+        currentOrders = [];
+        for (let order of group.orders) {
+            currentOrders.push({
+                id: order.id,
+                totalCost: order.totalCost,
+                purchasedItems: order.purchasedItems.map(item => ({
+                    name: item.name,
+                    qty: item.qty,
+                    price: item.price,
+                    unit: item.unit || ''
+                }))
+            });
+        }
+        renderEditModalTabs();
         document.getElementById('editorModal').classList.add('open');
     }
 
@@ -498,96 +597,225 @@
         document.getElementById('modalTitle').innerText = '添加采购记录';
         const today = new Date().toISOString().slice(0,10);
         document.getElementById('recordDate').value = today;
-        currentItems = [];
-        renderItemsEditor();
+        currentOrders = [{
+            id: null,
+            purchasedItems: [],
+            totalCost: 0
+        }];
+        renderEditModalTabs();
         document.getElementById('editorModal').classList.add('open');
     }
 
-    function renderItemsEditor() {
-        const container = document.getElementById('itemsContainer');
-        if (!container) return;
-        container.innerHTML = '';
-        if (currentItems.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:#ffcf94;">暂无采购项，点击下方按钮添加</p>';
+    function renderEditModalTabs() {
+        const tabsContainer = document.getElementById('tabsContainer');
+        const panesContainer = document.getElementById('panesContainer');
+        if (!tabsContainer || !panesContainer) return;
+        tabsContainer.innerHTML = '';
+        panesContainer.innerHTML = '';
+        
+        if (currentOrders.length === 0) {
+            panesContainer.innerHTML = '<p style="text-align:center; color:#ffcf94;">暂无采购单，点击下方添加</p>';
+            return;
         }
-        currentItems.forEach((item, idx) => {
+        
+        currentOrders.forEach((order, idx) => {
+            const tabBtn = document.createElement('button');
+            tabBtn.className = 'tab-btn';
+            if (idx === 0) tabBtn.classList.add('active');
+            tabBtn.innerText = `采购单 ${idx+1}`;
+            tabBtn.setAttribute('data-order-idx', idx);
+            tabBtn.addEventListener('click', () => switchTab(idx));
+            tabsContainer.appendChild(tabBtn);
+            
+            const pane = document.createElement('div');
+            pane.className = 'tab-pane';
+            if (idx === 0) pane.classList.add('active');
+            pane.setAttribute('data-pane-idx', idx);
+            pane.innerHTML = `
+                <div class="order-card">
+                    <div class="order-header">
+                        <span class="order-title">📋 采购单 ${idx+1}</span>
+                        <button class="remove-order-btn" data-order-idx="${idx}">删除此单</button>
+                    </div>
+                    <div id="items-list-${idx}"></div>
+                    <button class="add-item-btn" data-order-idx="${idx}">+ 添加采购项</button>
+                </div>
+            `;
+            panesContainer.appendChild(pane);
+        });
+        
+        currentOrders.forEach((_, idx) => renderOrderItems(idx));
+        
+        document.querySelectorAll('.remove-order-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const orderIdx = parseInt(btn.getAttribute('data-order-idx'));
+                if (currentOrders.length === 1) {
+                    alert('至少保留一个采购单');
+                    return;
+                }
+                if (confirm('确定删除这个采购单吗？')) {
+                    currentOrders.splice(orderIdx, 1);
+                    renderEditModalTabs();
+                }
+            });
+        });
+        
+        document.querySelectorAll('.add-item-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const orderIdx = parseInt(btn.getAttribute('data-order-idx'));
+                currentOrders[orderIdx].purchasedItems.push({ name: '新商品', qty: 1, price: 0, unit: '' });
+                renderOrderItems(orderIdx);
+                bindRemoveItemEvents(orderIdx);
+            });
+        });
+    }
+    
+    function renderOrderItems(orderIdx) {
+        const container = document.getElementById(`items-list-${orderIdx}`);
+        if (!container) return;
+        const order = currentOrders[orderIdx];
+        container.innerHTML = '';
+        order.purchasedItems.forEach((item, itemIdx) => {
             const row = document.createElement('div');
             row.className = 'item-row-editor';
             row.innerHTML = `
-                <input type="text" placeholder="品名" value="${escapeHtml(item.name)}" data-index="${idx}" data-field="name" style="flex:2;">
-                <input type="number" placeholder="数量" value="${item.qty}" data-index="${idx}" data-field="qty" style="width:90px;">
-                <input type="text" placeholder="单位 (箱/斤)" value="${escapeHtml(item.unit)}" data-index="${idx}" data-field="unit" style="width:100px;">
-                <input type="number" placeholder="单价(Ks)" value="${item.price}" data-index="${idx}" data-field="price" style="width:110px;">
-                <button class="remove-item-btn" data-index="${idx}">删除</button>
+                <input type="text" placeholder="品名" value="${escapeHtml(item.name)}" data-order="${orderIdx}" data-item="${itemIdx}" data-field="name" style="flex:2;">
+                <input type="number" placeholder="数量" value="${item.qty}" data-order="${orderIdx}" data-item="${itemIdx}" data-field="qty" style="width:90px;">
+                <input type="text" placeholder="单位" value="${escapeHtml(item.unit)}" data-order="${orderIdx}" data-item="${itemIdx}" data-field="unit" style="width:100px;">
+                <input type="number" placeholder="单价(Ks)" value="${item.price}" data-order="${orderIdx}" data-item="${itemIdx}" data-field="price" style="width:110px;">
+                <button class="remove-item-btn" data-order="${orderIdx}" data-item="${itemIdx}">删除</button>
             `;
             container.appendChild(row);
         });
-
-        document.querySelectorAll('#itemsContainer input').forEach(input => {
+        
+        container.querySelectorAll('input').forEach(input => {
             input.addEventListener('change', (e) => {
-                const idx = parseInt(input.getAttribute('data-index'));
+                const oIdx = parseInt(input.getAttribute('data-order'));
+                const iIdx = parseInt(input.getAttribute('data-item'));
                 const field = input.getAttribute('data-field');
-                if (field === 'name') currentItems[idx].name = input.value;
-                else if (field === 'qty') currentItems[idx].qty = parseInt(input.value) || 0;
-                else if (field === 'unit') currentItems[idx].unit = input.value;
-                else if (field === 'price') currentItems[idx].price = parseFloat(input.value) || 0;
+                if (field === 'name') currentOrders[oIdx].purchasedItems[iIdx].name = input.value;
+                else if (field === 'qty') currentOrders[oIdx].purchasedItems[iIdx].qty = parseInt(input.value) || 0;
+                else if (field === 'unit') currentOrders[oIdx].purchasedItems[iIdx].unit = input.value;
+                else if (field === 'price') currentOrders[oIdx].purchasedItems[iIdx].price = parseFloat(input.value) || 0;
+                updateOrderTotal(oIdx);
             });
         });
-        document.querySelectorAll('#itemsContainer .remove-item-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const idx = parseInt(btn.getAttribute('data-index'));
-                currentItems.splice(idx, 1);
-                renderItemsEditor();
-            });
+        
+        bindRemoveItemEvents(orderIdx);
+    }
+    
+    function bindRemoveItemEvents(orderIdx) {
+        const container = document.getElementById(`items-list-${orderIdx}`);
+        if (!container) return;
+        container.querySelectorAll('.remove-item-btn').forEach(btn => {
+            btn.removeEventListener('click', handleRemoveItem);
+            btn.addEventListener('click', handleRemoveItem);
         });
     }
-
-    function addItemRow() {
-        currentItems.push({ name: '新商品', qty: 1, price: 0, unit: '' });
-        renderItemsEditor();
+    
+    function handleRemoveItem(e) {
+        const oIdx = parseInt(e.currentTarget.getAttribute('data-order'));
+        const iIdx = parseInt(e.currentTarget.getAttribute('data-item'));
+        currentOrders[oIdx].purchasedItems.splice(iIdx, 1);
+        renderOrderItems(oIdx);
     }
-
-    // 修复后的保存函数：按日期彻底删除原记录，再新增
+    
+    function updateOrderTotal(orderIdx) {
+        const total = currentOrders[orderIdx].purchasedItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        currentOrders[orderIdx].totalCost = total;
+    }
+    
+    function switchTab(idx) {
+        document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+            if (i === idx) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+        document.querySelectorAll('.tab-pane').forEach((pane, i) => {
+            if (i === idx) pane.classList.add('active');
+            else pane.classList.remove('active');
+        });
+    }
+    
+    function addNewOrder() {
+        currentOrders.push({
+            id: null,
+            purchasedItems: [],
+            totalCost: 0
+        });
+        renderEditModalTabs();
+        switchTab(currentOrders.length - 1);
+    }
+    
+    // 核心保存逻辑：更新已有订单（保留 id），新增订单则添加，删除订单则删除对应的文档
     async function saveModalChanges() {
         const dateStr = document.getElementById('recordDate').value;
         if (!dateStr) {
             alert('请选择日期');
             return;
         }
-        const validItems = currentItems.filter(item => item.name.trim() !== '' && item.qty > 0);
-        if (validItems.length === 0) {
+        // 过滤有效订单
+        const validOrders = [];
+        for (let order of currentOrders) {
+            const validItems = order.purchasedItems.filter(item => item.name.trim() !== '' && item.qty > 0);
+            if (validItems.length === 0) continue;
+            const totalCost = validItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            validOrders.push({
+                id: order.id,
+                totalCost: totalCost,
+                purchasedItems: validItems
+            });
+        }
+        if (validOrders.length === 0) {
             alert('请至少添加一个有效的采购项');
             return;
         }
-        const totalCost = validItems.reduce((sum, item) => sum + (item.qty * item.price), 0);
-        const recordData = {
-            dateStr: dateStr,
-            totalCost: totalCost,
-            purchasedItems: validItems,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        };
+        
         try {
             if (currentEditGroup) {
-                // 获取原日期
                 const originalDate = currentEditGroup.dateStr;
-                // 删除原日期下的所有记录（不管是否在分组中，彻底删除）
-                const originalSnapshot = await db.collection(HISTORY_COLLECTION).where("dateStr", "==", originalDate).get();
-                const batch = db.batch();
-                originalSnapshot.forEach(doc => batch.delete(doc.ref));
-                await batch.commit();
+                // 获取原日期下的所有现有订单 ID
+                const existingIds = new Set(currentEditGroup.orders.map(o => o.id));
+                const newIds = new Set(validOrders.filter(o => o.id).map(o => o.id));
                 
-                // 如果新日期与原日期不同，还需删除新日期下的所有记录（否则会与新增的记录重复合并）
-                if (originalDate !== dateStr) {
-                    const newSnapshot = await db.collection(HISTORY_COLLECTION).where("dateStr", "==", dateStr).get();
-                    const newBatch = db.batch();
-                    newSnapshot.forEach(doc => newBatch.delete(doc.ref));
-                    await newBatch.commit();
+                // 1. 处理需要删除的订单（存在于原有但不在新数组中）
+                const toDelete = [...existingIds].filter(id => !newIds.has(id));
+                const batchDelete = db.batch();
+                for (let id of toDelete) {
+                    const ref = db.collection(HISTORY_COLLECTION).doc(id);
+                    batchDelete.delete(ref);
                 }
-                // 添加新记录
-                await db.collection(HISTORY_COLLECTION).add(recordData);
+                if (toDelete.length > 0) await batchDelete.commit();
+                
+                // 2. 处理需要更新或新增的订单
+                for (let order of validOrders) {
+                    const recordData = {
+                        dateStr: dateStr,
+                        totalCost: order.totalCost,
+                        purchasedItems: order.purchasedItems,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    if (order.id) {
+                        // 更新现有订单（保留原 ID，更新内容）
+                        await db.collection(HISTORY_COLLECTION).doc(order.id).update(recordData);
+                    } else {
+                        // 新增订单
+                        await db.collection(HISTORY_COLLECTION).add(recordData);
+                    }
+                }
+                
+                // 如果日期发生了变化，还需要处理原日期下没有被删除的订单的日期更新（上面的更新已经改了日期）
+                // 注意：上面的更新已经将每个订单的 dateStr 改为了新日期，所以原日期下可能残留空记录？但我们删除了 toDelete 的，其他都更新了日期，所以原日期下不再有记录。
             } else {
-                // 新增记录：直接添加（不删除任何现有记录，符合预期）
-                await db.collection(HISTORY_COLLECTION).add(recordData);
+                // 新增记录：直接添加新订单
+                for (let order of validOrders) {
+                    const recordData = {
+                        dateStr: dateStr,
+                        totalCost: order.totalCost,
+                        purchasedItems: order.purchasedItems,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    await db.collection(HISTORY_COLLECTION).add(recordData);
+                }
             }
             closeModal();
             loadAndGroupHistory();
@@ -600,7 +828,7 @@
     function closeModal() {
         document.getElementById('editorModal').classList.remove('open');
         currentEditGroup = null;
-        currentItems = [];
+        currentOrders = [];
     }
 
     function escapeHtml(str) {
