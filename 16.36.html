@@ -800,9 +800,21 @@
         sync();
     }
     
+    // 修复：当选品库数量变化时，同步更新采购单中相同名称的商品数量
     function changeQty(cat, idx, delta) { 
-        globalData.productTemplate[cat][idx].qty = Math.max(1, globalData.productTemplate[cat][idx].qty + delta); 
+        const item = globalData.productTemplate[cat][idx];
+        const newQty = Math.max(1, item.qty + delta);
+        item.qty = newQty;
+        
+        // 同步采购单中同名商品的数量
+        const cartItem = globalData.cartData.find(i => i.name === item.name);
+        if (cartItem) {
+            cartItem.qty = newQty;
+        }
+        
         sync();
+        // 刷新采购单显示（因为数量变化可能影响已勾选的项目显示）
+        refreshCartDisplay();
     }
     
     function toggleDone(idx, checked) { 
@@ -821,9 +833,13 @@
     
     function deleteItem(cat, idx) {
         if(confirm("确定删除这个商品模板吗？")) {
+            const deletedName = globalData.productTemplate[cat][idx].name;
             globalData.productTemplate[cat].splice(idx, 1);
             if(globalData.productTemplate[cat].length === 0) delete globalData.productTemplate[cat];
+            // 如果该商品已经在采购单中，也一并删除
+            globalData.cartData = globalData.cartData.filter(i => i.name !== deletedName);
             sync();
+            refreshCartDisplay();
         }
     }
 
