@@ -325,15 +325,12 @@
         return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 
-    // 辅助函数：从混合文本中提取优先语言（中文 > 缅文/其他）
     function extractPreferredLanguage(text) {
         if (!text) return '';
-        // 匹配中文字符（基本汉字区）
         const chineseMatch = text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]+/g);
         if (chineseMatch) {
             return chineseMatch.join('');
         }
-        // 没有中文，保留原文本（缅文或英文等）
         return text;
     }
 
@@ -438,11 +435,9 @@
                 const group = groups.find(g => g.dateStr === date);
                 if (group && confirm(`确定要删除 ${date} 的所有采购记录吗？`)) {
                     try {
+                        const snapshot = await db.collection(HISTORY_COLLECTION).where("dateStr", "==", date).get();
                         const batch = db.batch();
-                        group.recordIds.forEach(id => {
-                            const ref = db.collection(HISTORY_COLLECTION).doc(id);
-                            batch.delete(ref);
-                        });
+                        snapshot.forEach(doc => batch.delete(doc.ref));
                         await batch.commit();
                         loadAndGroupHistory();
                     } catch (err) {
@@ -464,7 +459,6 @@
         });
     }
 
-    // 修改后的复制函数，支持语言筛选
     function copyGroupToClipboard(group) {
         let text = `📅 日期: ${group.dateStr}\n📋 采购清单\n----------------------\n`;
         let totalCost = 0;
@@ -553,6 +547,7 @@
         renderItemsEditor();
     }
 
+    // 修复后的保存函数：按日期彻底删除原记录，再新增
     async function saveModalChanges() {
         const dateStr = document.getElementById('recordDate').value;
         if (!dateStr) {
@@ -573,19 +568,31 @@
         };
         try {
             if (currentEditGroup) {
+                // 获取原日期
+                const originalDate = currentEditGroup.dateStr;
+                // 删除原日期下的所有记录（不管是否在分组中，彻底删除）
+                const originalSnapshot = await db.collection(HISTORY_COLLECTION).where("dateStr", "==", originalDate).get();
                 const batch = db.batch();
-                currentEditGroup.recordIds.forEach(id => {
-                    const ref = db.collection(HISTORY_COLLECTION).doc(id);
-                    batch.delete(ref);
-                });
+                originalSnapshot.forEach(doc => batch.delete(doc.ref));
                 await batch.commit();
+                
+                // 如果新日期与原日期不同，还需删除新日期下的所有记录（否则会与新增的记录重复合并）
+                if (originalDate !== dateStr) {
+                    const newSnapshot = await db.collection(HISTORY_COLLECTION).where("dateStr", "==", dateStr).get();
+                    const newBatch = db.batch();
+                    newSnapshot.forEach(doc => newBatch.delete(doc.ref));
+                    await newBatch.commit();
+                }
+                // 添加新记录
                 await db.collection(HISTORY_COLLECTION).add(recordData);
             } else {
+                // 新增记录：直接添加（不删除任何现有记录，符合预期）
                 await db.collection(HISTORY_COLLECTION).add(recordData);
             }
             closeModal();
             loadAndGroupHistory();
         } catch (err) {
+            console.error("保存失败", err);
             alert('保存失败：' + err.message);
         }
     }
