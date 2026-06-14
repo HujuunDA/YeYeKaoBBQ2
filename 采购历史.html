@@ -262,6 +262,14 @@
             font-weight: bold;
             color: #ffd8a8;
         }
+        .order-total-display {
+            background: rgba(255,140,50,0.25);
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #ffddb0;
+        }
         .remove-order-btn {
             background: rgba(255,80,50,0.6);
             border: none;
@@ -404,21 +412,29 @@
         return text;
     }
 
+    // 新逻辑：计算订单总价 = 所有商品单价之和 (数量不再参与乘法)
+    function calculateOrderTotalFromItems(items) {
+        if (!items || !items.length) return 0;
+        return items.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+    }
+
     async function loadAndGroupHistory() {
         const container = document.getElementById('historyList');
         if (!db) return;
         container.innerHTML = '<div class="loading">加载历史记录中...</div>';
         try {
-            // 按时间戳升序排列，这样最早的订单显示在前面（采购单1，采购单2...）
             const snapshot = await db.collection(HISTORY_COLLECTION).orderBy('timestamp', 'asc').get();
             const records = [];
             snapshot.forEach(doc => {
                 const data = doc.data();
+                const items = data.purchasedItems || [];
+                // 关键: 重新计算正确的总价（单价之和，不受数量影响） 保证新旧数据均按新规则显示
+                const correctTotal = calculateOrderTotalFromItems(items);
                 records.push({
                     id: doc.id,
                     dateStr: data.dateStr || '未知日期',
-                    totalCost: data.totalCost || 0,
-                    purchasedItems: data.purchasedItems || [],
+                    totalCost: correctTotal,       // 使用新规则总价
+                    purchasedItems: items,
                     timestamp: data.timestamp
                 });
             });
@@ -448,7 +464,6 @@
                 group.totalCost += record.totalCost;
             }
             const grouped = Array.from(groupMap.values());
-            // 按日期倒序（最新的日期在上方）
             grouped.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
             renderGroupedHistory(grouped);
         } catch (err) {
@@ -469,8 +484,10 @@
             card.className = 'history-card';
             let ordersHtml = '';
             group.orders.forEach((order, idx) => {
+                // 显示采购项：只展示数量（原样展示）和单价，金额仅单价部分
                 const itemsHtml = order.purchasedItems.map(item => {
                     const unitText = item.unit ? ` ${item.unit}` : '';
+                    // 数量原样展示，金额只显示单价（不再乘法）
                     return `<p>✅ ${item.name} (${item.qty}${unitText}) : ${formatNumber(item.price)} Ks</p>`;
                 }).join('');
                 ordersHtml += `
@@ -548,23 +565,24 @@
         });
     }
 
+    // 复制时也采用新逻辑：只累计单价
     function copyGroupToClipboard(group) {
-        let text = `📅 日期: ${group.dateStr}\n📋 采购清单\n----------------------\n`;
-        let totalCost = 0;
+        let text = `📅 日期: ${group.dateStr}\n📋 采购清单 (总价基于单价合计，数量仅作记录)\n----------------------\n`;
+        let groupTotal = 0;
         group.orders.forEach((order, idx) => {
+            const orderTotal = order.totalCost;
+            groupTotal += orderTotal;
             text += `\n📌 采购单 ${idx+1}:\n`;
             order.purchasedItems.forEach(item => {
-                const price = item.price || 0;
-                totalCost += price;
                 const unitText = item.unit ? ` ${item.unit}` : '';
                 const displayName = extractPreferredLanguage(item.name);
-                text += `  ✅ ${displayName} (${item.qty}${unitText}) : ${formatNumber(price)} Ks\n`;
+                text += `  ✅ ${displayName} (数量:${item.qty}${unitText}) 单价: ${formatNumber(item.price)} Ks\n`;
             });
-            text += `  小计: ${formatNumber(order.totalCost)} Ks\n`;
+            text += `  小计(单价合计): ${formatNumber(orderTotal)} Ks\n`;
         });
-        text += `----------------------\n💰 总计支出: ${formatNumber(totalCost)} Ks`;
+        text += `----------------------\n💰 总计支出: ${formatNumber(groupTotal)} Ks`;
         navigator.clipboard.writeText(text).then(() => {
-            alert("已复制该日期的采购清单！");
+            alert("已复制该日期的采购清单（总价基于单价累计）！");
         }).catch(() => {
             alert("复制失败，可手动复制");
         });
@@ -574,18 +592,20 @@
         currentEditGroup = group;
         document.getElementById('modalTitle').innerText = '编辑采购记录 (分单编辑)';
         document.getElementById('recordDate').value = group.dateStr;
-        // 深拷贝 orders，保留 id
+        // 深拷贝 orders，同时重新计算 totalCost (基于单价之和)
         currentOrders = [];
         for (let order of group.orders) {
+            const itemsCopy = order.purchasedItems.map(item => ({
+                name: item.name,
+                qty: item.qty,
+                price: item.price,
+                unit: item.unit || ''
+            }));
+            const correctTotal = calculateOrderTotalFromItems(itemsCopy);
             currentOrders.push({
                 id: order.id,
-                totalCost: order.totalCost,
-                purchasedItems: order.purchasedItems.map(item => ({
-                    name: item.name,
-                    qty: item.qty,
-                    price: item.price,
-                    unit: item.unit || ''
-                }))
+                totalCost: correctTotal,
+                purchasedItems: itemsCopy
             });
         }
         renderEditModalTabs();
@@ -604,6 +624,17 @@
         }];
         renderEditModalTabs();
         document.getElementById('editorModal').classList.add('open');
+    }
+
+    // 更新某个订单的总价（基于单价之和）
+    function updateOrderTotal(orderIdx) {
+        const total = calculateOrderTotalFromItems(currentOrders[orderIdx].purchasedItems);
+        currentOrders[orderIdx].totalCost = total;
+        // 刷新界面上的小计显示
+        const totalSpan = document.querySelector(`.order-total-display[data-order-idx='${orderIdx}']`);
+        if (totalSpan) {
+            totalSpan.innerText = `💰 小计: ${formatNumber(total)} Ks`;
+        }
     }
 
     function renderEditModalTabs() {
@@ -635,7 +666,10 @@
                 <div class="order-card">
                     <div class="order-header">
                         <span class="order-title">📋 采购单 ${idx+1}</span>
-                        <button class="remove-order-btn" data-order-idx="${idx}">删除此单</button>
+                        <div style="display: flex; gap: 8px; align-items:center;">
+                            <span class="order-total-display" data-order-idx="${idx}">💰 小计: ${formatNumber(order.totalCost)} Ks</span>
+                            <button class="remove-order-btn" data-order-idx="${idx}">删除此单</button>
+                        </div>
                     </div>
                     <div id="items-list-${idx}"></div>
                     <button class="add-item-btn" data-order-idx="${idx}">+ 添加采购项</button>
@@ -665,6 +699,7 @@
                 const orderIdx = parseInt(btn.getAttribute('data-order-idx'));
                 currentOrders[orderIdx].purchasedItems.push({ name: '新商品', qty: 1, price: 0, unit: '' });
                 renderOrderItems(orderIdx);
+                updateOrderTotal(orderIdx);
                 bindRemoveItemEvents(orderIdx);
             });
         });
@@ -694,9 +729,11 @@
                 const iIdx = parseInt(input.getAttribute('data-item'));
                 const field = input.getAttribute('data-field');
                 if (field === 'name') currentOrders[oIdx].purchasedItems[iIdx].name = input.value;
-                else if (field === 'qty') currentOrders[oIdx].purchasedItems[iIdx].qty = parseInt(input.value) || 0;
+                else if (field === 'qty') currentOrders[oIdx].purchasedItems[iIdx].qty = parseFloat(input.value) || 0;
                 else if (field === 'unit') currentOrders[oIdx].purchasedItems[iIdx].unit = input.value;
-                else if (field === 'price') currentOrders[oIdx].purchasedItems[iIdx].price = parseFloat(input.value) || 0;
+                else if (field === 'price') {
+                    currentOrders[oIdx].purchasedItems[iIdx].price = parseFloat(input.value) || 0;
+                }
                 updateOrderTotal(oIdx);
             });
         });
@@ -718,11 +755,7 @@
         const iIdx = parseInt(e.currentTarget.getAttribute('data-item'));
         currentOrders[oIdx].purchasedItems.splice(iIdx, 1);
         renderOrderItems(oIdx);
-    }
-    
-    function updateOrderTotal(orderIdx) {
-        const total = currentOrders[orderIdx].purchasedItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        currentOrders[orderIdx].totalCost = total;
+        updateOrderTotal(oIdx);
     }
     
     function switchTab(idx) {
@@ -746,19 +779,20 @@
         switchTab(currentOrders.length - 1);
     }
     
-    // 核心保存逻辑：更新已有订单（保留 id），新增订单则添加，删除订单则删除对应的文档
+    // 保存逻辑: 基于新规则 (总价=单价和)
     async function saveModalChanges() {
         const dateStr = document.getElementById('recordDate').value;
         if (!dateStr) {
             alert('请选择日期');
             return;
         }
-        // 过滤有效订单
+        // 过滤有效订单（至少有一个有效商品：名称非空）
         const validOrders = [];
         for (let order of currentOrders) {
-            const validItems = order.purchasedItems.filter(item => item.name.trim() !== '' && item.qty > 0);
+            const validItems = order.purchasedItems.filter(item => item.name && item.name.trim() !== '');
             if (validItems.length === 0) continue;
-            const totalCost = validItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            // 重新计算总价（单价之和）
+            const totalCost = calculateOrderTotalFromItems(validItems);
             validOrders.push({
                 id: order.id,
                 totalCost: totalCost,
@@ -766,18 +800,17 @@
             });
         }
         if (validOrders.length === 0) {
-            alert('请至少添加一个有效的采购项');
+            alert('请至少添加一个有效的采购项（品名不能为空）');
             return;
         }
         
         try {
             if (currentEditGroup) {
                 const originalDate = currentEditGroup.dateStr;
-                // 获取原日期下的所有现有订单 ID
                 const existingIds = new Set(currentEditGroup.orders.map(o => o.id));
                 const newIds = new Set(validOrders.filter(o => o.id).map(o => o.id));
                 
-                // 1. 处理需要删除的订单（存在于原有但不在新数组中）
+                // 删除原有但不存在的订单
                 const toDelete = [...existingIds].filter(id => !newIds.has(id));
                 const batchDelete = db.batch();
                 for (let id of toDelete) {
@@ -786,27 +819,21 @@
                 }
                 if (toDelete.length > 0) await batchDelete.commit();
                 
-                // 2. 处理需要更新或新增的订单
+                // 更新或新增订单
                 for (let order of validOrders) {
                     const recordData = {
                         dateStr: dateStr,
-                        totalCost: order.totalCost,
+                        totalCost: order.totalCost,    // 新规则总价
                         purchasedItems: order.purchasedItems,
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     };
                     if (order.id) {
-                        // 更新现有订单（保留原 ID，更新内容）
                         await db.collection(HISTORY_COLLECTION).doc(order.id).update(recordData);
                     } else {
-                        // 新增订单
                         await db.collection(HISTORY_COLLECTION).add(recordData);
                     }
                 }
-                
-                // 如果日期发生了变化，还需要处理原日期下没有被删除的订单的日期更新（上面的更新已经改了日期）
-                // 注意：上面的更新已经将每个订单的 dateStr 改为了新日期，所以原日期下可能残留空记录？但我们删除了 toDelete 的，其他都更新了日期，所以原日期下不再有记录。
             } else {
-                // 新增记录：直接添加新订单
                 for (let order of validOrders) {
                     const recordData = {
                         dateStr: dateStr,
