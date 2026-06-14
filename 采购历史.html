@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>采购历史 - 记录管理</title>
+    <title>采购历史、</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -29,6 +30,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
+            flex-wrap: wrap;
         }
         .back-btn {
             background: rgba(255, 200, 140, 0.2);
@@ -62,8 +64,144 @@
             font-weight: bold;
             cursor: pointer;
         }
+        /* 两行筛选栏 - 手机优化版 */
+        .filter-bar {
+            padding: 10px 12px;
+            background: rgba(20, 15, 10, 0.6);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 170, 80, 0.4);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .quick-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .quick-btn {
+            background: rgba(255,200,140,0.15);
+            border: 1px solid rgba(255,170,80,0.6);
+            border-radius: 28px;
+            padding: 5px 14px;
+            color: #ffefcf;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .custom-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .date-box {
+            background: rgba(0,0,0,0.4);
+            border-radius: 32px;
+            padding: 3px 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .date-box input {
+            background: #3d3327;
+            border: 1px solid #ffac62;
+            padding: 5px 8px;
+            border-radius: 24px;
+            color: #ffefcf;
+            font-size: 12px;
+            width: 120px;
+        }
+        .date-sep {
+            color: #ffcf94;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 0 2px;
+        }
+        .custom-btn {
+            background: #fa6928;
+            border: none;
+            padding: 5px 14px;
+            border-radius: 28px;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        /* 手机小屏幕进一步缩小 */
+        @media (max-width: 550px) {
+            .date-box input {
+                width: 95px;
+                font-size: 11px;
+                padding: 4px 6px;
+            }
+            .custom-btn {
+                padding: 5px 12px;
+                font-size: 12px;
+            }
+            .quick-btn {
+                padding: 4px 12px;
+                font-size: 12px;
+            }
+        }
+        /* 其余原有样式 */
+        .dashboard {
+            padding: 20px 16px 0 16px;
+        }
+        .stats-cards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: rgba(255,245,230,0.15);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,170,80,0.5);
+            border-radius: 32px;
+            padding: 16px 24px;
+            flex: 1;
+            min-width: 140px;
+            text-align: center;
+        }
+        .stat-card .label {
+            font-size: 14px;
+            color: #ffcf94;
+            letter-spacing: 1px;
+        }
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ffd8a8;
+            margin-top: 8px;
+        }
+        .charts-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .chart-box {
+            flex: 1;
+            min-width: 280px;
+            background: rgba(30,22,14,0.5);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,170,80,0.5);
+            border-radius: 32px;
+            padding: 16px;
+        }
+        .chart-box h4 {
+            color: #ffb45e;
+            margin-bottom: 12px;
+            font-size: 18px;
+            text-align: center;
+        }
+        canvas {
+            max-height: 280px;
+            width: 100%;
+        }
         .history-list {
-            padding: 20px 16px;
+            padding: 0 16px 20px 16px;
             display: flex;
             flex-direction: column;
             gap: 20px;
@@ -110,13 +248,7 @@
             cursor: pointer;
             transition: 0.2s;
         }
-        .edit-btn:hover, .delete-btn:hover, .copy-btn:hover {
-            background: rgba(255, 140, 50, 0.45);
-            border-color: #ffaa66;
-        }
         .summary {
-            display: flex;
-            justify-content: space-between;
             margin: 12px 0;
             font-size: 14px;
             background: rgba(0,0,0,0.3);
@@ -159,10 +291,6 @@
             cursor: pointer;
             width: 100%;
             margin-top: 8px;
-            transition: 0.2s;
-        }
-        .detail-btn:hover {
-            background: rgba(255, 140, 50, 0.6);
         }
         .items-detail {
             display: none;
@@ -171,19 +299,12 @@
         .items-detail.show {
             display: block;
         }
-        .empty-msg {
+        .empty-msg, .loading {
             text-align: center;
             color: #ffcf94;
             padding: 40px;
             font-size: 16px;
         }
-        .loading {
-            text-align: center;
-            color: #ffcf94;
-            padding: 40px;
-        }
-
-        /* 编辑模态框样式 */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -236,7 +357,6 @@
         .tab-btn.active {
             background: linear-gradient(100deg, #fa6928, #cf5016);
             color: white;
-            border-color: #ffcc88;
         }
         .tab-pane {
             display: none;
@@ -355,13 +475,49 @@
 <body>
 <div class="header-bar">
     <a href="16.36.html" class="back-btn">←</a>
-    <div class="header-title">📜 采购历史</div>
+    <div class="header-title">📜 采购历史 </div>
     <button class="add-record-btn" onclick="openAddModal()">+ 添加记录</button>
 </div>
+
+<!-- 两行筛选栏 -->
+<div class="filter-bar">
+    <div class="quick-row">
+        <button class="quick-btn" id="todayBtn">今日</button>
+        <button class="quick-btn" id="last30DaysBtn">近30天</button>
+        <button class="quick-btn" id="thisMonthBtn">本月</button>
+        <button class="quick-btn" id="lastMonthBtn">上月</button>
+    </div>
+    <div class="custom-row">
+        <div class="date-box">
+            <input type="date" id="startDate" placeholder="开始日期">
+        </div>
+        <span class="date-sep">—</span>
+        <div class="date-box">
+            <input type="date" id="endDate" placeholder="结束日期">
+        </div>
+        <button class="custom-btn" id="customBtn">自定义</button>
+    </div>
+</div>
+
+<div class="dashboard" id="dashboardArea" style="display: none;">
+    <div class="stats-cards" id="statsCards"></div>
+    <div class="charts-row">
+        <div class="chart-box">
+            <h4>📈 每日支出趋势 (Ks)</h4>
+            <canvas id="trendChart" width="400" height="250"></canvas>
+        </div>
+        <div class="chart-box">
+            <h4>商品支出排行</h4>
+            <canvas id="itemsChart" width="400" height="250"></canvas>
+        </div>
+    </div>
+</div>
+
 <div class="history-list" id="historyList">
     <div class="loading">加载历史记录中...</div>
 </div>
 
+<!-- 编辑模态框 -->
 <div id="editorModal" class="modal-overlay">
     <div class="modal-content">
         <h3 id="modalTitle">编辑采购记录</h3>
@@ -397,8 +553,12 @@
     }
 
     const HISTORY_COLLECTION = "purchase_history";
-    let currentEditGroup = null;      // { dateStr, orders: [{ id, totalCost, purchasedItems }] }
-    let currentOrders = [];            // 编辑时的订单数组，每个订单包含 { id, purchasedItems, totalCost }
+    let currentEditGroup = null;
+    let currentOrders = [];
+    let trendChart = null;
+    let itemsChart = null;
+    let allRecords = [];
+    let currentFilteredGroups = [];
 
     function formatNumber(num) {
         if (num === undefined || num === null || isNaN(num)) return "0";
@@ -412,66 +572,132 @@
         return text;
     }
 
-    // 新逻辑：计算订单总价 = 所有商品单价之和 (数量不再参与乘法)
     function calculateOrderTotalFromItems(items) {
         if (!items || !items.length) return 0;
         return items.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
     }
 
-    async function loadAndGroupHistory() {
-        const container = document.getElementById('historyList');
-        if (!db) return;
-        container.innerHTML = '<div class="loading">加载历史记录中...</div>';
+    function getRichColor(index) {
+        const hue = (index * 37) % 360;
+        return `hsl(${hue}, 70%, 60%)`;
+    }
+
+    async function loadAllRecords() {
+        if (!db) return [];
         try {
             const snapshot = await db.collection(HISTORY_COLLECTION).orderBy('timestamp', 'asc').get();
             const records = [];
             snapshot.forEach(doc => {
                 const data = doc.data();
                 const items = data.purchasedItems || [];
-                // 关键: 重新计算正确的总价（单价之和，不受数量影响） 保证新旧数据均按新规则显示
                 const correctTotal = calculateOrderTotalFromItems(items);
                 records.push({
                     id: doc.id,
                     dateStr: data.dateStr || '未知日期',
-                    totalCost: correctTotal,       // 使用新规则总价
+                    totalCost: correctTotal,
                     purchasedItems: items,
                     timestamp: data.timestamp
                 });
             });
-            
-            if (records.length === 0) {
-                container.innerHTML = '<div class="empty-msg">暂无采购历史，请先提交采购单或手动添加</div>';
-                return;
-            }
-            
-            const groupMap = new Map();
-            for (const record of records) {
-                const date = record.dateStr;
-                if (!groupMap.has(date)) {
-                    groupMap.set(date, {
-                        dateStr: date,
-                        orders: [],
-                        totalCost: 0
-                    });
-                }
-                const group = groupMap.get(date);
-                group.orders.push({
-                    id: record.id,
-                    totalCost: record.totalCost,
-                    purchasedItems: record.purchasedItems,
-                    timestamp: record.timestamp
-                });
-                group.totalCost += record.totalCost;
-            }
-            const grouped = Array.from(groupMap.values());
-            grouped.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
-            renderGroupedHistory(grouped);
+            allRecords = records;
+            return records;
         } catch (err) {
-            console.error("加载历史失败", err);
-            container.innerHTML = `<div class="empty-msg">加载失败：${err.message || '请检查网络或Firebase权限'}</div>`;
+            console.error("加载记录失败", err);
+            return [];
         }
     }
 
+    function filterRecordsByDateRange(records, start, end) {
+        if (!start && !end) return records;
+        return records.filter(rec => {
+            const recDate = rec.dateStr;
+            if (start && recDate < start) return false;
+            if (end && recDate > end) return false;
+            return true;
+        });
+    }
+
+    function groupRecords(records) {
+        const groupMap = new Map();
+        for (const record of records) {
+            const date = record.dateStr;
+            if (!groupMap.has(date)) {
+                groupMap.set(date, { dateStr: date, orders: [], totalCost: 0 });
+            }
+            const group = groupMap.get(date);
+            group.orders.push({
+                id: record.id,
+                totalCost: record.totalCost,
+                purchasedItems: record.purchasedItems,
+                timestamp: record.timestamp
+            });
+            group.totalCost += record.totalCost;
+        }
+        const grouped = Array.from(groupMap.values());
+        grouped.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
+        return grouped;
+    }
+
+    function renderPage(filteredGroups) {
+        renderGroupedHistory(filteredGroups);
+        if (filteredGroups.length === 0) {
+            document.getElementById('dashboardArea').style.display = 'none';
+        } else {
+            document.getElementById('dashboardArea').style.display = 'block';
+            renderDashboard(filteredGroups);
+        }
+    }
+
+    function renderDashboard(groups) {
+        if (!groups || groups.length === 0) return;
+        let totalSpend = 0, totalItems = 0;
+        const dailyData = [];
+        const itemMap = new Map();
+        for (let group of groups) {
+            totalSpend += group.totalCost;
+            dailyData.push({ date: group.dateStr, total: group.totalCost });
+            for (let order of group.orders) {
+                for (let item of order.purchasedItems) {
+                    const name = item.name?.trim();
+                    if (!name) continue;
+                    const price = parseFloat(item.price) || 0;
+                    itemMap.set(name, (itemMap.get(name) || 0) + price);
+                    totalItems++;
+                }
+            }
+        }
+        const statsHtml = `
+            <div class="stat-card"><div class="label">📆 天数</div><div class="value">${groups.length}</div></div>
+            <div class="stat-card"><div class="label">💰 总支出</div><div class="value">${formatNumber(totalSpend)} Ks</div></div>
+            <div class="stat-card"><div class="label">🛒 采购项数</div><div class="value">${totalItems}</div></div>
+            <div class="stat-card"><div class="label">📋 日均支出</div><div class="value">${formatNumber(Math.round(totalSpend / groups.length))} Ks</div></div>
+        `;
+        document.getElementById('statsCards').innerHTML = statsHtml;
+        
+        const sortedDaily = [...dailyData].sort((a,b) => a.date.localeCompare(b.date));
+        const dates = sortedDaily.map(d => d.date);
+        const totals = sortedDaily.map(d => d.total);
+        const sortedItems = Array.from(itemMap.entries()).sort((a,b) => b[1] - a[1]).slice(0,10);
+        const itemLabels = sortedItems.map(i => i[0].length > 18 ? i[0].slice(0,15)+'…' : i[0]);
+        const itemValues = sortedItems.map(i => i[1]);
+        const backgroundColors = sortedItems.map((_, idx) => getRichColor(idx));
+        
+        const ctxTrend = document.getElementById('trendChart').getContext('2d');
+        const ctxItems = document.getElementById('itemsChart').getContext('2d');
+        if (trendChart) trendChart.destroy();
+        if (itemsChart) itemsChart.destroy();
+        trendChart = new Chart(ctxTrend, {
+            type: 'line',
+            data: { labels: dates, datasets: [{ label: '支出 (Ks)', data: totals, borderColor: '#ffa044', backgroundColor: 'rgba(255, 160, 68, 0.1)', borderWidth: 2, fill: true, tension: 0.3, pointBackgroundColor: '#ffcd94', pointBorderColor: '#e05a1a' }] },
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { labels: { color: '#ffcf94' } }, tooltip: { callbacks: { label: (ctx) => `${ctx.raw.toLocaleString()} Ks` } } }, scales: { x: { ticks: { color: '#ffcf94', maxRotation: 45, autoSkip: true } }, y: { ticks: { color: '#ffcf94', callback: (v) => v.toLocaleString() } } } }
+        });
+        itemsChart = new Chart(ctxItems, {
+            type: 'pie',
+            data: { labels: itemLabels, datasets: [{ data: itemValues, backgroundColor: backgroundColors, borderWidth: 0 }] },
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'right', labels: { color: '#ffcf94', font: { size: 10 } } }, tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw.toLocaleString()} Ks` } } } }
+        });
+    }
+    
     function renderGroupedHistory(groups) {
         const container = document.getElementById('historyList');
         if (!groups.length) {
@@ -484,44 +710,21 @@
             card.className = 'history-card';
             let ordersHtml = '';
             group.orders.forEach((order, idx) => {
-                // 显示采购项：只展示数量（原样展示）和单价，金额仅单价部分
-                const itemsHtml = order.purchasedItems.map(item => {
-                    const unitText = item.unit ? ` ${item.unit}` : '';
-                    // 数量原样展示，金额只显示单价（不再乘法）
-                    return `<p>✅ ${item.name} (${item.qty}${unitText}) : ${formatNumber(item.price)} Ks</p>`;
-                }).join('');
-                ordersHtml += `
-                    <div class="record-block">
-                        <div class="record-title">
-                            <span>📋 采购单 ${idx+1}</span>
-                            <span>💰 小计: ${formatNumber(order.totalCost)} Ks</span>
-                        </div>
-                        <div class="record-items">
-                            ${itemsHtml}
-                        </div>
-                    </div>
-                `;
+                const itemsHtml = order.purchasedItems.map(item => `<p>✅ ${item.name} (${item.qty}${item.unit ? ` ${item.unit}` : ''}) : ${formatNumber(item.price)} Ks</p>`).join('');
+                ordersHtml += `<div class="record-block"><div class="record-title"><span>📋 采购单 ${idx+1}</span><span>💰 小计: ${formatNumber(order.totalCost)} Ks</span></div><div class="record-items">${itemsHtml}</div></div>`;
             });
             card.innerHTML = `
-                <div class="card-header">
-                    <div class="date">📅 ${group.dateStr}</div>
-                    <div class="actions">
-                        <button class="copy-btn" data-date="${group.dateStr}">📋 复制</button>
-                        <button class="edit-btn" data-date="${group.dateStr}">✏️ 编辑</button>
-                        <button class="delete-btn" data-date="${group.dateStr}">🗑️ 删除</button>
-                    </div>
-                </div>
-                <div class="summary">
-                    <span>💰 当日总计: ${formatNumber(group.totalCost)} Ks</span>
-                </div>
+                <div class="card-header"><div class="date">📅 ${group.dateStr}</div><div class="actions"><button class="copy-btn" data-date="${group.dateStr}">📋 复制</button><button class="edit-btn" data-date="${group.dateStr}">✏️ 编辑</button><button class="delete-btn" data-date="${group.dateStr}">🗑️ 删除</button></div></div>
+                <div class="summary"><span>💰 当日总计: ${formatNumber(group.totalCost)} Ks</span></div>
                 <button class="detail-btn" data-date="${group.dateStr}">📋 展开/收起清单</button>
-                <div class="items-detail" id="detail-${group.dateStr.replace(/-/g, '')}">
-                    ${ordersHtml}
-                </div>
+                <div class="items-detail" id="detail-${group.dateStr.replace(/-/g, '')}">${ordersHtml}</div>
             `;
             container.appendChild(card);
         });
-
+        attachGroupEvents(groups);
+    }
+    
+    function attachGroupEvents(groups) {
         document.querySelectorAll('.copy-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const date = btn.getAttribute('data-date');
@@ -545,10 +748,8 @@
                         const batch = db.batch();
                         snapshot.forEach(doc => batch.delete(doc.ref));
                         await batch.commit();
-                        loadAndGroupHistory();
-                    } catch (err) {
-                        alert('删除失败：' + err.message);
-                    }
+                        await refreshAfterDataChange();
+                    } catch (err) { alert('删除失败：' + err.message); }
                 }
             });
         });
@@ -557,321 +758,213 @@
                 const date = btn.getAttribute('data-date');
                 const detailId = `detail-${date.replace(/-/g, '')}`;
                 const detailDiv = document.getElementById(detailId);
-                if (detailDiv) {
-                    detailDiv.classList.toggle('show');
-                    btn.textContent = detailDiv.classList.contains('show') ? '🔽 收起清单' : '📋 展开清单';
-                }
-            });
-        });
-    }
-
-    // 复制时也采用新逻辑：只累计单价
-    function copyGroupToClipboard(group) {
-        let text = `📅 日期: ${group.dateStr}\n📋 采购清单 (总价基于单价合计，数量仅作记录)\n----------------------\n`;
-        let groupTotal = 0;
-        group.orders.forEach((order, idx) => {
-            const orderTotal = order.totalCost;
-            groupTotal += orderTotal;
-            text += `\n📌 采购单 ${idx+1}:\n`;
-            order.purchasedItems.forEach(item => {
-                const unitText = item.unit ? ` ${item.unit}` : '';
-                const displayName = extractPreferredLanguage(item.name);
-                text += `  ✅ ${displayName} (数量:${item.qty}${unitText}) 单价: ${formatNumber(item.price)} Ks\n`;
-            });
-            text += `  小计(单价合计): ${formatNumber(orderTotal)} Ks\n`;
-        });
-        text += `----------------------\n💰 总计支出: ${formatNumber(groupTotal)} Ks`;
-        navigator.clipboard.writeText(text).then(() => {
-            alert("已复制该日期的采购清单（总价基于单价累计）！");
-        }).catch(() => {
-            alert("复制失败，可手动复制");
-        });
-    }
-
-    async function openEditGroupModal(group) {
-        currentEditGroup = group;
-        document.getElementById('modalTitle').innerText = '编辑采购记录 (分单编辑)';
-        document.getElementById('recordDate').value = group.dateStr;
-        // 深拷贝 orders，同时重新计算 totalCost (基于单价之和)
-        currentOrders = [];
-        for (let order of group.orders) {
-            const itemsCopy = order.purchasedItems.map(item => ({
-                name: item.name,
-                qty: item.qty,
-                price: item.price,
-                unit: item.unit || ''
-            }));
-            const correctTotal = calculateOrderTotalFromItems(itemsCopy);
-            currentOrders.push({
-                id: order.id,
-                totalCost: correctTotal,
-                purchasedItems: itemsCopy
-            });
-        }
-        renderEditModalTabs();
-        document.getElementById('editorModal').classList.add('open');
-    }
-
-    function openAddModal() {
-        currentEditGroup = null;
-        document.getElementById('modalTitle').innerText = '添加采购记录';
-        const today = new Date().toISOString().slice(0,10);
-        document.getElementById('recordDate').value = today;
-        currentOrders = [{
-            id: null,
-            purchasedItems: [],
-            totalCost: 0
-        }];
-        renderEditModalTabs();
-        document.getElementById('editorModal').classList.add('open');
-    }
-
-    // 更新某个订单的总价（基于单价之和）
-    function updateOrderTotal(orderIdx) {
-        const total = calculateOrderTotalFromItems(currentOrders[orderIdx].purchasedItems);
-        currentOrders[orderIdx].totalCost = total;
-        // 刷新界面上的小计显示
-        const totalSpan = document.querySelector(`.order-total-display[data-order-idx='${orderIdx}']`);
-        if (totalSpan) {
-            totalSpan.innerText = `💰 小计: ${formatNumber(total)} Ks`;
-        }
-    }
-
-    function renderEditModalTabs() {
-        const tabsContainer = document.getElementById('tabsContainer');
-        const panesContainer = document.getElementById('panesContainer');
-        if (!tabsContainer || !panesContainer) return;
-        tabsContainer.innerHTML = '';
-        panesContainer.innerHTML = '';
-        
-        if (currentOrders.length === 0) {
-            panesContainer.innerHTML = '<p style="text-align:center; color:#ffcf94;">暂无采购单，点击下方添加</p>';
-            return;
-        }
-        
-        currentOrders.forEach((order, idx) => {
-            const tabBtn = document.createElement('button');
-            tabBtn.className = 'tab-btn';
-            if (idx === 0) tabBtn.classList.add('active');
-            tabBtn.innerText = `采购单 ${idx+1}`;
-            tabBtn.setAttribute('data-order-idx', idx);
-            tabBtn.addEventListener('click', () => switchTab(idx));
-            tabsContainer.appendChild(tabBtn);
-            
-            const pane = document.createElement('div');
-            pane.className = 'tab-pane';
-            if (idx === 0) pane.classList.add('active');
-            pane.setAttribute('data-pane-idx', idx);
-            pane.innerHTML = `
-                <div class="order-card">
-                    <div class="order-header">
-                        <span class="order-title">📋 采购单 ${idx+1}</span>
-                        <div style="display: flex; gap: 8px; align-items:center;">
-                            <span class="order-total-display" data-order-idx="${idx}">💰 小计: ${formatNumber(order.totalCost)} Ks</span>
-                            <button class="remove-order-btn" data-order-idx="${idx}">删除此单</button>
-                        </div>
-                    </div>
-                    <div id="items-list-${idx}"></div>
-                    <button class="add-item-btn" data-order-idx="${idx}">+ 添加采购项</button>
-                </div>
-            `;
-            panesContainer.appendChild(pane);
-        });
-        
-        currentOrders.forEach((_, idx) => renderOrderItems(idx));
-        
-        document.querySelectorAll('.remove-order-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const orderIdx = parseInt(btn.getAttribute('data-order-idx'));
-                if (currentOrders.length === 1) {
-                    alert('至少保留一个采购单');
-                    return;
-                }
-                if (confirm('确定删除这个采购单吗？')) {
-                    currentOrders.splice(orderIdx, 1);
-                    renderEditModalTabs();
-                }
-            });
-        });
-        
-        document.querySelectorAll('.add-item-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const orderIdx = parseInt(btn.getAttribute('data-order-idx'));
-                currentOrders[orderIdx].purchasedItems.push({ name: '新商品', qty: 1, price: 0, unit: '' });
-                renderOrderItems(orderIdx);
-                updateOrderTotal(orderIdx);
-                bindRemoveItemEvents(orderIdx);
+                if (detailDiv) { detailDiv.classList.toggle('show'); btn.textContent = detailDiv.classList.contains('show') ? '🔽 收起清单' : '📋 展开清单'; }
             });
         });
     }
     
+    function copyGroupToClipboard(group) {
+        let text = `📅 日期: ${group.dateStr}\n📋 采购清单\n----------------------\n`;
+        let totalCost = 0;
+        group.orders.forEach((order, idx) => {
+            text += `\n📌 采购单 ${idx+1}:\n`;
+            order.purchasedItems.forEach(item => {
+                const price = item.price || 0;
+                totalCost += price;
+                const unitText = item.unit ? ` ${item.unit}` : '';
+                const displayName = extractPreferredLanguage(item.name);
+                text += `  ✅ ${displayName} (${item.qty}${unitText}) : ${formatNumber(price)} Ks\n`;
+            });
+            text += `  小计: ${formatNumber(order.totalCost)} Ks\n`;
+        });
+        text += `----------------------\n💰 总计支出: ${formatNumber(totalCost)} Ks`;
+        navigator.clipboard.writeText(text).then(() => alert("已复制该日期的采购清单！")).catch(() => alert("复制失败"));
+    }
+    
+    async function refreshAfterDataChange() {
+        await loadAllRecords();
+        applyCurrentFilter();
+    }
+    
+    // 日期工具函数
+    function formatYMD(date) {
+        let d = new Date(date);
+        let year = d.getFullYear();
+        let month = String(d.getMonth() + 1).padStart(2, '0');
+        let day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    function getToday() { return formatYMD(new Date()); }
+    function getLast30Days() {
+        let end = new Date();
+        let start = new Date();
+        start.setDate(end.getDate() - 29);
+        return { start: formatYMD(start), end: formatYMD(end) };
+    }
+    function getThisMonth() {
+        let now = new Date();
+        let start = new Date(now.getFullYear(), now.getMonth(), 1);
+        let end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        return { start: formatYMD(start), end: formatYMD(end) };
+    }
+    function getLastMonth() {
+        let now = new Date();
+        let start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        let end = new Date(now.getFullYear(), now.getMonth(), 0);
+        return { start: formatYMD(start), end: formatYMD(end) };
+    }
+    
+    let currentStart = '', currentEnd = '';
+    function updateDateInputs() {
+        document.getElementById('startDate').value = currentStart || '';
+        document.getElementById('endDate').value = currentEnd || '';
+    }
+    
+    async function applyCurrentFilter() {
+        let filtered = allRecords;
+        if (currentStart && currentEnd) {
+            filtered = filterRecordsByDateRange(allRecords, currentStart, currentEnd);
+        }
+        const groups = groupRecords(filtered);
+        currentFilteredGroups = groups;
+        renderPage(groups);
+        updateDateInputs();
+    }
+    
+    function setDateRangeAndApply(start, end) {
+        currentStart = start;
+        currentEnd = end;
+        applyCurrentFilter();
+    }
+    
+    // 快捷按钮
+    document.getElementById('todayBtn').addEventListener('click', () => {
+        let today = getToday();
+        setDateRangeAndApply(today, today);
+    });
+    document.getElementById('last30DaysBtn').addEventListener('click', () => {
+        let { start, end } = getLast30Days();
+        setDateRangeAndApply(start, end);
+    });
+    document.getElementById('thisMonthBtn').addEventListener('click', () => {
+        let { start, end } = getThisMonth();
+        setDateRangeAndApply(start, end);
+    });
+    document.getElementById('lastMonthBtn').addEventListener('click', () => {
+        let { start, end } = getLastMonth();
+        setDateRangeAndApply(start, end);
+    });
+    
+    // 自定义按钮
+    document.getElementById('customBtn').addEventListener('click', () => {
+        let start = document.getElementById('startDate').value;
+        let end = document.getElementById('endDate').value;
+        if (start && end) {
+            setDateRangeAndApply(start, end);
+        } else {
+            alert('请填写完整的开始和结束日期');
+        }
+    });
+    
+    // 编辑相关函数（原有）
+    async function openEditGroupModal(group) {
+        currentEditGroup = group;
+        document.getElementById('modalTitle').innerText = '编辑采购记录 (分单编辑)';
+        document.getElementById('recordDate').value = group.dateStr;
+        currentOrders = [];
+        for (let order of group.orders) {
+            currentOrders.push({ id: order.id, totalCost: order.totalCost, purchasedItems: order.purchasedItems.map(item => ({ ...item, unit: item.unit || '' })) });
+        }
+        renderEditModalTabs();
+        document.getElementById('editorModal').classList.add('open');
+    }
+    function openAddModal() {
+        currentEditGroup = null;
+        document.getElementById('modalTitle').innerText = '添加采购记录';
+        document.getElementById('recordDate').value = new Date().toISOString().slice(0,10);
+        currentOrders = [{ id: null, purchasedItems: [], totalCost: 0 }];
+        renderEditModalTabs();
+        document.getElementById('editorModal').classList.add('open');
+    }
+    function renderEditModalTabs() {
+        const tabsContainer = document.getElementById('tabsContainer'), panesContainer = document.getElementById('panesContainer');
+        if (!tabsContainer || !panesContainer) return;
+        tabsContainer.innerHTML = ''; panesContainer.innerHTML = '';
+        if (currentOrders.length === 0) { panesContainer.innerHTML = '<p style="text-align:center; color:#ffcf94;">暂无采购单，点击下方添加</p>'; return; }
+        currentOrders.forEach((order, idx) => {
+            const tabBtn = document.createElement('button'); tabBtn.className = 'tab-btn'; if (idx === 0) tabBtn.classList.add('active');
+            tabBtn.innerText = `采购单 ${idx+1}`; tabBtn.setAttribute('data-order-idx', idx);
+            tabBtn.addEventListener('click', () => switchTab(idx)); tabsContainer.appendChild(tabBtn);
+            const pane = document.createElement('div'); pane.className = 'tab-pane'; if (idx === 0) pane.classList.add('active');
+            pane.setAttribute('data-pane-idx', idx);
+            pane.innerHTML = `<div class="order-card"><div class="order-header"><span class="order-title">📋 采购单 ${idx+1}</span><div style="display: flex; gap: 8px;"><span class="order-total-display" data-order-idx="${idx}">💰 小计: ${formatNumber(order.totalCost)} Ks</span><button class="remove-order-btn" data-order-idx="${idx}">删除此单</button></div></div><div id="items-list-${idx}"></div><button class="add-item-btn" data-order-idx="${idx}">+ 添加采购项</button></div>`;
+            panesContainer.appendChild(pane);
+        });
+        currentOrders.forEach((_, idx) => renderOrderItems(idx));
+        document.querySelectorAll('.remove-order-btn').forEach(btn => { btn.addEventListener('click', (e) => { const orderIdx = parseInt(btn.getAttribute('data-order-idx')); if (currentOrders.length === 1) { alert('至少保留一个采购单'); return; } if (confirm('确定删除这个采购单吗？')) { currentOrders.splice(orderIdx, 1); renderEditModalTabs(); } }); });
+        document.querySelectorAll('.add-item-btn').forEach(btn => { btn.addEventListener('click', (e) => { const orderIdx = parseInt(btn.getAttribute('data-order-idx')); currentOrders[orderIdx].purchasedItems.push({ name: '新商品', qty: 1, price: 0, unit: '' }); renderOrderItems(orderIdx); updateOrderTotal(orderIdx); bindRemoveItemEvents(orderIdx); }); });
+    }
     function renderOrderItems(orderIdx) {
         const container = document.getElementById(`items-list-${orderIdx}`);
         if (!container) return;
         const order = currentOrders[orderIdx];
         container.innerHTML = '';
         order.purchasedItems.forEach((item, itemIdx) => {
-            const row = document.createElement('div');
-            row.className = 'item-row-editor';
-            row.innerHTML = `
-                <input type="text" placeholder="品名" value="${escapeHtml(item.name)}" data-order="${orderIdx}" data-item="${itemIdx}" data-field="name" style="flex:2;">
-                <input type="number" placeholder="数量" value="${item.qty}" data-order="${orderIdx}" data-item="${itemIdx}" data-field="qty" style="width:90px;">
-                <input type="text" placeholder="单位" value="${escapeHtml(item.unit)}" data-order="${orderIdx}" data-item="${itemIdx}" data-field="unit" style="width:100px;">
-                <input type="number" placeholder="单价(Ks)" value="${item.price}" data-order="${orderIdx}" data-item="${itemIdx}" data-field="price" style="width:110px;">
-                <button class="remove-item-btn" data-order="${orderIdx}" data-item="${itemIdx}">删除</button>
-            `;
+            const row = document.createElement('div'); row.className = 'item-row-editor';
+            row.innerHTML = `<input type="text" placeholder="品名" value="${escapeHtml(item.name)}" data-order="${orderIdx}" data-item="${itemIdx}" data-field="name" style="flex:2;"><input type="number" placeholder="数量" value="${item.qty}" data-order="${orderIdx}" data-item="${itemIdx}" data-field="qty" style="width:90px;"><input type="text" placeholder="单位" value="${escapeHtml(item.unit)}" data-order="${orderIdx}" data-item="${itemIdx}" data-field="unit" style="width:100px;"><input type="number" placeholder="单价(Ks)" value="${item.price}" data-order="${orderIdx}" data-item="${itemIdx}" data-field="price" style="width:110px;"><button class="remove-item-btn" data-order="${orderIdx}" data-item="${itemIdx}">删除</button>`;
             container.appendChild(row);
         });
-        
-        container.querySelectorAll('input').forEach(input => {
-            input.addEventListener('change', (e) => {
-                const oIdx = parseInt(input.getAttribute('data-order'));
-                const iIdx = parseInt(input.getAttribute('data-item'));
-                const field = input.getAttribute('data-field');
-                if (field === 'name') currentOrders[oIdx].purchasedItems[iIdx].name = input.value;
-                else if (field === 'qty') currentOrders[oIdx].purchasedItems[iIdx].qty = parseFloat(input.value) || 0;
-                else if (field === 'unit') currentOrders[oIdx].purchasedItems[iIdx].unit = input.value;
-                else if (field === 'price') {
-                    currentOrders[oIdx].purchasedItems[iIdx].price = parseFloat(input.value) || 0;
-                }
-                updateOrderTotal(oIdx);
-            });
-        });
-        
+        container.querySelectorAll('input').forEach(input => { input.addEventListener('change', (e) => { const oIdx = parseInt(input.getAttribute('data-order')), iIdx = parseInt(input.getAttribute('data-item')), field = input.getAttribute('data-field'); if (field === 'name') currentOrders[oIdx].purchasedItems[iIdx].name = input.value; else if (field === 'qty') currentOrders[oIdx].purchasedItems[iIdx].qty = parseFloat(input.value) || 0; else if (field === 'unit') currentOrders[oIdx].purchasedItems[iIdx].unit = input.value; else if (field === 'price') currentOrders[oIdx].purchasedItems[iIdx].price = parseFloat(input.value) || 0; updateOrderTotal(oIdx); }); });
         bindRemoveItemEvents(orderIdx);
     }
-    
-    function bindRemoveItemEvents(orderIdx) {
-        const container = document.getElementById(`items-list-${orderIdx}`);
-        if (!container) return;
-        container.querySelectorAll('.remove-item-btn').forEach(btn => {
-            btn.removeEventListener('click', handleRemoveItem);
-            btn.addEventListener('click', handleRemoveItem);
-        });
-    }
-    
-    function handleRemoveItem(e) {
-        const oIdx = parseInt(e.currentTarget.getAttribute('data-order'));
-        const iIdx = parseInt(e.currentTarget.getAttribute('data-item'));
-        currentOrders[oIdx].purchasedItems.splice(iIdx, 1);
-        renderOrderItems(oIdx);
-        updateOrderTotal(oIdx);
-    }
-    
-    function switchTab(idx) {
-        document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-            if (i === idx) btn.classList.add('active');
-            else btn.classList.remove('active');
-        });
-        document.querySelectorAll('.tab-pane').forEach((pane, i) => {
-            if (i === idx) pane.classList.add('active');
-            else pane.classList.remove('active');
-        });
-    }
-    
-    function addNewOrder() {
-        currentOrders.push({
-            id: null,
-            purchasedItems: [],
-            totalCost: 0
-        });
-        renderEditModalTabs();
-        switchTab(currentOrders.length - 1);
-    }
-    
-    // 保存逻辑: 基于新规则 (总价=单价和)
+    function bindRemoveItemEvents(orderIdx) { const container = document.getElementById(`items-list-${orderIdx}`); if (!container) return; container.querySelectorAll('.remove-item-btn').forEach(btn => { btn.removeEventListener('click', handleRemoveItem); btn.addEventListener('click', handleRemoveItem); }); }
+    function handleRemoveItem(e) { const oIdx = parseInt(e.currentTarget.getAttribute('data-order')), iIdx = parseInt(e.currentTarget.getAttribute('data-item')); currentOrders[oIdx].purchasedItems.splice(iIdx, 1); renderOrderItems(oIdx); updateOrderTotal(oIdx); }
+    function updateOrderTotal(orderIdx) { const total = currentOrders[orderIdx].purchasedItems.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0); currentOrders[orderIdx].totalCost = total; const totalSpan = document.querySelector(`.order-total-display[data-order-idx='${orderIdx}']`); if (totalSpan) totalSpan.innerText = `💰 小计: ${formatNumber(total)} Ks`; }
+    function switchTab(idx) { document.querySelectorAll('.tab-btn').forEach((btn, i) => i === idx ? btn.classList.add('active') : btn.classList.remove('active')); document.querySelectorAll('.tab-pane').forEach((pane, i) => i === idx ? pane.classList.add('active') : pane.classList.remove('active')); }
+    function addNewOrder() { currentOrders.push({ id: null, purchasedItems: [], totalCost: 0 }); renderEditModalTabs(); switchTab(currentOrders.length-1); }
     async function saveModalChanges() {
         const dateStr = document.getElementById('recordDate').value;
-        if (!dateStr) {
-            alert('请选择日期');
-            return;
-        }
-        // 过滤有效订单（至少有一个有效商品：名称非空）
+        if (!dateStr) { alert('请选择日期'); return; }
         const validOrders = [];
         for (let order of currentOrders) {
             const validItems = order.purchasedItems.filter(item => item.name && item.name.trim() !== '');
             if (validItems.length === 0) continue;
-            // 重新计算总价（单价之和）
-            const totalCost = calculateOrderTotalFromItems(validItems);
-            validOrders.push({
-                id: order.id,
-                totalCost: totalCost,
-                purchasedItems: validItems
-            });
+            const totalCost = validItems.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+            validOrders.push({ id: order.id, totalCost, purchasedItems: validItems });
         }
-        if (validOrders.length === 0) {
-            alert('请至少添加一个有效的采购项（品名不能为空）');
-            return;
-        }
-        
+        if (validOrders.length === 0) { alert('请至少添加一个有效的采购项'); return; }
         try {
             if (currentEditGroup) {
-                const originalDate = currentEditGroup.dateStr;
                 const existingIds = new Set(currentEditGroup.orders.map(o => o.id));
                 const newIds = new Set(validOrders.filter(o => o.id).map(o => o.id));
-                
-                // 删除原有但不存在的订单
                 const toDelete = [...existingIds].filter(id => !newIds.has(id));
                 const batchDelete = db.batch();
-                for (let id of toDelete) {
-                    const ref = db.collection(HISTORY_COLLECTION).doc(id);
-                    batchDelete.delete(ref);
-                }
-                if (toDelete.length > 0) await batchDelete.commit();
-                
-                // 更新或新增订单
+                toDelete.forEach(id => batchDelete.delete(db.collection(HISTORY_COLLECTION).doc(id)));
+                if (toDelete.length) await batchDelete.commit();
                 for (let order of validOrders) {
-                    const recordData = {
-                        dateStr: dateStr,
-                        totalCost: order.totalCost,    // 新规则总价
-                        purchasedItems: order.purchasedItems,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                    };
-                    if (order.id) {
-                        await db.collection(HISTORY_COLLECTION).doc(order.id).update(recordData);
-                    } else {
-                        await db.collection(HISTORY_COLLECTION).add(recordData);
-                    }
+                    const recordData = { dateStr, totalCost: order.totalCost, purchasedItems: order.purchasedItems, timestamp: firebase.firestore.FieldValue.serverTimestamp() };
+                    if (order.id) await db.collection(HISTORY_COLLECTION).doc(order.id).update(recordData);
+                    else await db.collection(HISTORY_COLLECTION).add(recordData);
                 }
             } else {
                 for (let order of validOrders) {
-                    const recordData = {
-                        dateStr: dateStr,
-                        totalCost: order.totalCost,
-                        purchasedItems: order.purchasedItems,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                    };
-                    await db.collection(HISTORY_COLLECTION).add(recordData);
+                    await db.collection(HISTORY_COLLECTION).add({ dateStr, totalCost: order.totalCost, purchasedItems: order.purchasedItems, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
                 }
             }
             closeModal();
-            loadAndGroupHistory();
-        } catch (err) {
-            console.error("保存失败", err);
-            alert('保存失败：' + err.message);
-        }
+            await refreshAfterDataChange();
+        } catch (err) { alert('保存失败：' + err.message); }
     }
-
-    function closeModal() {
-        document.getElementById('editorModal').classList.remove('open');
-        currentEditGroup = null;
-        currentOrders = [];
-    }
-
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
-    }
-
+    function closeModal() { document.getElementById('editorModal').classList.remove('open'); currentEditGroup = null; currentOrders = []; }
+    function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, function(m) { if (m === '&') return '&amp;'; if (m === '<') return '&lt;'; if (m === '>') return '&gt;'; return m; }); }
+    
     document.getElementById('saveModalBtn').addEventListener('click', saveModalChanges);
     
     if (db) {
-        loadAndGroupHistory();
+        loadAllRecords().then(() => {
+            let { start, end } = getLast30Days();
+            setDateRangeAndApply(start, end);
+        });
     }
 </script>
 </body>
