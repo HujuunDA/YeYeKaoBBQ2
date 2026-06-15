@@ -337,6 +337,127 @@
             box-shadow: 0 3px 8px rgba(0,0,0,0.2);
         }
 
+        /* 主弹窗（通用提示） */
+        .custom-dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(12px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0.2s, opacity 0.2s;
+        }
+
+        .custom-dialog-overlay.open {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .custom-dialog {
+            background: rgba(30, 22, 14, 0.92);
+            backdrop-filter: blur(28px);
+            border-radius: 48px;
+            width: 85%;
+            max-width: 360px;
+            padding: 28px 24px;
+            border: 1px solid rgba(255, 150, 70, 0.9);
+            box-shadow: 0 30px 45px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            transform: scale(0.95);
+            transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+        }
+
+        .custom-dialog-overlay.open .custom-dialog {
+            transform: scale(1);
+        }
+
+        .dialog-icon {
+            font-size: 52px;
+            margin-bottom: 12px;
+        }
+
+        .dialog-title {
+            font-size: 24px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffcd94, #ffa044);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            margin-bottom: 12px;
+        }
+
+        .dialog-message {
+            color: #ffefcf;
+            font-size: 16px;
+            line-height: 1.5;
+            margin-bottom: 28px;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+        .price-warning-list {
+            text-align: left;
+            background: rgba(0,0,0,0.3);
+            border-radius: 24px;
+            padding: 12px 16px;
+            margin: 12px 0;
+            max-height: 180px;
+            overflow-y: auto;
+            font-size: 14px;
+        }
+
+        .price-warning-list span {
+            display: block;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255,150,60,0.3);
+            color: #ffcd94;
+        }
+
+        .dialog-buttons {
+            display: flex;
+            gap: 14px;
+            justify-content: center;
+        }
+
+        .dialog-btn {
+            flex: 1;
+            padding: 12px 0;
+            border: none;
+            border-radius: 60px;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.2s;
+            background: rgba(255, 200, 140, 0.2);
+            backdrop-filter: blur(8px);
+            color: #ffdfb3;
+            border: 1px solid rgba(255, 150, 60, 0.6);
+        }
+
+        .dialog-btn-primary {
+            background: linear-gradient(105deg, #ff7b2c, #e05a1a);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 12px rgba(220,80,20,0.4);
+        }
+
+        .dialog-btn-primary:hover {
+            transform: scale(0.98);
+            filter: brightness(1.05);
+        }
+
+        .dialog-btn-secondary:hover {
+            background: rgba(255, 140, 50, 0.45);
+            border-color: #ffaa66;
+        }
+
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -533,7 +654,6 @@
             font-weight: 500;
             word-break: break-word;
         }
-        /* 单位显示样式 */
         .unit-badge {
             background: rgba(255, 200, 140, 0.3);
             border-radius: 20px;
@@ -601,7 +721,91 @@
     </div>
 </div>
 
+<!-- 自定义通用对话框 -->
+<div id="customDialog" class="custom-dialog-overlay">
+    <div class="custom-dialog">
+        <div class="dialog-icon" id="dialogIcon">🍢</div>
+        <div class="dialog-title" id="dialogTitle">提示</div>
+        <div class="dialog-message" id="dialogMessage"></div>
+        <div id="dialogExtra" style="margin-bottom: 16px;"></div>
+        <div class="dialog-buttons" id="dialogButtons"></div>
+    </div>
+</div>
+
 <script>
+    // 优雅对话框系统 (替换alert/confirm)
+    let dialogResolve = null;
+    function showAlert(title, message, icon = "🍢") {
+        return new Promise((resolve) => {
+            const dialog = document.getElementById('customDialog');
+            document.getElementById('dialogIcon').innerHTML = icon;
+            document.getElementById('dialogTitle').innerText = title;
+            document.getElementById('dialogMessage').innerHTML = message;
+            const extraDiv = document.getElementById('dialogExtra');
+            extraDiv.innerHTML = '';
+            const btnsDiv = document.getElementById('dialogButtons');
+            btnsDiv.innerHTML = `<button class="dialog-btn dialog-btn-primary" id="dialogConfirmBtn">确定</button>`;
+            dialog.classList.add('open');
+            const confirmBtn = document.getElementById('dialogConfirmBtn');
+            const closeHandler = () => {
+                dialog.classList.remove('open');
+                confirmBtn.removeEventListener('click', closeHandler);
+                resolve(true);
+            };
+            confirmBtn.addEventListener('click', closeHandler);
+        });
+    }
+
+    function showConfirm(title, message, icon = "🔥") {
+        return new Promise((resolve) => {
+            const dialog = document.getElementById('customDialog');
+            document.getElementById('dialogIcon').innerHTML = icon;
+            document.getElementById('dialogTitle').innerText = title;
+            document.getElementById('dialogMessage').innerHTML = message;
+            const extraDiv = document.getElementById('dialogExtra');
+            extraDiv.innerHTML = '';
+            const btnsDiv = document.getElementById('dialogButtons');
+            btnsDiv.innerHTML = `
+                <button class="dialog-btn dialog-btn-secondary" id="dialogCancelBtn">取消</button>
+                <button class="dialog-btn dialog-btn-primary" id="dialogConfirmBtn">确定</button>
+            `;
+            dialog.classList.add('open');
+            const confirmBtn = document.getElementById('dialogConfirmBtn');
+            const cancelBtn = document.getElementById('dialogCancelBtn');
+            const cleanup = () => {
+                dialog.classList.remove('open');
+                confirmBtn.removeEventListener('click', onConfirm);
+                cancelBtn.removeEventListener('click', onCancel);
+            };
+            const onConfirm = () => { cleanup(); resolve(true); };
+            const onCancel = () => { cleanup(); resolve(false); };
+            confirmBtn.addEventListener('click', onConfirm);
+            cancelBtn.addEventListener('click', onCancel);
+        });
+    }
+
+    async function showPriceWarning(missingNames) {
+        const listHtml = `<div class="price-warning-list">${missingNames.map(n => `<span>⚠️ ${n}</span>`).join('')}</div>`;
+        const dialog = document.getElementById('customDialog');
+        document.getElementById('dialogIcon').innerHTML = "💰";
+        document.getElementById('dialogTitle').innerText = "价格未填写";
+        document.getElementById('dialogMessage').innerHTML = "以下商品缺少价格，请填写后再提交：";
+        const extraDiv = document.getElementById('dialogExtra');
+        extraDiv.innerHTML = listHtml;
+        const btnsDiv = document.getElementById('dialogButtons');
+        btnsDiv.innerHTML = `<button class="dialog-btn dialog-btn-primary" id="dialogConfirmBtn">去填写</button>`;
+        dialog.classList.add('open');
+        return new Promise((resolve) => {
+            const confirmBtn = document.getElementById('dialogConfirmBtn');
+            const closeHandler = () => {
+                dialog.classList.remove('open');
+                confirmBtn.removeEventListener('click', closeHandler);
+                resolve(true);
+            };
+            confirmBtn.addEventListener('click', closeHandler);
+        });
+    }
+
     // Firebase配置
     const firebaseConfig = { 
         apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
@@ -671,7 +875,6 @@
                 row.style.backdropFilter = "blur(12px)";
                 row.style.borderColor = "rgba(255, 170, 80, 0.6)";
             }
-            // 显示数量+单位，如果单位不为空则显示
             const unitText = item.unit ? `${item.unit}` : '';
             const qtyDisplay = unitText ? `${item.qty} ${unitText}` : `${item.qty}`;
             row.innerHTML = `
@@ -724,7 +927,6 @@
             tmpl[cat].forEach((item, idx) => {
                 const row = document.createElement('div');
                 row.className = 'item-row';
-                // 单位显示在数量旁边
                 const unitText = item.unit ? ` ${item.unit}` : '';
                 row.innerHTML = `
                     <div style="flex:1;" onclick="toggleCart('${item.name}', ${!cartNames.has(item.name)}, ${item.qty}, '${item.unit || ''}')">
@@ -800,20 +1002,15 @@
         sync();
     }
     
-    // 修复：当选品库数量变化时，同步更新采购单中相同名称的商品数量
     function changeQty(cat, idx, delta) { 
         const item = globalData.productTemplate[cat][idx];
         const newQty = Math.max(1, item.qty + delta);
         item.qty = newQty;
-        
-        // 同步采购单中同名商品的数量
         const cartItem = globalData.cartData.find(i => i.name === item.name);
         if (cartItem) {
             cartItem.qty = newQty;
         }
-        
         sync();
-        // 刷新采购单显示（因为数量变化可能影响已勾选的项目显示）
         refreshCartDisplay();
     }
     
@@ -823,20 +1020,21 @@
         sync();
     }
     
-    function clearPurchased() { 
-        if(confirm("清除已买？")) { 
+    async function clearPurchased() { 
+        const confirmed = await showConfirm("清除已买", "确定要清除所有已勾选（已购买）的项目吗？", "🧹");
+        if (confirmed) { 
             globalData.cartData = globalData.cartData.filter(i => !i.purchased); 
             refreshCartDisplay();
             sync();
         } 
     }
     
-    function deleteItem(cat, idx) {
-        if(confirm("确定删除这个商品模板吗？")) {
+    async function deleteItem(cat, idx) {
+        const confirmed = await showConfirm("删除菜品", "确定要从选品库删除这个商品模板吗？\n采购单中同名项目也会被移除。", "⚠️");
+        if(confirmed) {
             const deletedName = globalData.productTemplate[cat][idx].name;
             globalData.productTemplate[cat].splice(idx, 1);
             if(globalData.productTemplate[cat].length === 0) delete globalData.productTemplate[cat];
-            // 如果该商品已经在采购单中，也一并删除
             globalData.cartData = globalData.cartData.filter(i => i.name !== deletedName);
             sync();
             refreshCartDisplay();
@@ -885,11 +1083,28 @@
         if (e.target.id !== 'itemCat') document.getElementById('catDropdown').style.display = 'none';
     });
     
-    // 提交函数：保存历史（带单位）并清除已勾选
     async function submitPurchase() {
         const purchasedItems = (globalData.cartData || []).filter(item => item.purchased === true);
         if (purchasedItems.length === 0) {
-            alert("没有已勾选的采购项目，请先勾选需要提交的项目。");
+            await showAlert("没有采购项目", "请先勾选需要提交的采购项目。", "📋");
+            return;
+        }
+
+        const missingPriceItems = [];
+        for (const item of purchasedItems) {
+            const priceRaw = item.price;
+            if (priceRaw === undefined || priceRaw === null || priceRaw.toString().trim() === "") {
+                missingPriceItems.push(item.name);
+                continue;
+            }
+            const numericPrice = parseFloat(priceRaw);
+            if (isNaN(numericPrice)) {
+                missingPriceItems.push(item.name);
+            }
+        }
+
+        if (missingPriceItems.length > 0) {
+            await showPriceWarning(missingPriceItems);
             return;
         }
 
@@ -914,10 +1129,10 @@
             globalData.cartData = globalData.cartData.filter(item => item.purchased !== true);
             await sync();
             refreshCartDisplay();
-            alert("提交成功！已保存到采购历史，并清除了已勾选的项目。");
+            await showAlert("提交成功", "采购记录已保存到历史，已勾选的项目已清除。", "✅");
         } catch (e) {
             console.error("提交失败", e);
-            alert("提交失败，请检查网络或重试。");
+            await showAlert("提交失败", "网络或服务器错误，请重试。", "❌");
         }
     }
 </script>
