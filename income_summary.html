@@ -68,7 +68,7 @@
             gap: 12px;
         }
 
-        .back-btn, .pending-link, .export-btn, .analytics-btn {
+        .back-btn, .pending-link, .analytics-btn {
             font-size: 15px !important;
             font-weight: 700;
             border-radius: 40px;
@@ -105,19 +105,7 @@
             transform: scale(0.96);
         }
 
-        .export-btn {
-            padding: 10px 18px;
-            background: rgba(40, 167, 69, 0.4);
-            border: 1px solid rgba(80, 200, 100, 0.6);
-            color: #ccffcc;
-            font-weight: 700;
-        }
-
-        .export-btn:active {
-            transform: scale(0.96);
-        }
-
-        /* 新增数据分析按钮样式 */
+        /* 数据分析按钮样式 */
         .analytics-btn {
             padding: 10px 18px;
             background: rgba(100, 80, 200, 0.4);
@@ -469,7 +457,6 @@
             <a href="带结算.html" class="pending-link" id="pending-btn">💰 待结算</a>
         </div>
         <div style="display: flex; gap: 10px;">
-            <button onclick="exportDetailedCSV()" class="export-btn">🗂 导出报表</button>
             <a href="数据分析.html" class="analytics-btn">📊 数据分析</a>
         </div>
     </div>
@@ -479,7 +466,7 @@
         <div class="rev-val" id="today-total">0 Ks</div>
     </div>
 
-    <!-- 筛选栏：在“21号-月底”和“全部历史”中间新增月份下拉选择器，完全符合需求位置 -->
+    <!-- 筛选栏：完全保留原有的今日/昨天/上中下旬/月份下拉/全部历史，无任何改动 -->
     <div class="filter-row">
         <button class="filter-btn active" id="f-today" onclick="setFilter('today')">今日</button>
         <button class="filter-btn" id="f-yesterday" onclick="setFilter('yesterday')">昨天</button>
@@ -502,7 +489,7 @@
     <div id="order-history"></div>
 
     <script>
-        // ==================== Firebase 配置与原有核心逻辑 (增强按月过滤) ====================
+        // ==================== Firebase 配置与核心逻辑 (完整保留，已移除导出报表功能) ====================
         const firebaseConfig = { 
             apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
             authDomain: "yeyekao-3878d.firebaseapp.com", 
@@ -580,7 +567,7 @@
             }
         }
 
-        // 核心渲染函数 (增强月度过滤)
+        // 核心渲染函数 (增强月度过滤，完全保留)
         function render() {
             const now = new Date();
             let displayOrders = [];
@@ -767,26 +754,7 @@
             }
         }
         
-        // 导出CSV (原有逻辑不变)
-        function exportDetailedCSV() {
-            if (allOrders.length === 0) return alert("暂无订单数据可导出");
-            let csv = "\uFEFF日期,时间,桌号,支付方式,备注,菜品,数量,单价,总额\n";
-            allOrders.forEach(o => {
-                const d = o.date.toLocaleDateString();
-                const t = o.date.toLocaleTimeString();
-                (o.items || []).forEach((i, idx) => {
-                    csv += `${idx===0?d:''},${idx===0?t:''},${idx===0?o.table:''},${idx===0?(o.paymentMethod||'现金'):''},${idx===0?(o.settleNote||''):''},${i.name},${i.quantity},${i.price},${idx===0?o.total:''}\n`;
-                });
-            });
-            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = `财务报表.csv`;
-            link.click();
-            URL.revokeObjectURL(link.href);
-        }
-        
-        // 菜品排行展开/收起
+        // 菜品排行展开/收起 (完全保留)
         function toggleRank() {
             isRankExpanded = !isRankExpanded;
             const btn = document.getElementById('toggle-rank-btn');
@@ -836,10 +804,9 @@
             loadData();
         });
         
-        // 全局函数暴露 (供HTML onclick调用)
+        // 全局函数暴露 (供HTML onclick调用，所有功能完整保留，无导出报表相关)
         window.setFilter = setFilter;
         window.deleteOrder = deleteOrder;
-        window.exportDetailedCSV = exportDetailedCSV;
         window.toggleRank = toggleRank;
     </script>
 </body>
