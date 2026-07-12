@@ -7,460 +7,60 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        /* 明亮深色渐变 + 光晕氛围 */
-        body {
-            font-family: 'Segoe UI', 'Poppins', system-ui, -apple-system, 'Inter', sans-serif;
-            background: radial-gradient(circle at 30% 10%, #2a2218, #1a140e, #0f0b07);
-            min-height: 100vh;
-            position: relative;
-        }
-
-        /* 暖色光晕层 */
-        body::before {
-            content: "";
-            position: fixed;
-            top: -20%;
-            left: -15%;
-            width: 130%;
-            height: 130%;
-            background: radial-gradient(ellipse at 40% 50%, rgba(255, 160, 70, 0.25), rgba(255, 100, 30, 0) 70%);
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        body::after {
-            content: "";
-            position: fixed;
-            bottom: -15%;
-            right: -10%;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle at 70% 85%, rgba(255, 140, 50, 0.22), transparent 65%);
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        .admin-container {
-            width: 100%;
-            max-width: 1400px;
-            margin: 0 auto;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            z-index: 2;
-        }
-
-        /* 头部导航 - 玻璃质感 */
-        .admin-header {
-            background: rgba(30, 22, 14, 0.85);
-            backdrop-filter: blur(20px);
-            padding: 12px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            border-bottom: 1px solid rgba(255, 160, 70, 0.5);
-            padding-top: calc(12px + env(safe-area-inset-top));
-        }
-
-        .btn-back {
-            background: rgba(255, 200, 140, 0.25);
-            border: 1px solid rgba(255, 150, 60, 0.7);
-            color: #ffd7a5;
-            width: 40px;
-            height: 40px;
-            border-radius: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-            font-size: 22px;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-
-        .btn-back:active {
-            transform: scale(0.96);
-            background: rgba(255, 140, 50, 0.45);
-        }
-
-        .admin-header > div:last-child {
-            text-align: right;
-        }
-
-        .admin-header div div:first-child {
-            font-size: 14px;
-            font-weight: 800;
-            background: linear-gradient(135deg, #ffcd94, #ffa044);
-            background-clip: text;
-            -webkit-background-clip: text;
-            color: transparent;
-        }
-
-        #online-status {
-            font-size: 10px;
-            color: #4ade80;
-            font-weight: 600;
-            margin-top: 2px;
-        }
-
-        /* 订单列表网格 */
-        .order-list {
-            padding: 16px;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-            gap: 16px;
-        }
-
-        @media (max-width: 450px) {
-            .order-list {
-                padding: 12px;
-                gap: 12px;
-            }
-        }
-
-        /* 订单卡片 - 玻璃质感圆润 */
-        .order-card {
-            background: rgba(35, 26, 18, 0.75);
-            backdrop-filter: blur(16px);
-            border-radius: 32px;
-            padding: 18px;
-            border: 1px solid rgba(255, 170, 80, 0.5);
-            transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
-            margin-bottom: 0;
-        }
-
-        .order-card:hover {
-            transform: translateY(-4px);
-            background: rgba(45, 34, 24, 0.85);
-            border-color: rgba(255, 150, 70, 0.9);
-            box-shadow: 0 16px 28px -8px rgba(0, 0, 0, 0.3);
-        }
-
-        /* 桌号标签 */
-        .table-label {
-            background: linear-gradient(105deg, rgba(255, 120, 40, 0.9), rgba(220, 80, 20, 0.9));
-            color: white;
-            padding: 6px 16px;
-            border-radius: 40px;
-            font-weight: 800;
-            font-size: 18px;
-            margin-bottom: 14px;
-            display: inline-block;
-            box-shadow: 0 2px 8px rgba(255, 100, 0, 0.2);
-        }
-
-        /* 订单包装器 */
-        .orders-wrapper {
-            position: relative;
-            max-height: 200px;
-            overflow: hidden;
-            transition: max-height 0.4s ease;
-        }
-
-        .orders-wrapper.expanded {
-            max-height: 5000px;
-        }
-
-        .fade-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 40px;
-            background: linear-gradient(to top, rgba(35, 26, 18, 0.9), rgba(35, 26, 18, 0));
-            pointer-events: none;
-            z-index: 2;
-            border-radius: 0 0 24px 24px;
-        }
-
-        .expanded .fade-overlay {
-            display: none;
-        }
-
-        /* 子订单区块 */
-        .sub-order {
-            border-left: 3px solid #ffaa55;
-            padding-left: 12px;
-            margin-bottom: 14px;
-            background: rgba(255, 245, 230, 0.08);
-            border-radius: 0 16px 16px 0;
-            padding: 10px 12px;
-        }
-
-        .order-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 8px;
-        }
-
-        .order-tag {
-            font-size: 10px;
-            background: rgba(255, 140, 50, 0.35);
-            color: #ffcd94;
-            padding: 3px 10px;
-            border-radius: 40px;
-            font-weight: 700;
-        }
-
-        .order-time {
-            color: #d4aa77;
-            font-size: 11px;
-            margin-left: 8px;
-            font-weight: 500;
-        }
-
-        .device-tag {
-            font-size: 10px;
-            color: #b47c44;
-            margin-left: 8px;
-            font-style: italic;
-        }
-
-        .btn-cancel-small {
-            color: #ffaa88;
-            font-size: 12px;
-            cursor: pointer;
-            font-weight: 700;
-            padding: 4px 10px;
-            background: rgba(200, 60, 30, 0.3);
-            border-radius: 40px;
-            transition: 0.15s;
-        }
-
-        .btn-cancel-small:active {
-            transform: scale(0.94);
-            background: rgba(220, 60, 30, 0.5);
-        }
-
-        .food-item {
-            color: #ffefcf;
-            font-size: 14px;
-            font-weight: 600;
-            margin: 6px 0;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .item-price-tag {
-            color: #d4aa77;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .remark-box {
-            background: rgba(255, 140, 50, 0.25);
-            border-radius: 20px;
-            padding: 5px 12px;
-            margin-top: 8px;
-            font-size: 12px;
-            color: #ffcd94;
-            display: inline-block;
-            border: 1px solid rgba(255, 160, 70, 0.4);
-        }
-
-        .toggle-btn {
-            text-align: center;
-            color: #ffcd94;
-            font-size: 13px;
-            font-weight: 700;
-            padding: 8px 0;
-            cursor: pointer;
-            border-top: 1px solid rgba(255, 180, 100, 0.3);
-            margin: 12px 0 8px;
-            transition: 0.15s;
-        }
-
-        .toggle-btn:active {
-            transform: scale(0.98);
-            color: #ffaa55;
-        }
-
-        /* 结算输入区 */
-        .settle-inputs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 14px;
-        }
-
-        .mini-input {
-            border: 1px solid rgba(255, 150, 60, 0.6);
-            border-radius: 40px;
-            padding: 10px 14px;
-            font-size: 14px;
-            outline: none;
-            background: rgba(255, 250, 240, 0.9);
-            color: #4a2a10;
-            font-weight: 500;
-            -webkit-appearance: none;
-        }
-
-        .mini-input:focus {
-            border-color: #ff8c42;
-            box-shadow: 0 0 0 2px rgba(255, 120, 30, 0.2);
-        }
-
-        .disc-input {
-            width: 85px;
-            text-align: center;
-            color: #e05a1a;
-            font-weight: 700;
-        }
-
-        .disc-input::placeholder {
-            color: #b47c44;
-            font-weight: normal;
-        }
-
-        .note-input {
-            flex: 1;
-        }
-
-        /* 支付行 */
-        .pay-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-top: 1px solid rgba(255, 180, 100, 0.3);
-            padding-top: 14px;
-            margin-top: 4px;
-        }
-
-        .pay-methods {
-            display: flex;
-            background: rgba(45, 34, 24, 0.6);
-            border-radius: 60px;
-            padding: 4px;
-            gap: 4px;
-            border: 1px solid rgba(255, 150, 60, 0.3);
-        }
-
-        .method-btn {
-            padding: 8px 16px;
-            cursor: pointer;
-            border-radius: 40px;
-            font-size: 18px;
-            transition: all 0.2s;
-            background: transparent;
-            color: #d4aa77;
-        }
-
-        .method-btn.active {
-            background: linear-gradient(120deg, #f9732e, #e05a1a);
-            color: white;
-            box-shadow: 0 2px 8px rgba(255, 100, 0, 0.3);
-        }
-
-        .method-btn:active {
-            transform: scale(0.94);
-        }
-
-        .total-price {
-            font-size: 24px;
-            font-weight: 900;
-            background: linear-gradient(135deg, #ffcd94, #ffa044);
-            background-clip: text;
-            -webkit-background-clip: text;
-            color: transparent;
-        }
-
-        .total-price::after {
-            content: " Ks";
-            font-size: 13px;
-            font-weight: 600;
-            background: none;
-            -webkit-background-clip: unset;
-            color: #d4aa77;
-        }
-
-        .btn-pay {
-            background: linear-gradient(120deg, #16a34a, #15803d);
-            color: white;
-            padding: 10px 24px;
-            border-radius: 48px;
-            font-size: 15px;
-            font-weight: 800;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);
-        }
-
-        .btn-pay:active {
-            transform: scale(0.96);
-        }
-
-        /* 纯新增：大打印按钮样式 - 独立一行全宽 */
-        .btn-print {
-            background: linear-gradient(120deg, #0284c7, #0369a1);
-            color: white;
-            padding: 10px 18px;
-            border-radius: 48px;
-            font-size: 15px;
-            font-weight: 800;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
-        }
-        
-        .btn-print:active {
-            transform: scale(0.96);
-        }
-        
-        /* 独立打印按钮专用大尺寸样式 (全宽，大号) */
-        .print-row {
-            margin-top: 14px;
-        }
-        .big-print-btn {
-            width: 100%;
-            padding: 14px 12px;
-            font-size: 17px;
-            font-weight: 800;
-            letter-spacing: 0.5px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            background: linear-gradient(120deg, #0b5e7e, #0a4c6e);
-            box-shadow: 0 4px 12px rgba(2, 100, 150, 0.4);
-            border-radius: 48px;
-        }
-        
-        .big-print-btn:active {
-            transform: scale(0.97);
-        }
-
-        #toast {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(16px);
-            color: #ffddbb;
-            padding: 14px 32px;
-            border-radius: 60px;
-            z-index: 1000;
-            font-weight: 700;
-            border: 1px solid #ffaa55;
-            white-space: nowrap;
-        }
-
-        .debug-panel {
-            display: none;
-        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: 'Segoe UI', 'Poppins', system-ui, -apple-system, 'Inter', sans-serif; background: radial-gradient(circle at 30% 10%, #2a2218, #1a140e, #0f0b07); min-height: 100vh; position: relative; }
+        body::before { content: ""; position: fixed; top: -20%; left: -15%; width: 130%; height: 130%; background: radial-gradient(ellipse at 40% 50%, rgba(255, 160, 70, 0.25), rgba(255, 100, 30, 0) 70%); pointer-events: none; z-index: 0; }
+        body::after { content: ""; position: fixed; bottom: -15%; right: -10%; width: 100%; height: 100%; background: radial-gradient(circle at 70% 85%, rgba(255, 140, 50, 0.22), transparent 65%); pointer-events: none; z-index: 0; }
+        .admin-container { width: 100%; max-width: 1400px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; position: relative; z-index: 2; }
+        .admin-header { background: rgba(30, 22, 14, 0.85); backdrop-filter: blur(20px); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid rgba(255, 160, 70, 0.5); padding-top: calc(12px + env(safe-area-inset-top)); }
+        .btn-back { background: rgba(255, 200, 140, 0.25); border: 1px solid rgba(255, 150, 60, 0.7); color: #ffd7a5; width: 40px; height: 40px; border-radius: 40px; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 22px; font-weight: 500; transition: all 0.2s ease; }
+        .btn-back:active { transform: scale(0.96); background: rgba(255, 140, 50, 0.45); }
+        .admin-header > div:last-child { text-align: right; }
+        .admin-header div div:first-child { font-size: 14px; font-weight: 800; background: linear-gradient(135deg, #ffcd94, #ffa044); background-clip: text; -webkit-background-clip: text; color: transparent; }
+        #online-status { font-size: 10px; color: #4ade80; font-weight: 600; margin-top: 2px; }
+        .order-list { padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+        @media (max-width: 450px) { .order-list { padding: 12px; gap: 12px; } }
+        .order-card { background: rgba(35, 26, 18, 0.75); backdrop-filter: blur(16px); border-radius: 32px; padding: 18px; border: 1px solid rgba(255, 170, 80, 0.5); transition: all 0.25s cubic-bezier(0.2, 0, 0, 1); margin-bottom: 0; }
+        .order-card:hover { transform: translateY(-4px); background: rgba(45, 34, 24, 0.85); border-color: rgba(255, 150, 70, 0.9); box-shadow: 0 16px 28px -8px rgba(0, 0, 0, 0.3); }
+        .table-label { background: linear-gradient(105deg, rgba(255, 120, 40, 0.9), rgba(220, 80, 20, 0.9)); color: white; padding: 6px 16px; border-radius: 40px; font-weight: 800; font-size: 18px; margin-bottom: 14px; display: inline-block; box-shadow: 0 2px 8px rgba(255, 100, 0, 0.2); }
+        .orders-wrapper { position: relative; max-height: 200px; overflow: hidden; transition: max-height 0.4s ease; }
+        .orders-wrapper.expanded { max-height: 5000px; }
+        .fade-overlay { position: absolute; bottom: 0; left: 0; right: 0; height: 40px; background: linear-gradient(to top, rgba(35, 26, 18, 0.9), rgba(35, 26, 18, 0)); pointer-events: none; z-index: 2; border-radius: 0 0 24px 24px; }
+        .expanded .fade-overlay { display: none; }
+        .sub-order { border-left: 3px solid #ffaa55; padding-left: 12px; margin-bottom: 14px; background: rgba(255, 245, 230, 0.08); border-radius: 0 16px 16px 0; padding: 10px 12px; }
+        .order-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .order-tag { font-size: 10px; background: rgba(255, 140, 50, 0.35); color: #ffcd94; padding: 3px 10px; border-radius: 40px; font-weight: 700; }
+        .order-time { color: #d4aa77; font-size: 11px; margin-left: 8px; font-weight: 500; }
+        .device-tag { font-size: 10px; color: #b47c44; margin-left: 8px; font-style: italic; }
+        .btn-cancel-small { color: #ffaa88; font-size: 12px; cursor: pointer; font-weight: 700; padding: 4px 10px; background: rgba(200, 60, 30, 0.3); border-radius: 40px; transition: 0.15s; }
+        .btn-cancel-small:active { transform: scale(0.94); background: rgba(220, 60, 30, 0.5); }
+        .food-item { color: #ffefcf; font-size: 14px; font-weight: 600; margin: 6px 0; display: flex; justify-content: space-between; }
+        .item-price-tag { color: #d4aa77; font-size: 12px; font-weight: 500; }
+        .remark-box { background: rgba(255, 140, 50, 0.25); border-radius: 20px; padding: 5px 12px; margin-top: 8px; font-size: 12px; color: #ffcd94; display: inline-block; border: 1px solid rgba(255, 160, 70, 0.4); }
+        .toggle-btn { text-align: center; color: #ffcd94; font-size: 13px; font-weight: 700; padding: 8px 0; cursor: pointer; border-top: 1px solid rgba(255, 180, 100, 0.3); margin: 12px 0 8px; transition: 0.15s; }
+        .toggle-btn:active { transform: scale(0.98); color: #ffaa55; }
+        .settle-inputs { display: flex; gap: 10px; margin-bottom: 14px; }
+        .mini-input { border: 1px solid rgba(255, 150, 60, 0.6); border-radius: 40px; padding: 10px 14px; font-size: 14px; outline: none; background: rgba(255, 250, 240, 0.9); color: #4a2a10; font-weight: 500; -webkit-appearance: none; }
+        .mini-input:focus { border-color: #ff8c42; box-shadow: 0 0 0 2px rgba(255, 120, 30, 0.2); }
+        .disc-input { width: 85px; text-align: center; color: #e05a1a; font-weight: 700; }
+        .disc-input::placeholder { color: #b47c44; font-weight: normal; }
+        .note-input { flex: 1; }
+        .pay-row { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255, 180, 100, 0.3); padding-top: 14px; margin-top: 4px; }
+        .pay-methods { display: flex; background: rgba(45, 34, 24, 0.6); border-radius: 60px; padding: 4px; gap: 4px; border: 1px solid rgba(255, 150, 60, 0.3); }
+        .method-btn { padding: 8px 16px; cursor: pointer; border-radius: 40px; font-size: 18px; transition: all 0.2s; background: transparent; color: #d4aa77; }
+        .method-btn.active { background: linear-gradient(120deg, #f9732e, #e05a1a); color: white; box-shadow: 0 2px 8px rgba(255, 100, 0, 0.3); }
+        .method-btn:active { transform: scale(0.94); }
+        .total-price { font-size: 24px; font-weight: 900; background: linear-gradient(135deg, #ffcd94, #ffa044); background-clip: text; -webkit-background-clip: text; color: transparent; }
+        .total-price::after { content: " Ks"; font-size: 13px; font-weight: 600; background: none; -webkit-background-clip: unset; color: #d4aa77; }
+        .btn-pay { background: linear-gradient(120deg, #16a34a, #15803d); color: white; padding: 10px 24px; border-radius: 48px; font-size: 15px; font-weight: 800; border: none; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3); }
+        .btn-pay:active { transform: scale(0.96); }
+        .btn-print { background: linear-gradient(120deg, #0284c7, #0369a1); color: white; padding: 10px 18px; border-radius: 48px; font-size: 15px; font-weight: 800; border: none; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3); }
+        .btn-print:active { transform: scale(0.96); }
+        .print-row { margin-top: 14px; }
+        .big-print-btn { width: 100%; padding: 14px 12px; font-size: 17px; font-weight: 800; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(120deg, #0b5e7e, #0a4c6e); box-shadow: 0 4px 12px rgba(2, 100, 150, 0.4); border-radius: 48px; }
+        .big-print-btn:active { transform: scale(0.97); }
+        #toast { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(16px); color: #ffddbb; padding: 14px 32px; border-radius: 60px; z-index: 1000; font-weight: 700; border: 1px solid #ffaa55; white-space: nowrap; }
+        .debug-panel { display: none; }
     </style>
 </head>
 <body>
@@ -481,7 +81,6 @@
 </div>
 
 <script>
-    // ==================== 功能代码 100% 原样保留 (仅打印按钮移动位置) ====================
     const firebaseConfig = { 
         apiKey: "AIzaSyAQGZJpFrveak_gvga6Q8Q5MbxlDVVsxXE", 
         authDomain: "yeyekao-3878d.firebaseapp.com", 
@@ -526,38 +125,28 @@
         return "其它设备";
     }
 
-    // 打印订单函数 (完全原逻辑，不做任何改动，读取当前优惠、备注、支付方式)
     function printOrder(tableNum, originalTotal) {
-        // 获取优惠金额和备注 (保持与原逻辑完全一致)
         var discInput = document.getElementById('disc-' + tableNum);
         var noteInput = document.getElementById('note-' + tableNum);
         var discount = discInput ? discInput.value : '0';
         var note = noteInput ? noteInput.value : '';
         var method = tablePayMethods[tableNum] || '现金';
-        
-        // 构造跳转地址
         var url = 'print.html?table=' + encodeURIComponent(tableNum) 
                 + '&discount=' + encodeURIComponent(discount)
                 + '&note=' + encodeURIComponent(note)
                 + '&method=' + encodeURIComponent(method);
-        
-        // 跳转到打印页面
         window.location.href = url;
     }
 
     async function deductStockFromInventory(orderItems, tableNum) {
         console.log("========== 开始扣减库存（静默模式）==========");
         console.log("订单商品列表:", JSON.stringify(orderItems, null, 2));
-        
         const inventorySnapshot = await db.collection("inventory").get();
-        
         if (inventorySnapshot.empty) {
             console.log("❌ 库存集合为空！跳过扣减");
             return [];
         }
-        
         const inventoryMap = new Map();
-        
         inventorySnapshot.forEach(doc => {
             const data = doc.data();
             const productName = data.name || data.productName;
@@ -570,24 +159,15 @@
                 console.log(`📦 库存商品: "${productName}" (库存: ${data.stock} ${data.unit || ''})`);
             }
         });
-        
         console.log(`共找到 ${inventoryMap.size} 个库存商品`);
-        
         let successItems = [];
-        
         for (let item of orderItems) {
             const itemName = item.name;
             const quantityToDeduct = Number(item.quantity) || 0;
-            
-            if (!itemName || quantityToDeduct <= 0) {
-                continue;
-            }
-            
+            if (!itemName || quantityToDeduct <= 0) continue;
             console.log(`\n🔍 处理: "${itemName}", 数量: ${quantityToDeduct}`);
-            
             let normalizedItemName = itemName.trim().toLowerCase();
             let inventoryItem = inventoryMap.get(normalizedItemName);
-            
             if (!inventoryItem) {
                 const cleanedName = normalizedItemName.replace(/[.,，。、!！?？]$/, '');
                 if (cleanedName !== normalizedItemName) {
@@ -597,23 +177,18 @@
                     }
                 }
             }
-            
             if (!inventoryItem) {
                 console.log(`❌ 未找到商品: "${itemName}"，跳过扣减`);
                 continue;
             }
-            
             if (inventoryItem.stock < quantityToDeduct) {
                 console.log(`⚠️ 商品“${itemName}”库存不足（现有 ${inventoryItem.stock}，需要 ${quantityToDeduct}），跳过扣减`);
                 continue;
             }
-            
             const newStock = inventoryItem.stock - quantityToDeduct;
-            
             try {
                 await db.collection("inventory").doc(inventoryItem.id).update({ stock: newStock });
                 console.log(`✅ 扣减成功：${itemName} ${inventoryItem.stock} → ${newStock}`);
-                
                 successItems.push({
                     productId: inventoryItem.id,
                     productName: inventoryItem.originalName,
@@ -624,17 +199,14 @@
                     type: 'out',
                     tableNum: tableNum
                 });
-                
             } catch (err) {
                 console.error(`❌ 更新失败: ${itemName}`, err);
             }
         }
-        
         if (successItems.length > 0) {
             console.log(`\n📝 正在写入 ${successItems.length} 条库存历史记录...`);
             const historyBatch = db.batch();
             const nowStr = new Date().toLocaleString('zh-CN');
-            
             for (let item of successItems) {
                 const historyRef = db.collection("inventory_history").doc();
                 const historyRecord = {
@@ -653,7 +225,6 @@
                 historyBatch.set(historyRef, historyRecord);
                 console.log(`   ✅ 历史记录: ${item.productName} 出库 ${item.quantity}${item.unit} (${item.oldStock} → ${item.newStock})`);
             }
-            
             try {
                 await historyBatch.commit();
                 console.log("✅ 所有库存历史记录已成功写入 inventory_history 集合");
@@ -663,10 +234,8 @@
         } else {
             console.log("⚠️ 没有商品成功扣减，跳过历史记录写入");
         }
-        
         console.log(`\n========== 扣减完成 ==========`);
         console.log(`成功扣减: ${successItems.length} 种商品`);
-        
         return [];
     }
 
@@ -722,7 +291,9 @@
         if(confirm("确定取消吗？")) await db.collection("pending_orders").doc(id).delete();
     }
 
+    // ==================== 关键修改：这里去掉了过滤条件，显示所有待结算订单（和原来一样） ====================
     function startListening() {
+        // 注意：这里没有 .where("status", "==", "pending")，所以能显示所有订单
         db.collection("pending_orders").orderBy("timestamp", "asc").onSnapshot(snap => {
             const container = document.getElementById('list-container');
             const groups = {};
@@ -760,17 +331,14 @@
 
                 const card = document.createElement('div');
                 card.className = 'order-card';
-                // 修改后的内部html: 移除支付行中的打印按钮，并在支付行下方新增独立的打印大按钮区块
                 card.innerHTML = `
                     <div class="table-label"># ${tableNum}</div>
                     <div class="orders-wrapper">${ordersHtml}<div class="fade-overlay"></div></div>
                     <div class="toggle-btn" onclick="toggleOrder(this)">查看全部订单 ▾</div>
-                    
                     <div class="settle-inputs">
                         <input type="tel" id="disc-${tableNum}" class="mini-input disc-input" placeholder="优惠" oninput="updatePrice('${tableNum}', ${tableTotal})">
                         <input type="text" id="note-${tableNum}" class="mini-input note-input" placeholder="添加备注...">
                     </div>
-
                     <div class="pay-row">
                         <div class="pay-methods">
                             <div class="method-btn ${tablePayMethods[tableNum]==='现金'?'active':''}" onclick="setMethod('${tableNum}','现金',this)">💵</div>
@@ -778,12 +346,9 @@
                         </div>
                         <div class="total-price" id="price-${tableNum}">${tableTotal.toLocaleString()}</div>
                         <div>
-                            <!-- 只保留结账按钮，打印按钮已移动到下方独立大按钮 -->
                             <button class="btn-pay" onclick='confirmPay("${tableNum}", ${tableTotal})'>结账</button>
                         </div>
                     </div>
-                    
-                    <!-- 新增：打印大按钮独立一行，位于支付行下面，保持所有其他优惠/备注/支付方式逻辑不变 -->
                     <div class="print-row">
                         <button class="btn-print big-print-btn" onclick='printOrder("${tableNum}", ${tableTotal})'>🖨️ 打印订单</button>
                     </div>
